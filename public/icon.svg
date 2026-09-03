@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1e1b4b" />
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa" />
+      <stop offset="100%" stop-color="#3b82f6" />
+    </linearGradient>
+  </defs>
+  <!-- Background with rounded corners -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)" />
+  
+  <!-- Outer Radio Waves -->
+  <path d="M120 180 A180 180 0 0 0 120 332" fill="none" stroke="url(#glow)" stroke-width="20" stroke-linecap="round" opacity="0.6" />
+  <path d="M392 180 A180 180 0 0 1 392 332" fill="none" stroke="url(#glow)" stroke-width="20" stroke-linecap="round" opacity="0.6" />
+  
+  <!-- Mid Radio Waves -->
+  <path d="M165 210 A120 120 0 0 0 165 302" fill="none" stroke="url(#gold)" stroke-width="22" stroke-linecap="round" />
+  <path d="M347 210 A120 120 0 0 1 347 302" fill="none" stroke="url(#gold)" stroke-width="22" stroke-linecap="round" />
+  
+  <!-- Center Cross -->
+  <g fill="white" filter="drop-shadow(0px 8px 16px rgba(0,0,0,0.5))">
+    <!-- Vertical beam -->
+    <rect x="238" y="110" width="36" height="292" rx="18" fill="#ffffff" />
+    <!-- Horizontal beam -->
+    <rect x="156" y="196" width="200" height="36" rx="18" fill="#ffffff" />
+    <!-- Center Holy Radiance Core -->
+    <circle cx="256" cy="214" r="28" fill="url(#gold)" />
+    <circle cx="256" cy="214" r="14" fill="#ffffff" />
+  </g>
+</svg>

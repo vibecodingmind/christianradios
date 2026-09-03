@@ -1,0 +1,414 @@
+import React, { useState } from 'react';
+import {
+  Heart,
+  X,
+  ShieldCheck,
+  Sparkles,
+  CheckCircle,
+  CreditCard,
+  Smartphone,
+  ArrowRight,
+  Printer,
+  Target,
+  UserCheck,
+  EyeOff,
+  Coins,
+} from 'lucide-react';
+import type { Station, DonationCampaign } from '../../types';
+
+interface DonationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  station: Station;
+  campaign?: DonationCampaign;
+  onDonationSuccess?: (trackingId: string) => void;
+}
+
+export function DonationModal({
+  isOpen,
+  onClose,
+  station,
+  campaign,
+  onDonationSuccess,
+}: DonationModalProps) {
+  const [amount, setAmount] = useState<number>(20000);
+  const [currency, setCurrency] = useState<'TZS' | 'USD' | 'KES'>('TZS');
+  const [fundType, setFundType] = useState<string>(campaign ? 'CAMPAIGN' : 'GOSPEL_OUTREACH');
+  const [paymentMethod, setPaymentMethod] = useState<'MPESA' | 'TIGO_PESA' | 'AIRTEL_MONEY' | 'CARD'>('MPESA');
+  const [donorName, setDonorName] = useState('');
+  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [donorEmail, setDonorEmail] = useState('');
+  const [donorPhone, setDonorPhone] = useState('');
+  const [message, setMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [completedDonation, setCompletedDonation] = useState<any | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!isOpen) return null;
+
+  const presetAmountsTZS = [5000, 10000, 20000, 50000, 100000, 250000];
+  const presetAmountsUSD = [5, 15, 25, 50, 100, 250];
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const res = await fetch('/api/public/donations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stationId: station.id,
+          campaignId: campaign?.id,
+          campaignTitle: campaign?.title,
+          donorName: isAnonymous ? 'Anonymous Kingdom Partner' : donorName,
+          isAnonymous,
+          donorEmail,
+          donorPhone,
+          amount,
+          currency,
+          fundType: campaign ? 'CAMPAIGN' : fundType,
+          paymentMethod,
+          message,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to process donation');
+
+      setCompletedDonation(data.donation);
+      if (onDonationSuccess) {
+        onDonationSuccess(data.donation.trackingId);
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred during submission.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 sm:p-8 relative shadow-2xl my-8">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        {!completedDonation ? (
+          <div>
+            {/* Header */}
+            <div className="flex items-center gap-3.5 mb-6">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-500 to-amber-500 flex items-center justify-center shadow-lg shadow-rose-500/20 shrink-0">
+                <Heart className="w-6 h-6 text-slate-950 fill-slate-950" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-xl font-bold text-white truncate">
+                  Support {station.name}
+                </h3>
+                {campaign ? (
+                  <p className="text-xs text-amber-300 font-semibold flex items-center gap-1.5 mt-0.5">
+                    <Target className="w-3.5 h-3.5 text-amber-400" />
+                    Campaign: {campaign.title}
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-400">
+                    Bless the ministry, transmitters & gospel broadcast
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {error && (
+              <div className="p-3 mb-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Currency & Amount Selection */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    Select Contribution Amount
+                  </label>
+                  <div className="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800">
+                    {(['TZS', 'USD', 'KES'] as const).map((curr) => (
+                      <button
+                        key={curr}
+                        type="button"
+                        onClick={() => {
+                          setCurrency(curr);
+                          if (curr === 'USD') setAmount(25);
+                          else setAmount(20000);
+                        }}
+                        className={`px-2.5 py-1 text-xs font-bold rounded-md transition ${
+                          currency === curr ? 'bg-rose-500 text-white' : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {curr}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-6 gap-1.5 mb-2.5">
+                  {(currency === 'USD' ? presetAmountsUSD : presetAmountsTZS).map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setAmount(preset)}
+                      className={`py-2 text-xs font-bold rounded-xl border transition ${
+                        amount === preset
+                          ? 'bg-rose-500/20 border-rose-500 text-rose-300 shadow-sm'
+                          : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700'
+                      }`}
+                    >
+                      {currency === 'USD' ? `$${preset}` : `${preset >= 1000 ? preset / 1000 + 'k' : preset}`}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-xs text-slate-400">
+                    {currency}
+                  </span>
+                  <input
+                    type="number"
+                    min="500"
+                    required
+                    value={amount}
+                    onChange={(e) => setAmount(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-14 pr-4 py-2.5 text-white font-bold text-base focus:outline-none focus:border-rose-500"
+                    placeholder="Enter custom amount"
+                  />
+                </div>
+              </div>
+
+              {/* Fund Designation (if not a specific campaign) */}
+              {!campaign && (
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+                    Fund Designation
+                  </label>
+                  <select
+                    value={fundType}
+                    onChange={(e) => setFundType(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-rose-500"
+                  >
+                    <option value="GOSPEL_OUTREACH">Gospel Outreach & Crusades</option>
+                    <option value="TRANSMITTER_FUND">Transmitter & Signal Expansion</option>
+                    <option value="TITHE_OFFERING">Tithe & Seed Offering</option>
+                    <option value="STUDIO_UPGRADE">Studio Equipment & Power Generator</option>
+                    <option value="GENERAL">General Ministry Needs</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Payment Method */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+                  Payment Method
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('MPESA')}
+                    className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
+                      paymentMethod === 'MPESA'
+                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
+                        : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <Smartphone className="w-4 h-4 mb-1 text-emerald-400" />
+                    <span className="text-[11px] font-bold leading-tight">M-Pesa</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('TIGO_PESA')}
+                    className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
+                      paymentMethod === 'TIGO_PESA'
+                        ? 'bg-blue-500/20 border-blue-500 text-blue-300'
+                        : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <Smartphone className="w-4 h-4 mb-1 text-blue-400" />
+                    <span className="text-[11px] font-bold leading-tight">Tigo Pesa</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('AIRTEL_MONEY')}
+                    className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
+                      paymentMethod === 'AIRTEL_MONEY'
+                        ? 'bg-rose-500/20 border-rose-500 text-rose-300'
+                        : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <Smartphone className="w-4 h-4 mb-1 text-rose-400" />
+                    <span className="text-[11px] font-bold leading-tight">Airtel</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('CARD')}
+                    className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
+                      paymentMethod === 'CARD'
+                        ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                        : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <CreditCard className="w-4 h-4 mb-1 text-amber-400" />
+                    <span className="text-[11px] font-bold leading-tight">Card / Visa</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Donor Details */}
+              <div className="space-y-3 pt-1">
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-xs font-medium text-slate-300">Your Full Name</label>
+                    <label className="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isAnonymous}
+                        onChange={(e) => setIsAnonymous(e.target.checked)}
+                        className="rounded border-slate-700 bg-slate-950 text-rose-500 focus:ring-rose-500"
+                      />
+                      <EyeOff className="w-3 h-3 text-slate-400" />
+                      Give Anonymously
+                    </label>
+                  </div>
+                  <input
+                    type="text"
+                    required={!isAnonymous}
+                    disabled={isAnonymous}
+                    value={isAnonymous ? 'Anonymous Kingdom Partner' : donorName}
+                    onChange={(e) => setDonorName(e.target.value)}
+                    placeholder="e.g. Samuel & Grace Mwita"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-rose-500 disabled:opacity-60"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Email for Receipt</label>
+                    <input
+                      type="email"
+                      required
+                      value={donorEmail}
+                      onChange={(e) => setDonorEmail(e.target.value)}
+                      placeholder="donor@example.com"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">
+                      Mobile Phone (Optional)
+                    </label>
+                    <input
+                      type="tel"
+                      value={donorPhone}
+                      onChange={(e) => setDonorPhone(e.target.value)}
+                      placeholder="+255 7XX XXX XXX"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Prayer Note or Word of Encouragement (Optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="May God bless this station to win more souls for Christ..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="pt-2 flex items-center justify-between text-xs text-slate-400">
+                <span className="flex items-center gap-1 text-[11px]">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  Encrypted & Direct to Radio
+                </span>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-slate-950 font-black text-xs shadow-lg shadow-rose-500/25 flex items-center gap-2 transition disabled:opacity-50"
+                >
+                  {isSubmitting ? (
+                    'Processing...'
+                  ) : (
+                    <>
+                      <span>Complete Support</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        ) : (
+          /* SUCCESS VIEW */
+          <div className="text-center py-4 space-y-4">
+            <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center border border-emerald-500/30">
+              <CheckCircle className="w-8 h-8" />
+            </div>
+
+            <div>
+              <h3 className="text-2xl font-black text-white">God Bless You, {completedDonation.donorName}!</h3>
+              <p className="text-xs sm:text-sm text-slate-300 mt-1">
+                Your support of <strong className="text-emerald-400">{completedDonation.currency || 'TZS'} {Number(completedDonation.amount || 0).toLocaleString()}</strong> has been directly credited to <strong>{completedDonation.stationName}</strong>.
+              </p>
+            </div>
+
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 text-left text-xs space-y-2.5">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Tracking Receipt ID:</span>
+                <span className="font-mono text-amber-300 font-bold">{completedDonation.trackingId}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Fund Designation:</span>
+                <span className="text-slate-200">{completedDonation.campaignTitle || (completedDonation.fundType ? completedDonation.fundType.replace('_', ' ') : 'General Support')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Payment Gateway:</span>
+                <span className="text-slate-200">{completedDonation.paymentMethod}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Date:</span>
+                <span className="text-slate-200">{new Date(completedDonation.createdAt || Date.now()).toLocaleString()}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <a
+                href={`/?receipt=${completedDonation.trackingId}`}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                View Receipt
+              </a>
+              <button
+                onClick={onClose}
+                className="px-5 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-slate-950 text-xs font-bold transition"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

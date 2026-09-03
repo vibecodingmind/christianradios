@@ -1,0 +1,6 @@
+{
+  "name": "Christian Radios",
+  "description": "Modern, multi-tenant Christian online radio streaming, discovery, and SaaS management platform with live stream player, station management, analytics, and subscriptions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

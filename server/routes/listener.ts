@@ -1,0 +1,307 @@
+import { Router } from 'express';
+import crypto from 'crypto';
+import { requireAuth, type AuthenticatedRequest } from '../auth.js';
+import { db } from '../db.js';
+import type { ListeningSession } from '../types.js';
+
+export const listenerRouter = Router();
+
+// Get Authenticated User Favorites
+listenerRouter.get('/favorites', requireAuth, (req: AuthenticatedRequest, res) => {
+  const userId = req.user!.id;
+  const favorites = db.favorites.findByUser(userId);
+  const favoriteStationIds = new Set(favorites.map((f) => f.stationId));
+
+  const stations = db.stations
+    .getAll()
+    .filter((s) => favoriteStationIds.has(s.id))
+    .map((s) => ({
+      ...s,
+      category: db.categories.findById(s.categoryId),
+      country: db.countries.findByCode(s.countryCode),
+    }));
+
+  res.json({ stations });
+});
+
+// Toggle Favorite Station
+listenerRouter.post('/favorites/toggle', requireAuth, (req: AuthenticatedRequest, res) => {
+  const userId = req.user!.id;
+  const { stationId } = req.body;
+  if (!stationId) {
+    res.status(400).json({ error: 'stationId is required' });
+    return;
+  }
+
+  const isFav = db.favorites.toggle(userId, stationId);
+  const station = db.stations.findById(stationId);
+
+  // Log analytics
+  db.analytics.logEvent({
+    id: `ev_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    stationId,
+    eventType: 'FAVORITE',
+    timestamp: new Date().toISOString(),
+  });
+
+  res.json({
+    isFavorite: isFav,
+    favoriteCount: station?.favoriteCount || 0,
+  });
+});
+
+// Record Listening Session
+listenerRouter.post('/history/session', (req, res) => {
+  const { stationId, durationSeconds = 30, clientType = 'WEB', countryCode } = req.body;
+  if (!stationId) {
+    res.status(400).json({ error: 'stationId is required' });
+    return;
+  }
+
+  const ip = req.ip || '127.0.0.1';
+  const ipHash = crypto.createHash('sha256').update(ip).digest('hex').substring(0, 16);
+
+  const session: ListeningSession = {
+    id: `sess_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    stationId,
+    // @ts-ignore
+    userId: req.user?.id,
+    ipHash,
+    startedAt: new Date().toISOString(),
+    durationSeconds: Math.max(1, parseInt(durationSeconds, 10) || 30),
+    countryCode,
+    clientType: clientType === 'ANDROID' || clientType === 'IOS' ? clientType : 'WEB',
+  };
+
+  db.sessions.create(session);
+  db.stations.incrementPlayCount(stationId);
+
+  db.analytics.logEvent({
+    id: `ev_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    stationId,
+    eventType: 'PLAY_START',
+    timestamp: new Date().toISOString(),
+    countryCode,
+  });
+
+  res.json({ success: true });
+});
+
+// Notifications
+listenerRouter.get('/notifications', requireAuth, (req: AuthenticatedRequest, res) => {
+  const notifications = db.notifications.getByUserId(req.user!.id);
+  res.json({ notifications });
+});
+
+listenerRouter.post('/notifications/:id/read', requireAuth, (req: AuthenticatedRequest, res) => {
+  db.notifications.markRead(req.params.id, req.user!.id);
+  res.json({ success: true });
+});
+
+// Following Radios
+listenerRouter.get('/following', requireAuth, (req: AuthenticatedRequest, res) => {
+  const userId = req.user!.id;
+  const follows = db.follows.findByUser(userId);
+  const followedStationIds = new Set(follows.map((f) => f.stationId));
+
+  const stations = db.stations
+    .getAll()
+    .filter((s) => followedStationIds.has(s.id))
+    .map((s) => ({
+      ...s,
+      category: db.categories.findById(s.categoryId),
+      country: db.countries.findByCode(s.countryCode),
+    }));
+
+  res.json({ stations });
+});
+
+listenerRouter.post('/following/toggle', requireAuth, (req: AuthenticatedRequest, res) => {
+  const userId = req.user!.id;
+  const { stationId } = req.body;
+  if (!stationId) {
+    res.status(400).json({ error: 'stationId is required' });
+    return;
+  }
+
+  const isFollowing = db.follows.toggle(userId, stationId);
+  res.json({ isFollowing });
+});
+
+// Status check: Is User following & favorited station
+listenerRouter.get('/station-status/:stationId', requireAuth, (req: AuthenticatedRequest, res) => {
+  const userId = req.user!.id;
+  const { stationId } = req.params;
+
+  const isFavorite = db.favorites.isFavorite(userId, stationId);
+  const isFollowing = db.follows.isFollowing(userId, stationId);
+
+  res.json({ isFavorite, isFollowing });
+});
+
+// Recently Listened Radios
+listenerRouter.get('/recently-listened', requireAuth, (req: AuthenticatedRequest, res) => {
+  const userId = req.user!.id;
+  const sessions = db.sessions.getAll().filter((s) => s.userId === userId);
+  
+  // Sort descending by startedAt and deduplicate stations
+  const seen = new Set<string>();
+  const recentStationIds: string[] = [];
+
+  for (let i = sessions.length - 1; i >= 0; i--) {
+    const stnId = sessions[i].stationId;
+    if (!seen.has(stnId)) {
+      seen.add(stnId);
+      recentStationIds.push(stnId);
+    }
+  }
+
+  const stations = recentStationIds
+    .map((id) => db.stations.findById(id))
+    .filter(Boolean)
+    .map((s) => ({
+      ...s!,
+      category: db.categories.findById(s!.categoryId),
+      country: db.countries.findByCode(s!.countryCode),
+    }));
+
+  res.json({ stations });
+});
+
+// Report Inappropriate Prayer Request
+listenerRouter.post('/prayers/:id/report', requireAuth, (req: AuthenticatedRequest, res) => {
+  const { id } = req.params;
+  const { reason, details } = req.body;
+
+  if (!reason) {
+    res.status(400).json({ error: 'Reason for report is required.' });
+    return;
+  }
+
+  const prayer = db.prayerRequests.findById(id);
+  if (!prayer) {
+    res.status(404).json({ error: 'Prayer request not found.' });
+    return;
+  }
+
+  const report = db.prayerReports.create({
+    id: `pr_rep_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    prayerId: id,
+    reporterUserId: req.user!.id,
+    reporterEmail: req.user!.email,
+    reason,
+    details: details || '',
+    status: 'OPEN',
+    createdAt: new Date().toISOString(),
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Report submitted. Our moderation team will review this prayer request.',
+    report,
+  });
+});
+
+// Playlists CRUD
+listenerRouter.get('/playlists', requireAuth, (req: AuthenticatedRequest, res) => {
+  const userId = req.user!.id;
+  const userPlaylists = db.playlists.findByUser(userId).map((pl) => {
+    const stations = pl.stationIds
+      .map((id) => db.stations.findById(id))
+      .filter(Boolean)
+      .map((s) => ({
+        ...s!,
+        category: db.categories.findById(s!.categoryId),
+        country: db.countries.findByCode(s!.countryCode),
+      }));
+    return {
+      ...pl,
+      stations,
+    };
+  });
+
+  res.json({ playlists: userPlaylists });
+});
+
+listenerRouter.post('/playlists', requireAuth, (req: AuthenticatedRequest, res) => {
+  const userId = req.user!.id;
+  const { name, description, initialStationId } = req.body;
+
+  if (!name || !name.trim()) {
+    res.status(400).json({ error: 'Playlist name is required.' });
+    return;
+  }
+
+  const newPlaylist = db.playlists.create({
+    id: `pl_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    userId,
+    name: name.trim(),
+    description: description ? description.trim() : '',
+    stationIds: initialStationId ? [initialStationId] : [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  res.status(201).json({ success: true, playlist: newPlaylist });
+});
+
+listenerRouter.put('/playlists/:id', requireAuth, (req: AuthenticatedRequest, res) => {
+  const userId = req.user!.id;
+  const { id } = req.params;
+  const { name, description } = req.body;
+
+  const existing = db.playlists.findById(id);
+  if (!existing || existing.userId !== userId) {
+    res.status(404).json({ error: 'Playlist not found or unauthorized.' });
+    return;
+  }
+
+  const updated = db.playlists.update(id, {
+    ...(name ? { name: name.trim() } : {}),
+    ...(description !== undefined ? { description: description.trim() } : {}),
+  });
+
+  res.json({ success: true, playlist: updated });
+});
+
+listenerRouter.delete('/playlists/:id', requireAuth, (req: AuthenticatedRequest, res) => {
+  const userId = req.user!.id;
+  const { id } = req.params;
+
+  const existing = db.playlists.findById(id);
+  if (!existing || existing.userId !== userId) {
+    res.status(404).json({ error: 'Playlist not found or unauthorized.' });
+    return;
+  }
+
+  db.playlists.delete(id);
+  res.json({ success: true, message: 'Playlist deleted.' });
+});
+
+listenerRouter.post('/playlists/:id/toggle-station', requireAuth, (req: AuthenticatedRequest, res) => {
+  const userId = req.user!.id;
+  const { id } = req.params;
+  const { stationId } = req.body;
+
+  if (!stationId) {
+    res.status(400).json({ error: 'stationId is required.' });
+    return;
+  }
+
+  const existing = db.playlists.findById(id);
+  if (!existing || existing.userId !== userId) {
+    res.status(404).json({ error: 'Playlist not found or unauthorized.' });
+    return;
+  }
+
+  const added = db.playlists.toggleStation(id, stationId);
+  const updated = db.playlists.findById(id);
+
+  res.json({
+    success: true,
+    added,
+    stationIds: updated?.stationIds || [],
+  });
+});
+
+

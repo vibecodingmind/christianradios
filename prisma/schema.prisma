@@ -1,0 +1,595 @@
+// This is the comprehensive Prisma Schema for Christian Radios SaaS platform
+// defining models for Radio Stations, Broadcasters, Imports, Sources, and Ownership Claims.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  LISTENER
+  RADIO_OWNER
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum StationStatus {
+  DRAFT
+  PENDING_REVIEW
+  ACTIVE
+  SUSPENDED
+  REJECTED
+  ARCHIVED
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum ClaimStatus {
+  UNCLAIMED
+  CLAIM_PENDING
+  CLAIMED
+}
+
+enum StreamType {
+  MP3
+  AAC
+  HLS
+  ICECAST
+  SHOUTCAST
+  OGG
+  FLAC
+  OPUS
+}
+
+enum StreamStatus {
+  ONLINE
+  OFFLINE
+  UNKNOWN
+}
+
+enum SourceType {
+  MANUAL
+  RADIO_KING
+  ZENO
+  STREEMA
+  ICECAST
+  SHOUTCAST
+  AZURACAST
+  DIRECT_STREAM
+  IMPORTED_OTHER
+}
+
+enum RadioImportStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  FAILED
+}
+
+enum RadioClaimStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum VerificationMethod {
+  ADMIN_REVIEW
+  DOMAIN_EMAIL
+  WEBSITE_TOKEN
+  EMAIL_DOMAIN
+  WEBSITE_META_TAG
+  DOCUMENT_UPLOAD
+}
+
+enum SyncStatus {
+  IDLE
+  SYNCING
+  SUCCESS
+  FAILED
+}
+
+enum SubscriptionTier {
+  FREE
+  STARTER
+  PROFESSIONAL
+  BUSINESS
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}
+
+// -------------------------------------------------------------
+// USER & OWNER PROFILES
+// -------------------------------------------------------------
+
+model User {
+  id            String      @id @default(cuid())
+  email         String      @unique
+  passwordHash  String?
+  name          String?
+  phone         String?
+  role          UserRole    @default(LISTENER)
+  status        UserStatus  @default(ACTIVE)
+  emailVerified Boolean     @default(false)
+  avatarUrl     String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Relational fields
+  ownerProfile      RadioOwnerProfile?
+  ownedStations     Station[]           @relation("OwnerStations")
+  radioImports      RadioImport[]       @relation("UserImports")
+  stationClaims     RadioStationClaim[] @relation("UserStationClaims")
+  favorites         Favorite[]
+  prayerRequests    PrayerRequest[]
+  donations         Donation[]          @relation("UserDonations")
+  subscriptions     Subscription[]
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model RadioOwnerProfile {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  organizationName String
+  contactPerson    String
+  taxId            String?
+  phone            String?
+  address          String?
+  websiteUrl       String?
+  bankName         String?
+  bankAccountNumber String?
+  bankAccountName  String?
+  mpesaNumber      String?
+  tigoPesaNumber   String?
+  airtelMoneyNumber String?
+  isVerified       Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// -------------------------------------------------------------
+// RADIO STATIONS & METADATA
+// -------------------------------------------------------------
+
+model Station {
+  id                 String             @id @default(cuid())
+  ownerId            String
+  name               String
+  slug               String             @unique
+  tagline            String?
+  description        String?
+  logoUrl            String
+  coverUrl           String?
+  countryCode        String
+  region             String?
+  city               String
+  language           String
+  genre              String
+  categoryId         String
+  denomination       String?
+  websiteUrl         String?
+  email              String?
+  phone              String?
+  streamUrl          String
+  backupStreamUrl    String?
+  streamType         StreamType         @default(MP3)
+  bitrateKbps        Int?               @default(128)
+  timezone           String             @default("Africa/Dar_es_Salaam")
+  status             StationStatus      @default(PENDING_REVIEW)
+  verificationStatus VerificationStatus @default(PENDING)
+  claimStatus        ClaimStatus        @default(CLAIMED)
+  isFeatured         Boolean            @default(false)
+  streamStatus       StreamStatus       @default(UNKNOWN)
+  lastCheckedAt      DateTime?
+  lastOnlineAt       DateTime?
+  responseLatencyMs  Int?
+  playCount          Int                @default(0)
+  favoriteCount      Int                @default(0)
+  sourceType         SourceType         @default(MANUAL)
+  sourceUrl          String?
+  externalId         String?
+  importId           String?
+  lastSyncedAt       DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  // Relational fields
+  owner          User                 @relation("OwnerStations", fields: [ownerId], references: [id])
+  category       Category             @relation(fields: [categoryId], references: [id])
+  country        Country              @relation(fields: [countryCode], references: [code])
+  sources        RadioStationSource[]
+  claims         RadioStationClaim[]
+  imports        RadioImport[]
+  healthChecks   StreamHealthCheck[]
+  schedules      StationSchedule[]
+  donations      Donation[]
+  campaigns      DonationCampaign[]
+  favorites      Favorite[]
+  reviews        StationReview[]
+  podcastEpisodes PodcastEpisode[]
+
+  @@index([ownerId])
+  @@index([slug])
+  @@index([categoryId])
+  @@index([countryCode])
+  @@index([status])
+  @@index([claimStatus])
+}
+
+// -------------------------------------------------------------
+// RADIO IMPORT, EXTERNAL SOURCES & OWNERSHIP CLAIMS
+// -------------------------------------------------------------
+
+model RadioImport {
+  id               String            @id @default(cuid())
+  ownerId          String
+  stationId        String?
+  sourceType       SourceType        @default(IMPORTED_OTHER)
+  sourceUrl        String
+  externalId       String?
+  status           RadioImportStatus @default(PENDING_APPROVAL)
+  extractedData    Json
+  streamValidation Json?
+  errorMessage     String?
+  reviewedBy       String?
+  reviewedAt       DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  // Relations
+  owner   User     @relation("UserImports", fields: [ownerId], references: [id], onDelete: Cascade)
+  station Station? @relation(fields: [stationId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId])
+  @@index([stationId])
+  @@index([sourceUrl])
+  @@index([status])
+}
+
+model RadioStationSource {
+  id               String     @id @default(cuid())
+  stationId        String
+  sourceType       SourceType
+  sourceUrl        String
+  externalId       String?
+  providerMetadata Json?
+  autoSyncEnabled  Boolean    @default(true)
+  lastSyncedAt     DateTime?
+  syncStatus       SyncStatus @default(IDLE)
+  errorMessage     String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  // Relations
+  station Station               @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  syncLogs RadioStationSyncLog[]
+
+  @@index([stationId])
+  @@index([sourceType])
+}
+
+model RadioStationClaim {
+  id                 String             @id @default(cuid())
+  stationId          String
+  stationName        String
+  claimantId         String
+  claimantName       String
+  claimantEmail      String
+  claimantPhone      String?
+  roleInStation      String
+  reason             String
+  evidence           String
+  evidenceUrls       String[]           @default([])
+  verificationMethod VerificationMethod @default(ADMIN_REVIEW)
+  status             RadioClaimStatus   @default(PENDING)
+  adminNotes         String?
+  reviewedBy         String?
+  reviewedAt         DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  // Relations
+  station  Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  claimant User    @relation("UserStationClaims", fields: [claimantId], references: [id], onDelete: Cascade)
+
+  @@index([stationId])
+  @@index([claimantId])
+  @@index([claimantEmail])
+  @@index([status])
+}
+
+model RadioStationSyncLog {
+  id               String     @id @default(cuid())
+  stationSourceId  String
+  stationId        String
+  sourceType       SourceType
+  status           SyncStatus
+  fieldsUpdated    String[]   @default([])
+  metadataSnapshot Json?
+  errorMessage     String?
+  createdAt        DateTime   @default(now())
+
+  stationSource RadioStationSource @relation(fields: [stationSourceId], references: [id], onDelete: Cascade)
+
+  @@index([stationSourceId])
+  @@index([stationId])
+  @@index([createdAt])
+}
+
+// -------------------------------------------------------------
+// CATEGORIES, COUNTRIES & TAXONOMY
+// -------------------------------------------------------------
+
+model Category {
+  id           String    @id @default(cuid())
+  name         String
+  slug         String    @unique
+  iconName     String    @default("Radio")
+  description  String?
+  displayOrder Int       @default(0)
+  isActive     Boolean   @default(true)
+  stations     Station[]
+
+  @@index([slug])
+}
+
+model Country {
+  code        String    @id
+  name        String
+  flagEmoji   String
+  continent   String
+  isFeatured  Boolean   @default(false)
+  stations    Station[]
+
+  @@index([continent])
+}
+
+model StationSchedule {
+  id          String   @id @default(cuid())
+  stationId   String
+  dayOfWeek   Int      // 0 = Sunday, 6 = Saturday
+  startTime   String   // HH:mm
+  endTime     String   // HH:mm
+  programName String
+  presenter   String?
+  description String?
+  station     Station  @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@index([stationId, dayOfWeek])
+}
+
+// -------------------------------------------------------------
+// DONATIONS, GIVING & LEDGER
+// -------------------------------------------------------------
+
+model DonationCampaign {
+  id              String     @id @default(cuid())
+  stationId       String
+  ownerId         String
+  title           String
+  description     String
+  goalAmount      Float
+  amountRaised    Float      @default(0)
+  currency        String     @default("TZS")
+  supportersCount Int        @default(0)
+  status          String     @default("ACTIVE")
+  coverImageUrl   String?
+  startDate       DateTime   @default(now())
+  endDate         DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  station   Station    @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  donations Donation[]
+
+  @@index([stationId])
+  @@index([ownerId])
+}
+
+model Donation {
+  id                    String            @id @default(cuid())
+  stationId             String
+  campaignId            String?
+  donorUserId           String?
+  donorName             String
+  donorEmail            String
+  donorPhone            String?
+  amount                Float
+  grossAmount           Float
+  platformFeePercentage Float             @default(5.0)
+  platformFeeAmount     Float             @default(0)
+  netAmountToStation    Float
+  currency              String            @default("TZS")
+  paymentMethod         String
+  paymentGateway        String
+  trackingId            String?
+  status                String            @default("COMPLETED")
+  prayerMessage         String?
+  isAnonymous           Boolean           @default(false)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  station  Station           @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  campaign DonationCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  donor    User?             @relation("UserDonations", fields: [donorUserId], references: [id], onDelete: SetNull)
+
+  @@index([stationId])
+  @@index([donorEmail])
+  @@index([status])
+}
+
+// -------------------------------------------------------------
+// SUBSCRIPTIONS & PLANS
+// -------------------------------------------------------------
+
+model SubscriptionPlan {
+  id            String           @id @default(cuid())
+  name          String
+  tier          SubscriptionTier @default(FREE)
+  monthlyPrice  Float
+  annualPrice   Float
+  currency      String           @default("TZS")
+  maxStations   Int              @default(1)
+  hasAnalytics  Boolean          @default(false)
+  hasGiving     Boolean          @default(true)
+  hasAutoSync   Boolean          @default(false)
+  isActive      Boolean          @default(true)
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                 String             @id @default(cuid())
+  ownerId            String
+  planId             String
+  status             SubscriptionStatus @default(ACTIVE)
+  billingInterval    String             @default("MONTHLY")
+  currentPeriodStart DateTime           @default(now())
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean            @default(false)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  owner User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  plan  SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  @@index([ownerId])
+}
+
+// -------------------------------------------------------------
+// STREAM MONITORING & COMMUNITY
+// -------------------------------------------------------------
+
+model StreamHealthCheck {
+  id           String       @id @default(cuid())
+  stationId    String
+  streamUrl    String
+  statusCode   Int
+  latencyMs    Int
+  streamStatus StreamStatus
+  detectedType String?
+  bitrateKbps  Int?
+  checkedAt    DateTime     @default(now())
+
+  station Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@index([stationId, checkedAt])
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  stationId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  station Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, stationId])
+}
+
+model PrayerRequest {
+  id           String   @id @default(cuid())
+  userId       String?
+  authorName   String
+  authorEmail  String?
+  title        String
+  content      String
+  category     String   @default("GENERAL")
+  prayedCount  Int      @default(0)
+  status       String   @default("APPROVED")
+  isAnonymous  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+}
+
+model StationReview {
+  id         String   @id @default(cuid())
+  stationId  String
+  userName   String
+  userEmail  String
+  rating     Int      @default(5)
+  comment    String
+  isApproved Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  station Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@index([stationId])
+}
+
+model PodcastEpisode {
+  id          String   @id @default(cuid())
+  stationId   String
+  title       String
+  description String?
+  audioUrl    String
+  durationSec Int      @default(0)
+  playCount   Int      @default(0)
+  publishedAt DateTime @default(now())
+
+  station Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@index([stationId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorEmail String
+  actorRole  String
+  action     String
+  entityType String
+  entityId   String
+  details    String
+  timestamp  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([timestamp])
+  @@index([action])
+}
