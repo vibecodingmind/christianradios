@@ -1,7 +1,7 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
+import fs from 'fs';
 import { extractUserFromCookie } from './server/auth.js';
 import { runSeed } from './server/seed.js';
 import { startStreamMonitorWorker } from './server/streamMonitor.js';
@@ -105,13 +105,28 @@ async function bootstrap() {
   });
 
   // 6. Vite Middleware (Dev) or Static Assets (Prod)
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
+  const isProduction =
+    process.env.NODE_ENV === 'production' ||
+    process.env.RAILWAY_ENVIRONMENT !== undefined ||
+    fs.existsSync(path.join(process.cwd(), 'dist', 'index.html'));
+
+  if (!isProduction) {
+    try {
+      const { createServer: createViteServer } = await import('vite');
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } catch (err) {
+      console.warn('[Vite] Could not load Vite dev server, serving static assets instead:', err);
+      serveStatic();
+    }
   } else {
+    serveStatic();
+  }
+
+  function serveStatic() {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {

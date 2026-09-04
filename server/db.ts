@@ -1,4 +1,5 @@
 import { ALL_WORLD_COUNTRIES } from './worldCountries.js';
+import { pgSync } from './pgDb.js';
 import fs from 'fs';
 import path from 'path';
 import type {
@@ -296,6 +297,11 @@ class DatabaseEngine {
 
       this.saveImmediately();
       this.isLoaded = true;
+
+      // Trigger background sync to PostgreSQL if DATABASE_URL is set
+      pgSync.initSchemaAndSync(this.data).catch((err) => {
+        console.error('[PostgreSQL] Async sync error:', err);
+      });
     } catch (e) {
       console.error('Error initializing database file:', e);
       this.data = this.getDefaultSchema();
