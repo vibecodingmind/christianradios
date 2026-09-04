@@ -249,11 +249,11 @@ class DatabaseEngine {
         };
 
         const realJsonPath = path.resolve(process.cwd(), 'data/real_stations.json');
-        if ((!this.data.stations || this.data.stations.length < 50) && fs.existsSync(realJsonPath)) {
+        if (fs.existsSync(realJsonPath)) {
           try {
             const rawReal = fs.readFileSync(realJsonPath, 'utf-8');
             const realStations = JSON.parse(rawReal);
-            if (Array.isArray(realStations) && realStations.length > 0) {
+            if (Array.isArray(realStations) && realStations.length > (this.data.stations?.length || 0)) {
               this.data.stations = realStations;
               this.save();
             }
