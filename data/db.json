@@ -329,10 +329,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "ddb3105b-cb6c-4410-871f-3a56ad374b75",
       "createdAt": "2026-09-04T07:30:39.329Z",
-      "updatedAt": "2026-09-04T08:24:52.661Z",
-      "lastCheckedAt": "2026-09-04T08:24:52.618Z",
-      "responseLatencyMs": 1434,
-      "lastOnlineAt": "2026-09-04T08:24:52.618Z"
+      "updatedAt": "2026-09-04T08:29:54.913Z",
+      "lastCheckedAt": "2026-09-04T08:29:54.913Z",
+      "responseLatencyMs": 3779,
+      "lastOnlineAt": "2026-09-04T08:29:54.913Z"
     },
     {
       "id": "stn_real_728b659f_1",
@@ -366,10 +366,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "728b659f-ca99-41f7-a0eb-4a915fb233a7",
       "createdAt": "2026-09-04T07:30:39.331Z",
-      "updatedAt": "2026-09-04T08:24:53.909Z",
-      "lastCheckedAt": "2026-09-04T08:24:53.863Z",
-      "responseLatencyMs": 997,
-      "lastOnlineAt": "2026-09-04T08:24:53.863Z"
+      "updatedAt": "2026-09-04T08:29:55.483Z",
+      "lastCheckedAt": "2026-09-04T08:29:55.483Z",
+      "responseLatencyMs": 369,
+      "lastOnlineAt": "2026-09-04T08:29:55.483Z"
     },
     {
       "id": "stn_real_127119b1_2",
@@ -403,10 +403,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "127119b1-94ec-48ed-90db-f5e31d9fd964",
       "createdAt": "2026-09-04T07:30:39.331Z",
-      "updatedAt": "2026-09-04T08:24:55.153Z",
-      "lastCheckedAt": "2026-09-04T08:24:55.110Z",
-      "responseLatencyMs": 938,
-      "lastOnlineAt": "2026-09-04T08:24:55.110Z"
+      "updatedAt": "2026-09-04T08:29:56.780Z",
+      "lastCheckedAt": "2026-09-04T08:29:56.780Z",
+      "responseLatencyMs": 1107,
+      "lastOnlineAt": "2026-09-04T08:29:56.780Z"
     },
     {
       "id": "stn_real_60607676_3",
@@ -440,10 +440,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "60607676-de23-44cd-8e05-aecbce5332c9",
       "createdAt": "2026-09-04T07:30:39.331Z",
-      "updatedAt": "2026-09-04T08:24:56.854Z",
-      "lastCheckedAt": "2026-09-04T08:24:56.805Z",
-      "responseLatencyMs": 1510,
-      "lastOnlineAt": "2026-09-04T08:24:56.805Z"
+      "updatedAt": "2026-09-04T08:29:58.636Z",
+      "lastCheckedAt": "2026-09-04T08:29:58.636Z",
+      "responseLatencyMs": 1561,
+      "lastOnlineAt": "2026-09-04T08:29:58.636Z"
     },
     {
       "id": "stn_real_3e47c0be_4",
@@ -6062,10 +6062,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "52c93ff4-d87e-45f2-8135-1f5a955713b6",
       "createdAt": "2026-09-04T07:30:39.332Z",
-      "updatedAt": "2026-09-04T08:25:48.935Z",
-      "lastCheckedAt": "2026-09-04T08:25:48.935Z",
-      "responseLatencyMs": 1379,
-      "lastOnlineAt": "2026-09-04T08:25:48.935Z"
+      "updatedAt": "2026-09-04T08:29:39.854Z",
+      "lastCheckedAt": "2026-09-04T08:29:39.854Z",
+      "responseLatencyMs": 1625,
+      "lastOnlineAt": "2026-09-04T08:29:39.854Z"
     },
     {
       "id": "stn_real_1e01c7d1_156",
@@ -6099,10 +6099,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "1e01c7d1-9ce7-468c-810f-8e63416e2b93",
       "createdAt": "2026-09-04T07:30:39.332Z",
-      "updatedAt": "2026-09-04T08:25:52.167Z",
-      "lastCheckedAt": "2026-09-04T08:25:52.167Z",
-      "responseLatencyMs": 2034,
-      "lastOnlineAt": "2026-09-04T08:25:52.167Z"
+      "updatedAt": "2026-09-04T08:29:42.033Z",
+      "lastCheckedAt": "2026-09-04T08:29:42.033Z",
+      "responseLatencyMs": 1941,
+      "lastOnlineAt": "2026-09-04T08:29:42.033Z"
     },
     {
       "id": "stn_real_43e96a00_157",
@@ -6136,10 +6136,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "43e96a00-facb-4c74-a2c8-72dc07f62779",
       "createdAt": "2026-09-04T07:30:39.332Z",
-      "updatedAt": "2026-09-04T08:25:54.433Z",
-      "lastCheckedAt": "2026-09-04T08:25:54.433Z",
-      "responseLatencyMs": 1409,
-      "lastOnlineAt": "2026-09-04T08:25:54.433Z"
+      "updatedAt": "2026-09-04T08:29:43.763Z",
+      "lastCheckedAt": "2026-09-04T08:29:43.763Z",
+      "responseLatencyMs": 1542,
+      "lastOnlineAt": "2026-09-04T08:29:43.763Z"
     },
     {
       "id": "stn_real_e7a545b4_158",
@@ -6173,10 +6173,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "e7a545b4-efcb-455f-9d0e-6246f9bb49b9",
       "createdAt": "2026-09-04T07:30:39.332Z",
-      "updatedAt": "2026-09-04T08:25:56.927Z",
-      "lastCheckedAt": "2026-09-04T08:25:56.927Z",
-      "responseLatencyMs": 2356,
-      "lastOnlineAt": "2026-09-04T08:25:56.927Z"
+      "updatedAt": "2026-09-04T08:29:46.430Z",
+      "lastCheckedAt": "2026-09-04T08:29:46.430Z",
+      "responseLatencyMs": 2512,
+      "lastOnlineAt": "2026-09-04T08:29:46.430Z"
     },
     {
       "id": "stn_real_7b8956ce_159",
@@ -6210,10 +6210,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "7b8956ce-5bae-4326-8484-968639655a72",
       "createdAt": "2026-09-04T07:30:39.332Z",
-      "updatedAt": "2026-09-04T08:25:57.860Z",
-      "lastCheckedAt": "2026-09-04T08:25:57.860Z",
-      "responseLatencyMs": 713,
-      "lastOnlineAt": "2026-09-04T08:25:57.860Z"
+      "updatedAt": "2026-09-04T08:29:47.685Z",
+      "lastCheckedAt": "2026-09-04T08:29:47.685Z",
+      "responseLatencyMs": 913,
+      "lastOnlineAt": "2026-09-04T08:29:47.685Z"
     },
     {
       "id": "stn_real_1de75d39_160",
@@ -6247,10 +6247,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "1de75d39-b273-43e4-8e0d-5b9780403661",
       "createdAt": "2026-09-04T07:30:39.332Z",
-      "updatedAt": "2026-09-04T08:25:58.681Z",
-      "lastCheckedAt": "2026-09-04T08:25:58.681Z",
-      "responseLatencyMs": 652,
-      "lastOnlineAt": "2026-09-04T08:25:58.681Z"
+      "updatedAt": "2026-09-04T08:29:48.805Z",
+      "lastCheckedAt": "2026-09-04T08:29:48.805Z",
+      "responseLatencyMs": 760,
+      "lastOnlineAt": "2026-09-04T08:29:48.805Z"
     },
     {
       "id": "stn_real_54c17fec_161",
@@ -6284,10 +6284,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "54c17fec-69f2-409b-aaed-e3ce0d14054d",
       "createdAt": "2026-09-04T07:30:39.332Z",
-      "updatedAt": "2026-09-04T08:26:02.366Z",
-      "lastCheckedAt": "2026-09-04T08:26:02.366Z",
-      "responseLatencyMs": 3598,
-      "lastOnlineAt": "2026-09-04T08:26:02.366Z"
+      "updatedAt": "2026-09-04T08:29:53.438Z",
+      "lastCheckedAt": "2026-09-04T08:29:53.438Z",
+      "responseLatencyMs": 4505,
+      "lastOnlineAt": "2026-09-04T08:29:53.438Z"
     },
     {
       "id": "stn_real_3a690c26_162",
@@ -6321,10 +6321,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "3a690c26-b48c-41ec-a17e-e673268fc8f9",
       "createdAt": "2026-09-04T07:30:39.332Z",
-      "updatedAt": "2026-09-04T08:26:03.949Z",
-      "lastCheckedAt": "2026-09-04T08:26:03.949Z",
-      "responseLatencyMs": 1364,
-      "lastOnlineAt": "2026-09-04T08:26:03.949Z"
+      "updatedAt": "2026-09-04T08:29:55.369Z",
+      "lastCheckedAt": "2026-09-04T08:29:55.369Z",
+      "responseLatencyMs": 1350,
+      "lastOnlineAt": "2026-09-04T08:29:55.369Z"
     },
     {
       "id": "stn_real_1bba5d65_163",
@@ -6358,10 +6358,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "1bba5d65-a070-4239-a92f-65a802a81c42",
       "createdAt": "2026-09-04T07:30:39.332Z",
-      "updatedAt": "2026-09-04T08:26:05.008Z",
-      "lastCheckedAt": "2026-09-04T08:26:05.008Z",
-      "responseLatencyMs": 900,
-      "lastOnlineAt": "2026-09-04T08:26:05.008Z"
+      "updatedAt": "2026-09-04T08:29:56.361Z",
+      "lastCheckedAt": "2026-09-04T08:29:56.361Z",
+      "responseLatencyMs": 829,
+      "lastOnlineAt": "2026-09-04T08:29:56.361Z"
     },
     {
       "id": "stn_real_c82c3825_164",
@@ -6395,10 +6395,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "c82c3825-934e-44a6-bbb6-df26d1b463ab",
       "createdAt": "2026-09-04T07:30:39.332Z",
-      "updatedAt": "2026-09-04T08:26:06.648Z",
-      "lastCheckedAt": "2026-09-04T08:26:06.648Z",
-      "responseLatencyMs": 1444,
-      "lastOnlineAt": "2026-09-04T08:26:06.648Z"
+      "updatedAt": "2026-09-04T08:29:58.558Z",
+      "lastCheckedAt": "2026-09-04T08:29:58.558Z",
+      "responseLatencyMs": 2031,
+      "lastOnlineAt": "2026-09-04T08:29:58.558Z"
     },
     {
       "id": "stn_real_39905321_165",
@@ -11455,10 +11455,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "0432abeb-22cf-4dbb-84e7-dcd9b7819b80",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:28:34.793Z",
-      "lastCheckedAt": "2026-09-04T08:28:34.793Z",
-      "responseLatencyMs": 567,
-      "lastOnlineAt": "2026-09-04T08:28:34.793Z"
+      "updatedAt": "2026-09-04T08:29:39.336Z",
+      "lastCheckedAt": "2026-09-04T08:29:39.336Z",
+      "responseLatencyMs": 604,
+      "lastOnlineAt": "2026-09-04T08:29:39.336Z"
     },
     {
       "id": "stn_real_0da60682_302",
@@ -11492,10 +11492,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "0da60682-ef91-46ce-a50b-d8b9a08c2339",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:28:35.443Z",
-      "lastCheckedAt": "2026-09-04T08:28:35.443Z",
-      "responseLatencyMs": 547,
-      "lastOnlineAt": "2026-09-04T08:28:35.443Z"
+      "updatedAt": "2026-09-04T08:29:40.215Z",
+      "lastCheckedAt": "2026-09-04T08:29:40.215Z",
+      "responseLatencyMs": 626,
+      "lastOnlineAt": "2026-09-04T08:29:40.215Z"
     },
     {
       "id": "stn_real_5839c451_303",
@@ -11529,9 +11529,9 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "5839c451-da02-421a-b270-8932b162f627",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:28:40.242Z",
-      "lastCheckedAt": "2026-09-04T08:28:40.241Z",
-      "responseLatencyMs": 4535
+      "updatedAt": "2026-09-04T08:29:43.711Z",
+      "lastCheckedAt": "2026-09-04T08:29:43.711Z",
+      "responseLatencyMs": 3236
     },
     {
       "id": "stn_real_1a198419_304",
@@ -11565,10 +11565,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "1a198419-3083-4cd0-a8fe-42fef3f488e1",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:28:41.537Z",
-      "lastCheckedAt": "2026-09-04T08:28:41.537Z",
-      "responseLatencyMs": 1204,
-      "lastOnlineAt": "2026-09-04T08:28:41.537Z"
+      "updatedAt": "2026-09-04T08:29:45.581Z",
+      "lastCheckedAt": "2026-09-04T08:29:45.581Z",
+      "responseLatencyMs": 1756,
+      "lastOnlineAt": "2026-09-04T08:29:45.581Z"
     },
     {
       "id": "stn_real_13a54b68_305",
@@ -11602,9 +11602,9 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "13a54b68-8721-4a7d-86ae-3a692c54ec9c",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:28:42.498Z",
-      "lastCheckedAt": "2026-09-04T08:28:42.498Z",
-      "responseLatencyMs": 807
+      "updatedAt": "2026-09-04T08:29:46.669Z",
+      "lastCheckedAt": "2026-09-04T08:29:46.669Z",
+      "responseLatencyMs": 897
     },
     {
       "id": "stn_real_2fad40a8_306",
@@ -11638,10 +11638,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "2fad40a8-8129-42aa-960a-5a5896433efd",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:28:44.629Z",
-      "lastCheckedAt": "2026-09-04T08:28:44.629Z",
-      "responseLatencyMs": 1703,
-      "lastOnlineAt": "2026-09-04T08:28:44.629Z"
+      "updatedAt": "2026-09-04T08:29:49.375Z",
+      "lastCheckedAt": "2026-09-04T08:29:49.375Z",
+      "responseLatencyMs": 1960,
+      "lastOnlineAt": "2026-09-04T08:29:49.375Z"
     },
     {
       "id": "stn_real_e6c5d27f_307",
@@ -11675,10 +11675,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "e6c5d27f-362c-48a9-8eb9-9dcc902b9bfe",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:28:47.391Z",
-      "lastCheckedAt": "2026-09-04T08:28:47.391Z",
-      "responseLatencyMs": 2586,
-      "lastOnlineAt": "2026-09-04T08:28:47.391Z"
+      "updatedAt": "2026-09-04T08:29:51.569Z",
+      "lastCheckedAt": "2026-09-04T08:29:51.569Z",
+      "responseLatencyMs": 1981,
+      "lastOnlineAt": "2026-09-04T08:29:51.569Z"
     },
     {
       "id": "stn_real_5e494c2a_308",
@@ -11712,10 +11712,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "5e494c2a-4c3d-4a8f-9f8b-e5c92ec9c960",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:28:49.045Z",
-      "lastCheckedAt": "2026-09-04T08:28:49.045Z",
-      "responseLatencyMs": 863,
-      "lastOnlineAt": "2026-09-04T08:28:49.045Z"
+      "updatedAt": "2026-09-04T08:29:54.414Z",
+      "lastCheckedAt": "2026-09-04T08:29:54.411Z",
+      "responseLatencyMs": 460,
+      "lastOnlineAt": "2026-09-04T08:29:54.411Z"
     },
     {
       "id": "stn_real_14d870f9_309",
@@ -11749,10 +11749,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "14d870f9-4ca8-4431-aaed-623c76465364",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:28:49.907Z",
-      "lastCheckedAt": "2026-09-04T08:28:49.907Z",
-      "responseLatencyMs": 627,
-      "lastOnlineAt": "2026-09-04T08:28:49.907Z"
+      "updatedAt": "2026-09-04T08:29:55.307Z",
+      "lastCheckedAt": "2026-09-04T08:29:55.307Z",
+      "responseLatencyMs": 618,
+      "lastOnlineAt": "2026-09-04T08:29:55.307Z"
     },
     {
       "id": "stn_real_f8d499d5_310",
@@ -11786,10 +11786,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "f8d499d5-e223-4a0c-b712-2fb374628e35",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:28:50.360Z",
-      "lastCheckedAt": "2026-09-04T08:28:50.360Z",
-      "responseLatencyMs": 298,
-      "lastOnlineAt": "2026-09-04T08:28:50.360Z"
+      "updatedAt": "2026-09-04T08:29:55.755Z",
+      "lastCheckedAt": "2026-09-04T08:29:55.755Z",
+      "responseLatencyMs": 294,
+      "lastOnlineAt": "2026-09-04T08:29:55.755Z"
     },
     {
       "id": "stn_real_6ef93fac_311",
@@ -11823,10 +11823,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "6ef93fac-57e8-423f-8bd3-d253634d252f",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:28:51.452Z",
-      "lastCheckedAt": "2026-09-04T08:28:51.452Z",
-      "responseLatencyMs": 891,
-      "lastOnlineAt": "2026-09-04T08:28:51.452Z"
+      "updatedAt": "2026-09-04T08:29:56.984Z",
+      "lastCheckedAt": "2026-09-04T08:29:56.984Z",
+      "responseLatencyMs": 794,
+      "lastOnlineAt": "2026-09-04T08:29:56.984Z"
     },
     {
       "id": "stn_real_4f15412e_312",
@@ -11860,10 +11860,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "4f15412e-219b-4042-9527-ee8884f7e038",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:28:52.160Z",
-      "lastCheckedAt": "2026-09-04T08:28:52.160Z",
-      "responseLatencyMs": 575,
-      "lastOnlineAt": "2026-09-04T08:28:52.160Z"
+      "updatedAt": "2026-09-04T08:29:57.817Z",
+      "lastCheckedAt": "2026-09-04T08:29:57.816Z",
+      "responseLatencyMs": 672,
+      "lastOnlineAt": "2026-09-04T08:29:57.816Z"
     },
     {
       "id": "stn_real_617453f1_313",
@@ -11897,10 +11897,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "617453f1-75b3-4b27-8ca1-c27e8373edfe",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:28:54.101Z",
-      "lastCheckedAt": "2026-09-04T08:28:54.101Z",
-      "responseLatencyMs": 1707,
-      "lastOnlineAt": "2026-09-04T08:28:54.101Z"
+      "updatedAt": "2026-09-04T08:29:59.105Z",
+      "lastCheckedAt": "2026-09-04T08:29:59.105Z",
+      "responseLatencyMs": 1173,
+      "lastOnlineAt": "2026-09-04T08:29:59.105Z"
     },
     {
       "id": "stn_real_34d00847_314",
@@ -13005,9 +13005,9 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "1e6b2eb0-980f-4b5d-bb57-71aa0fec36fb",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:25:53.313Z",
-      "lastCheckedAt": "2026-09-04T08:25:53.313Z",
-      "responseLatencyMs": 1985
+      "updatedAt": "2026-09-04T08:29:39.399Z",
+      "lastCheckedAt": "2026-09-04T08:29:39.399Z",
+      "responseLatencyMs": 1792
     },
     {
       "id": "stn_real_2d632e1b_344",
@@ -13041,10 +13041,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "2d632e1b-346b-43f7-9acf-fae672c7c6e1",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:25:55.339Z",
-      "lastCheckedAt": "2026-09-04T08:25:55.339Z",
-      "responseLatencyMs": 1836,
-      "lastOnlineAt": "2026-09-04T08:25:55.339Z"
+      "updatedAt": "2026-09-04T08:29:41.214Z",
+      "lastCheckedAt": "2026-09-04T08:29:41.214Z",
+      "responseLatencyMs": 1627,
+      "lastOnlineAt": "2026-09-04T08:29:41.214Z"
     },
     {
       "id": "stn_real_e0b4dd14_345",
@@ -13078,10 +13078,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "e0b4dd14-08e3-4fe5-b1be-a61944c8f241",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:25:57.103Z",
-      "lastCheckedAt": "2026-09-04T08:25:57.102Z",
-      "responseLatencyMs": 1527,
-      "lastOnlineAt": "2026-09-04T08:25:57.102Z"
+      "updatedAt": "2026-09-04T08:29:43.027Z",
+      "lastCheckedAt": "2026-09-04T08:29:43.027Z",
+      "responseLatencyMs": 1617,
+      "lastOnlineAt": "2026-09-04T08:29:43.027Z"
     },
     {
       "id": "stn_real_aeee1931_346",
@@ -13115,10 +13115,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "aeee1931-d6a2-4ac5-9212-dec8fb4bb4c0",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:25:59.012Z",
-      "lastCheckedAt": "2026-09-04T08:25:59.012Z",
-      "responseLatencyMs": 1783,
-      "lastOnlineAt": "2026-09-04T08:25:59.012Z"
+      "updatedAt": "2026-09-04T08:29:47.135Z",
+      "lastCheckedAt": "2026-09-04T08:29:47.134Z",
+      "responseLatencyMs": 3296,
+      "lastOnlineAt": "2026-09-04T08:29:47.134Z"
     },
     {
       "id": "stn_real_94f00da6_347",
@@ -13152,9 +13152,9 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "94f00da6-4a0a-460e-b2cb-0eb8060ab2cb",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:25:59.775Z",
-      "lastCheckedAt": "2026-09-04T08:25:59.775Z",
-      "responseLatencyMs": 540
+      "updatedAt": "2026-09-04T08:29:47.886Z",
+      "lastCheckedAt": "2026-09-04T08:29:47.886Z",
+      "responseLatencyMs": 514
     },
     {
       "id": "stn_real_c036a7b1_348",
@@ -13188,10 +13188,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "c036a7b1-9e85-4353-a5b3-3c8ad2532caf",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:26:01.504Z",
-      "lastCheckedAt": "2026-09-04T08:26:01.503Z",
-      "responseLatencyMs": 1264,
-      "lastOnlineAt": "2026-09-04T08:26:01.503Z"
+      "updatedAt": "2026-09-04T08:29:49.987Z",
+      "lastCheckedAt": "2026-09-04T08:29:49.987Z",
+      "responseLatencyMs": 1747,
+      "lastOnlineAt": "2026-09-04T08:29:49.987Z"
     },
     {
       "id": "stn_real_9610dec4_349",
@@ -13225,9 +13225,9 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "9610dec4-0601-11e8-ae97-52543be04c81",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:26:02.942Z",
-      "lastCheckedAt": "2026-09-04T08:26:02.942Z",
-      "responseLatencyMs": 940
+      "updatedAt": "2026-09-04T08:29:50.780Z",
+      "lastCheckedAt": "2026-09-04T08:29:50.780Z",
+      "responseLatencyMs": 568
     },
     {
       "id": "stn_real_4681c44a_350",
@@ -13261,10 +13261,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "4681c44a-6abd-4f32-9188-6c960b363f9d",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:26:04.218Z",
-      "lastCheckedAt": "2026-09-04T08:26:04.218Z",
-      "responseLatencyMs": 1096,
-      "lastOnlineAt": "2026-09-04T08:26:04.218Z"
+      "updatedAt": "2026-09-04T08:29:53.202Z",
+      "lastCheckedAt": "2026-09-04T08:29:53.202Z",
+      "responseLatencyMs": 2169,
+      "lastOnlineAt": "2026-09-04T08:29:53.202Z"
     },
     {
       "id": "stn_real_30dbddcf_351",
@@ -13298,10 +13298,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "30dbddcf-d06b-4ae0-8bc8-679d897920d6",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:26:06.521Z",
-      "lastCheckedAt": "2026-09-04T08:26:06.521Z",
-      "responseLatencyMs": 1890,
-      "lastOnlineAt": "2026-09-04T08:26:06.521Z"
+      "updatedAt": "2026-09-04T08:29:56.901Z",
+      "lastCheckedAt": "2026-09-04T08:29:56.901Z",
+      "responseLatencyMs": 2969,
+      "lastOnlineAt": "2026-09-04T08:29:56.901Z"
     },
     {
       "id": "stn_real_45f75db2_352",
@@ -13335,9 +13335,9 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "45f75db2-849b-4083-8986-e2cdc61abc10",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:26:07.304Z",
-      "lastCheckedAt": "2026-09-04T08:26:07.304Z",
-      "responseLatencyMs": 566
+      "updatedAt": "2026-09-04T08:29:57.575Z",
+      "lastCheckedAt": "2026-09-04T08:29:57.575Z",
+      "responseLatencyMs": 505
     },
     {
       "id": "stn_real_a3d27b87_353",
@@ -13371,10 +13371,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "a3d27b87-a988-4910-9b51-8632596d2dd1",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:26:08.725Z",
-      "lastCheckedAt": "2026-09-04T08:26:08.725Z",
-      "responseLatencyMs": 1246,
-      "lastOnlineAt": "2026-09-04T08:26:08.725Z"
+      "updatedAt": "2026-09-04T08:29:59.473Z",
+      "lastCheckedAt": "2026-09-04T08:29:59.473Z",
+      "responseLatencyMs": 1539,
+      "lastOnlineAt": "2026-09-04T08:29:59.473Z"
     },
     {
       "id": "stn_real_90de4424_354",
@@ -13408,10 +13408,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "90de4424-5901-11e9-a622-52543be04c81",
       "createdAt": "2026-09-04T07:30:39.334Z",
-      "updatedAt": "2026-09-04T08:26:09.877Z",
-      "lastCheckedAt": "2026-09-04T08:26:09.877Z",
-      "responseLatencyMs": 498,
-      "lastOnlineAt": "2026-09-04T08:26:09.877Z"
+      "updatedAt": "2026-09-04T08:30:00.099Z",
+      "lastCheckedAt": "2026-09-04T08:30:00.099Z",
+      "responseLatencyMs": 436,
+      "lastOnlineAt": "2026-09-04T08:30:00.099Z"
     },
     {
       "id": "stn_real_33986943_355",
@@ -19542,10 +19542,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "0b880733-546f-4a73-8e4a-3e8775572297",
       "createdAt": "2026-09-04T07:30:39.336Z",
-      "updatedAt": "2026-09-04T08:26:05.093Z",
-      "lastCheckedAt": "2026-09-04T08:26:05.093Z",
-      "responseLatencyMs": 2170,
-      "lastOnlineAt": "2026-09-04T08:26:05.093Z"
+      "updatedAt": "2026-09-04T08:29:41.297Z",
+      "lastCheckedAt": "2026-09-04T08:29:41.297Z",
+      "responseLatencyMs": 2430,
+      "lastOnlineAt": "2026-09-04T08:29:41.297Z"
     },
     {
       "id": "stn_real_9d10a619_521",
@@ -19579,10 +19579,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "9d10a619-58e4-470a-90f5-3b5b48a32377",
       "createdAt": "2026-09-04T07:30:39.336Z",
-      "updatedAt": "2026-09-04T08:26:07.648Z",
-      "lastCheckedAt": "2026-09-04T08:26:07.648Z",
-      "responseLatencyMs": 2329,
-      "lastOnlineAt": "2026-09-04T08:26:07.648Z"
+      "updatedAt": "2026-09-04T08:29:44.651Z",
+      "lastCheckedAt": "2026-09-04T08:29:44.650Z",
+      "responseLatencyMs": 3108,
+      "lastOnlineAt": "2026-09-04T08:29:44.650Z"
     },
     {
       "id": "stn_real_cc052216_522",
@@ -19616,10 +19616,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "cc052216-1fc2-4d8a-8391-04f56aaeeef6",
       "createdAt": "2026-09-04T07:30:39.336Z",
-      "updatedAt": "2026-09-04T08:26:08.776Z",
-      "lastCheckedAt": "2026-09-04T08:26:08.776Z",
-      "responseLatencyMs": 879,
-      "lastOnlineAt": "2026-09-04T08:26:08.776Z"
+      "updatedAt": "2026-09-04T08:29:46.147Z",
+      "lastCheckedAt": "2026-09-04T08:29:46.146Z",
+      "responseLatencyMs": 777,
+      "lastOnlineAt": "2026-09-04T08:29:46.146Z"
     },
     {
       "id": "stn_real_21789bc7_523",
@@ -19653,10 +19653,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "21789bc7-7d3d-474d-8066-79573f872275",
       "createdAt": "2026-09-04T07:30:39.336Z",
-      "updatedAt": "2026-09-04T08:26:09.996Z",
-      "lastCheckedAt": "2026-09-04T08:26:09.996Z",
-      "responseLatencyMs": 1051,
-      "lastOnlineAt": "2026-09-04T08:26:09.996Z"
+      "updatedAt": "2026-09-04T08:29:47.288Z",
+      "lastCheckedAt": "2026-09-04T08:29:47.288Z",
+      "responseLatencyMs": 759,
+      "lastOnlineAt": "2026-09-04T08:29:47.288Z"
     },
     {
       "id": "stn_real_0678a6c8_524",
@@ -19690,9 +19690,9 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "0678a6c8-a54e-48e8-94c9-d45ab1d3ea03",
       "createdAt": "2026-09-04T07:30:39.336Z",
-      "updatedAt": "2026-09-04T08:26:11.438Z",
-      "lastCheckedAt": "2026-09-04T08:26:11.438Z",
-      "responseLatencyMs": 1222
+      "updatedAt": "2026-09-04T08:29:48.636Z",
+      "lastCheckedAt": "2026-09-04T08:29:48.636Z",
+      "responseLatencyMs": 1239
     },
     {
       "id": "stn_real_83c69fb8_525",
@@ -19726,10 +19726,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "83c69fb8-af8e-41e7-959a-f3d05845760f",
       "createdAt": "2026-09-04T07:30:39.336Z",
-      "updatedAt": "2026-09-04T08:26:12.823Z",
-      "lastCheckedAt": "2026-09-04T08:26:12.823Z",
-      "responseLatencyMs": 1167,
-      "lastOnlineAt": "2026-09-04T08:26:12.823Z"
+      "updatedAt": "2026-09-04T08:29:50.096Z",
+      "lastCheckedAt": "2026-09-04T08:29:50.096Z",
+      "responseLatencyMs": 1157,
+      "lastOnlineAt": "2026-09-04T08:29:50.096Z"
     },
     {
       "id": "stn_real_2f90ca1e_526",
@@ -19763,10 +19763,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "2f90ca1e-ac21-4476-bf6d-e650b9ea07e4",
       "createdAt": "2026-09-04T07:30:39.336Z",
-      "updatedAt": "2026-09-04T08:26:14.459Z",
-      "lastCheckedAt": "2026-09-04T08:26:14.459Z",
-      "responseLatencyMs": 1470,
-      "lastOnlineAt": "2026-09-04T08:26:14.459Z"
+      "updatedAt": "2026-09-04T08:29:51.320Z",
+      "lastCheckedAt": "2026-09-04T08:29:51.320Z",
+      "responseLatencyMs": 1105,
+      "lastOnlineAt": "2026-09-04T08:29:51.320Z"
     },
     {
       "id": "stn_real_1eb36e56_527",
@@ -19800,10 +19800,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "1eb36e56-9144-4c42-b6b7-b3ee76e14bd5",
       "createdAt": "2026-09-04T07:30:39.336Z",
-      "updatedAt": "2026-09-04T08:26:15.792Z",
-      "lastCheckedAt": "2026-09-04T08:26:15.792Z",
-      "responseLatencyMs": 1223,
-      "lastOnlineAt": "2026-09-04T08:26:15.792Z"
+      "updatedAt": "2026-09-04T08:29:54.615Z",
+      "lastCheckedAt": "2026-09-04T08:29:54.615Z",
+      "responseLatencyMs": 1610,
+      "lastOnlineAt": "2026-09-04T08:29:54.615Z"
     },
     {
       "id": "stn_real_c1ab64d9_528",
@@ -19837,10 +19837,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "c1ab64d9-ea3b-412a-966e-c42a8ffe1b78",
       "createdAt": "2026-09-04T07:30:39.336Z",
-      "updatedAt": "2026-09-04T08:26:16.945Z",
-      "lastCheckedAt": "2026-09-04T08:26:16.945Z",
-      "responseLatencyMs": 1027,
-      "lastOnlineAt": "2026-09-04T08:26:16.945Z"
+      "updatedAt": "2026-09-04T08:29:55.876Z",
+      "lastCheckedAt": "2026-09-04T08:29:55.876Z",
+      "responseLatencyMs": 1076,
+      "lastOnlineAt": "2026-09-04T08:29:55.876Z"
     },
     {
       "id": "stn_real_3bccb052_529",
@@ -19874,10 +19874,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "3bccb052-2f5d-4ef8-ac36-525e8d9f9357",
       "createdAt": "2026-09-04T07:30:39.336Z",
-      "updatedAt": "2026-09-04T08:26:18.347Z",
-      "lastCheckedAt": "2026-09-04T08:26:18.347Z",
-      "responseLatencyMs": 1225,
-      "lastOnlineAt": "2026-09-04T08:26:18.347Z"
+      "updatedAt": "2026-09-04T08:29:57.233Z",
+      "lastCheckedAt": "2026-09-04T08:29:57.233Z",
+      "responseLatencyMs": 1242,
+      "lastOnlineAt": "2026-09-04T08:29:57.233Z"
     },
     {
       "id": "stn_real_addbdf7f_530",
@@ -19911,10 +19911,10 @@
       "sourceType": "RADIOBROWSER",
       "externalId": "addbdf7f-8373-4d3a-b9c9-79291c734057",
       "createdAt": "2026-09-04T07:30:39.336Z",
-      "updatedAt": "2026-09-04T08:26:19.866Z",
-      "lastCheckedAt": "2026-09-04T08:26:19.866Z",
-      "responseLatencyMs": 1314,
-      "lastOnlineAt": "2026-09-04T08:26:19.866Z"
+      "updatedAt": "2026-09-04T08:29:58.884Z",
+      "lastCheckedAt": "2026-09-04T08:29:58.884Z",
+      "responseLatencyMs": 1448,
+      "lastOnlineAt": "2026-09-04T08:29:58.884Z"
     },
     {
       "id": "stn_real_61ce9de7_531",
@@ -36390,497 +36390,6 @@
     }
   ],
   "healthChecks": [
-    {
-      "id": "hc_1788476031551_af2r",
-      "stationId": "stn_ucb1_uk",
-      "checkedAt": "2026-09-03T22:53:51.551Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 268,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476323744_nysp",
-      "stationId": "stn_radio_maria_tz",
-      "checkedAt": "2026-09-03T22:58:43.744Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 675,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476324921_ew7n",
-      "stationId": "stn_upendo_fm",
-      "checkedAt": "2026-09-03T22:58:44.921Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 1143,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476325221_kd76",
-      "stationId": "stn_wapo_radio",
-      "checkedAt": "2026-09-03T22:58:45.221Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 262,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476325527_cpjt",
-      "stationId": "stn_safina_fm",
-      "checkedAt": "2026-09-03T22:58:45.527Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 259,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476325856_u78g",
-      "stationId": "stn_praise_fm_mbeya",
-      "checkedAt": "2026-09-03T22:58:45.856Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 266,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476326843_g42y",
-      "stationId": "stn_hope_fm_kenya",
-      "checkedAt": "2026-09-03T22:58:46.843Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 944,
-      "errorMessage": "HTTP 404",
-      "contentType": "text/html"
-    },
-    {
-      "id": "hc_1788476327432_g0ai",
-      "stationId": "stn_premier_christian_uk",
-      "checkedAt": "2026-09-03T22:58:47.432Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 549,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476327517_7gtf",
-      "stationId": "stn_moody_radio_us",
-      "checkedAt": "2026-09-03T22:58:47.517Z",
-      "isOnline": false,
-      "statusCode": 0,
-      "responseTimeMs": 0,
-      "errorMessage": "Could not resolve stream host: getaddrinfo ENOTFOUND primary.moodyradio.org"
-    },
-    {
-      "id": "hc_1788476328274_0e26",
-      "stationId": "stn_klove_us",
-      "checkedAt": "2026-09-03T22:58:48.274Z",
-      "isOnline": true,
-      "statusCode": 301,
-      "responseTimeMs": 671,
-      "contentType": "text/html"
-    },
-    {
-      "id": "hc_1788476328617_04em",
-      "stationId": "stn_cbn_praise",
-      "checkedAt": "2026-09-03T22:58:48.617Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 290,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476328965_5ye8",
-      "stationId": "stn_habari_maalum",
-      "checkedAt": "2026-09-03T22:58:48.965Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 263,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476329264_fbty",
-      "stationId": "stn_power_fm_ug",
-      "checkedAt": "2026-09-03T22:58:49.264Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 265,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476329431_7enf",
-      "stationId": "stn_maria_rwanda",
-      "checkedAt": "2026-09-03T22:58:49.431Z",
-      "isOnline": false,
-      "statusCode": 0,
-      "responseTimeMs": 0,
-      "errorMessage": "Could not resolve stream host: getaddrinfo ENOTFOUND stream.radiomaria.rw"
-    },
-    {
-      "id": "hc_1788476329721_hq9a",
-      "stationId": "stn_wig_radio_ng",
-      "checkedAt": "2026-09-03T22:58:49.721Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 261,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476330022_60ju",
-      "stationId": "stn_ccfm_sa",
-      "checkedAt": "2026-09-03T22:58:50.022Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 259,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476330349_vc6r",
-      "stationId": "stn_sunny_fm_gh",
-      "checkedAt": "2026-09-03T22:58:50.349Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 296,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476330647_zvl1",
-      "stationId": "stn_ucb1_uk",
-      "checkedAt": "2026-09-03T22:58:50.647Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 260,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476623640_qq7a",
-      "stationId": "stn_radio_maria_tz",
-      "checkedAt": "2026-09-03T23:03:43.640Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 576,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476624553_uqam",
-      "stationId": "stn_upendo_fm",
-      "checkedAt": "2026-09-03T23:03:44.553Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 878,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476624890_quyz",
-      "stationId": "stn_wapo_radio",
-      "checkedAt": "2026-09-03T23:03:44.890Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 299,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476625218_na1u",
-      "stationId": "stn_safina_fm",
-      "checkedAt": "2026-09-03T23:03:45.218Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 295,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476625543_215c",
-      "stationId": "stn_praise_fm_mbeya",
-      "checkedAt": "2026-09-03T23:03:45.543Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 293,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476626629_k2rn",
-      "stationId": "stn_hope_fm_kenya",
-      "checkedAt": "2026-09-03T23:03:46.629Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 1044,
-      "errorMessage": "HTTP 404",
-      "contentType": "text/html"
-    },
-    {
-      "id": "hc_1788476628085_zz0e",
-      "stationId": "stn_premier_christian_uk",
-      "checkedAt": "2026-09-03T23:03:48.085Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 1425,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476628762_rm8r",
-      "stationId": "stn_moody_radio_us",
-      "checkedAt": "2026-09-03T23:03:48.762Z",
-      "isOnline": false,
-      "statusCode": 0,
-      "responseTimeMs": 0,
-      "errorMessage": "Could not resolve stream host: getaddrinfo ENOTFOUND primary.moodyradio.org"
-    },
-    {
-      "id": "hc_1788476629431_d9eq",
-      "stationId": "stn_klove_us",
-      "checkedAt": "2026-09-03T23:03:49.431Z",
-      "isOnline": true,
-      "statusCode": 301,
-      "responseTimeMs": 633,
-      "contentType": "text/html"
-    },
-    {
-      "id": "hc_1788476629786_wvnc",
-      "stationId": "stn_cbn_praise",
-      "checkedAt": "2026-09-03T23:03:49.786Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 299,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476630111_tzmw",
-      "stationId": "stn_habari_maalum",
-      "checkedAt": "2026-09-03T23:03:50.111Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 285,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476630456_pfdq",
-      "stationId": "stn_power_fm_ug",
-      "checkedAt": "2026-09-03T23:03:50.456Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 295,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476630596_9djc",
-      "stationId": "stn_maria_rwanda",
-      "checkedAt": "2026-09-03T23:03:50.596Z",
-      "isOnline": false,
-      "statusCode": 0,
-      "responseTimeMs": 0,
-      "errorMessage": "Could not resolve stream host: getaddrinfo ENOTFOUND stream.radiomaria.rw"
-    },
-    {
-      "id": "hc_1788476630920_82cd",
-      "stationId": "stn_wig_radio_ng",
-      "checkedAt": "2026-09-03T23:03:50.920Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 295,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476631251_lsgk",
-      "stationId": "stn_ccfm_sa",
-      "checkedAt": "2026-09-03T23:03:51.251Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 290,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476631575_zwt9",
-      "stationId": "stn_sunny_fm_gh",
-      "checkedAt": "2026-09-03T23:03:51.575Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 285,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476631910_lt4d",
-      "stationId": "stn_ucb1_uk",
-      "checkedAt": "2026-09-03T23:03:51.910Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 289,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476923987_dgba",
-      "stationId": "stn_radio_maria_tz",
-      "checkedAt": "2026-09-03T23:08:43.987Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 857,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476924875_ggpf",
-      "stationId": "stn_upendo_fm",
-      "checkedAt": "2026-09-03T23:08:44.875Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 850,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476925188_tgfb",
-      "stationId": "stn_wapo_radio",
-      "checkedAt": "2026-09-03T23:08:45.188Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 275,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476925505_4ywn",
-      "stationId": "stn_safina_fm",
-      "checkedAt": "2026-09-03T23:08:45.505Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 274,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476925824_cf9t",
-      "stationId": "stn_praise_fm_mbeya",
-      "checkedAt": "2026-09-03T23:08:45.824Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 274,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476926825_cmo0",
-      "stationId": "stn_hope_fm_kenya",
-      "checkedAt": "2026-09-03T23:08:46.825Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 967,
-      "errorMessage": "HTTP 404",
-      "contentType": "text/html"
-    },
-    {
-      "id": "hc_1788476927401_8ixj",
-      "stationId": "stn_premier_christian_uk",
-      "checkedAt": "2026-09-03T23:08:47.401Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 538,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476927506_ka8i",
-      "stationId": "stn_moody_radio_us",
-      "checkedAt": "2026-09-03T23:08:47.506Z",
-      "isOnline": false,
-      "statusCode": 0,
-      "responseTimeMs": 0,
-      "errorMessage": "Could not resolve stream host: getaddrinfo ENOTFOUND primary.moodyradio.org"
-    },
-    {
-      "id": "hc_1788476928497_uldd",
-      "stationId": "stn_klove_us",
-      "checkedAt": "2026-09-03T23:08:48.497Z",
-      "isOnline": true,
-      "statusCode": 301,
-      "responseTimeMs": 932,
-      "contentType": "text/html"
-    },
-    {
-      "id": "hc_1788476928802_lew0",
-      "stationId": "stn_cbn_praise",
-      "checkedAt": "2026-09-03T23:08:48.802Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 267,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476929112_o1d3",
-      "stationId": "stn_habari_maalum",
-      "checkedAt": "2026-09-03T23:08:49.112Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 263,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476929404_8a5f",
-      "stationId": "stn_power_fm_ug",
-      "checkedAt": "2026-09-03T23:08:49.404Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 260,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476929525_sdrk",
-      "stationId": "stn_maria_rwanda",
-      "checkedAt": "2026-09-03T23:08:49.525Z",
-      "isOnline": false,
-      "statusCode": 0,
-      "responseTimeMs": 0,
-      "errorMessage": "Could not resolve stream host: getaddrinfo ENOTFOUND stream.radiomaria.rw"
-    },
-    {
-      "id": "hc_1788476929847_rxkd",
-      "stationId": "stn_wig_radio_ng",
-      "checkedAt": "2026-09-03T23:08:49.847Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 267,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
-    {
-      "id": "hc_1788476930153_7jva",
-      "stationId": "stn_ccfm_sa",
-      "checkedAt": "2026-09-03T23:08:50.153Z",
-      "isOnline": false,
-      "statusCode": 404,
-      "responseTimeMs": 264,
-      "errorMessage": "HTTP 404",
-      "contentType": ""
-    },
     {
       "id": "hc_1788476930503_jtng",
       "stationId": "stn_sunny_fm_gh",
@@ -82307,6 +81816,457 @@
       "isOnline": true,
       "statusCode": 200,
       "responseTimeMs": 1431,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510579314_4wi6",
+      "stationId": "stn_real_0432abeb_301",
+      "checkedAt": "2026-09-04T08:29:39.314Z",
+      "isOnline": true,
+      "statusCode": 302,
+      "responseTimeMs": 604,
+      "contentType": ""
+    },
+    {
+      "id": "hc_1788510579378_4zbp",
+      "stationId": "stn_real_1e6b2eb0_343",
+      "checkedAt": "2026-09-04T08:29:39.378Z",
+      "isOnline": false,
+      "statusCode": 0,
+      "responseTimeMs": 1792,
+      "errorMessage": "Parse Error: Data after `Connection: close`"
+    },
+    {
+      "id": "hc_1788510579831_h5e2",
+      "stationId": "stn_real_52c93ff4_155",
+      "checkedAt": "2026-09-04T08:29:39.831Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 1625,
+      "contentType": "application/ogg"
+    },
+    {
+      "id": "hc_1788510580192_470k",
+      "stationId": "stn_real_0da60682_302",
+      "checkedAt": "2026-09-04T08:29:40.192Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 626,
+      "contentType": "audio/aacp"
+    },
+    {
+      "id": "hc_1788510581191_olr7",
+      "stationId": "stn_real_2d632e1b_344",
+      "checkedAt": "2026-09-04T08:29:41.191Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 1627,
+      "contentType": "audio/aacp"
+    },
+    {
+      "id": "hc_1788510581274_1zji",
+      "stationId": "stn_real_0b880733_520",
+      "checkedAt": "2026-09-04T08:29:41.274Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 2430,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510582009_xwhk",
+      "stationId": "stn_real_1e01c7d1_156",
+      "checkedAt": "2026-09-04T08:29:42.010Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 1941,
+      "contentType": "audio/aac"
+    },
+    {
+      "id": "hc_1788510583004_sdny",
+      "stationId": "stn_real_e0b4dd14_345",
+      "checkedAt": "2026-09-04T08:29:43.004Z",
+      "isOnline": true,
+      "statusCode": 206,
+      "responseTimeMs": 1617,
+      "contentType": "application/vnd.apple.mpegurl"
+    },
+    {
+      "id": "hc_1788510583688_4xqg",
+      "stationId": "stn_real_5839c451_303",
+      "checkedAt": "2026-09-04T08:29:43.688Z",
+      "isOnline": false,
+      "statusCode": 404,
+      "responseTimeMs": 3236,
+      "errorMessage": "HTTP 404",
+      "contentType": "text/html"
+    },
+    {
+      "id": "hc_1788510583737_2o6b",
+      "stationId": "stn_real_43e96a00_157",
+      "checkedAt": "2026-09-04T08:29:43.737Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 1542,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510584628_r3z7",
+      "stationId": "stn_real_9d10a619_521",
+      "checkedAt": "2026-09-04T08:29:44.628Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 3108,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510585560_cfis",
+      "stationId": "stn_real_1a198419_304",
+      "checkedAt": "2026-09-04T08:29:45.560Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 1756,
+      "contentType": "audio/aacp"
+    },
+    {
+      "id": "hc_1788510586106_n4cn",
+      "stationId": "stn_real_cc052216_522",
+      "checkedAt": "2026-09-04T08:29:46.106Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 777,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510586387_1vd1",
+      "stationId": "stn_real_e7a545b4_158",
+      "checkedAt": "2026-09-04T08:29:46.387Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 2512,
+      "contentType": "audio/aac"
+    },
+    {
+      "id": "hc_1788510586615_wxt2",
+      "stationId": "stn_real_13a54b68_305",
+      "checkedAt": "2026-09-04T08:29:46.615Z",
+      "isOnline": false,
+      "statusCode": 0,
+      "responseTimeMs": 897,
+      "errorMessage": "Hostname/IP does not match certificate's altnames: IP: 165.22.217.209 is not in the cert's list: "
+    },
+    {
+      "id": "hc_1788510587085_78y1",
+      "stationId": "stn_real_aeee1931_346",
+      "checkedAt": "2026-09-04T08:29:47.085Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 3296,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510587231_ytdv",
+      "stationId": "stn_real_21789bc7_523",
+      "checkedAt": "2026-09-04T08:29:47.231Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 759,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510587637_v5mp",
+      "stationId": "stn_real_7b8956ce_159",
+      "checkedAt": "2026-09-04T08:29:47.637Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 913,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510587847_ksq5",
+      "stationId": "stn_real_94f00da6_347",
+      "checkedAt": "2026-09-04T08:29:47.847Z",
+      "isOnline": false,
+      "statusCode": 0,
+      "responseTimeMs": 514,
+      "errorMessage": "Parse Error: Missing expected CR after response line"
+    },
+    {
+      "id": "hc_1788510588600_k3f2",
+      "stationId": "stn_real_0678a6c8_524",
+      "checkedAt": "2026-09-04T08:29:48.600Z",
+      "isOnline": false,
+      "statusCode": 0,
+      "responseTimeMs": 1239,
+      "errorMessage": "Parse Error: Data after `Connection: close`"
+    },
+    {
+      "id": "hc_1788510588768_z1kk",
+      "stationId": "stn_real_1de75d39_160",
+      "checkedAt": "2026-09-04T08:29:48.768Z",
+      "isOnline": true,
+      "statusCode": 302,
+      "responseTimeMs": 760,
+      "contentType": ""
+    },
+    {
+      "id": "hc_1788510589344_a7tb",
+      "stationId": "stn_real_2fad40a8_306",
+      "checkedAt": "2026-09-04T08:29:49.344Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 1960,
+      "contentType": "audio/aac"
+    },
+    {
+      "id": "hc_1788510589958_59bi",
+      "stationId": "stn_real_c036a7b1_348",
+      "checkedAt": "2026-09-04T08:29:49.958Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 1747,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510590067_qddg",
+      "stationId": "stn_real_83c69fb8_525",
+      "checkedAt": "2026-09-04T08:29:50.067Z",
+      "isOnline": true,
+      "statusCode": 302,
+      "responseTimeMs": 1157,
+      "contentType": ""
+    },
+    {
+      "id": "hc_1788510590755_g9op",
+      "stationId": "stn_real_9610dec4_349",
+      "checkedAt": "2026-09-04T08:29:50.755Z",
+      "isOnline": false,
+      "statusCode": 0,
+      "responseTimeMs": 568,
+      "errorMessage": "Parse Error: Expected HTTP/, RTSP/ or ICE/"
+    },
+    {
+      "id": "hc_1788510591294_es36",
+      "stationId": "stn_real_2f90ca1e_526",
+      "checkedAt": "2026-09-04T08:29:51.294Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 1105,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510591544_xam4",
+      "stationId": "stn_real_e6c5d27f_307",
+      "checkedAt": "2026-09-04T08:29:51.544Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 1981,
+      "contentType": "audio/aac"
+    },
+    {
+      "id": "hc_1788510593178_k6fc",
+      "stationId": "stn_real_4681c44a_350",
+      "checkedAt": "2026-09-04T08:29:53.178Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 2169,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510593416_f3qg",
+      "stationId": "stn_real_54c17fec_161",
+      "checkedAt": "2026-09-04T08:29:53.416Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 4505,
+      "contentType": "audio/aacp"
+    },
+    {
+      "id": "hc_1788510594303_u5mt",
+      "stationId": "stn_real_5e494c2a_308",
+      "checkedAt": "2026-09-04T08:29:54.303Z",
+      "isOnline": true,
+      "statusCode": 206,
+      "responseTimeMs": 460,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510594581_1z67",
+      "stationId": "stn_real_1eb36e56_527",
+      "checkedAt": "2026-09-04T08:29:54.581Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 1610,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510594886_5b58",
+      "stationId": "stn_real_ddb3105b_0",
+      "checkedAt": "2026-09-04T08:29:54.886Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 3779,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510595281_ksyb",
+      "stationId": "stn_real_14d870f9_309",
+      "checkedAt": "2026-09-04T08:29:55.281Z",
+      "isOnline": true,
+      "statusCode": 302,
+      "responseTimeMs": 618,
+      "contentType": ""
+    },
+    {
+      "id": "hc_1788510595344_t4lo",
+      "stationId": "stn_real_3a690c26_162",
+      "checkedAt": "2026-09-04T08:29:55.344Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 1350,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510595454_nas3",
+      "stationId": "stn_real_728b659f_1",
+      "checkedAt": "2026-09-04T08:29:55.454Z",
+      "isOnline": true,
+      "statusCode": 302,
+      "responseTimeMs": 369,
+      "contentType": ""
+    },
+    {
+      "id": "hc_1788510595730_6ov1",
+      "stationId": "stn_real_f8d499d5_310",
+      "checkedAt": "2026-09-04T08:29:55.730Z",
+      "isOnline": true,
+      "statusCode": 302,
+      "responseTimeMs": 294,
+      "contentType": ""
+    },
+    {
+      "id": "hc_1788510595854_cvmd",
+      "stationId": "stn_real_c1ab64d9_528",
+      "checkedAt": "2026-09-04T08:29:55.854Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 1076,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510596339_aroi",
+      "stationId": "stn_real_1bba5d65_163",
+      "checkedAt": "2026-09-04T08:29:56.339Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 829,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510596756_43ro",
+      "stationId": "stn_real_127119b1_2",
+      "checkedAt": "2026-09-04T08:29:56.756Z",
+      "isOnline": true,
+      "statusCode": 206,
+      "responseTimeMs": 1107,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510596878_09o8",
+      "stationId": "stn_real_30dbddcf_351",
+      "checkedAt": "2026-09-04T08:29:56.878Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 2969,
+      "contentType": "audio/aac"
+    },
+    {
+      "id": "hc_1788510596960_vhi0",
+      "stationId": "stn_real_6ef93fac_311",
+      "checkedAt": "2026-09-04T08:29:56.960Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 794,
+      "contentType": "audio/aacp"
+    },
+    {
+      "id": "hc_1788510597210_gn8m",
+      "stationId": "stn_real_3bccb052_529",
+      "checkedAt": "2026-09-04T08:29:57.210Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 1242,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510597553_7z03",
+      "stationId": "stn_real_45f75db2_352",
+      "checkedAt": "2026-09-04T08:29:57.553Z",
+      "isOnline": false,
+      "statusCode": 0,
+      "responseTimeMs": 505,
+      "errorMessage": "Parse Error: Missing expected CR after response line"
+    },
+    {
+      "id": "hc_1788510597793_9ngd",
+      "stationId": "stn_real_4f15412e_312",
+      "checkedAt": "2026-09-04T08:29:57.793Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 672,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510598531_3eax",
+      "stationId": "stn_real_c82c3825_164",
+      "checkedAt": "2026-09-04T08:29:58.531Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 2031,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510598611_u4z7",
+      "stationId": "stn_real_60607676_3",
+      "checkedAt": "2026-09-04T08:29:58.611Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 1561,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510598859_2y5g",
+      "stationId": "stn_real_addbdf7f_530",
+      "checkedAt": "2026-09-04T08:29:58.859Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 1448,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510599082_244n",
+      "stationId": "stn_real_617453f1_313",
+      "checkedAt": "2026-09-04T08:29:59.082Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 1173,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510599447_z8ne",
+      "stationId": "stn_real_a3d27b87_353",
+      "checkedAt": "2026-09-04T08:29:59.447Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 1539,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "id": "hc_1788510600077_2ubp",
+      "stationId": "stn_real_90de4424_354",
+      "checkedAt": "2026-09-04T08:30:00.077Z",
+      "isOnline": true,
+      "statusCode": 200,
+      "responseTimeMs": 436,
       "contentType": "audio/mpeg"
     }
   ],
