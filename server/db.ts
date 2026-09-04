@@ -113,7 +113,106 @@ class DatabaseEngine {
       kycDocuments: [],
       stationApplications: [],
       categories: [],
-      countries: [],
+      countries: [
+        {
+                "code": "TZ",
+                "name": "Tanzania",
+                "flagEmoji": "🇹🇿",
+                "continent": "Africa",
+                "isFeatured": true
+        },
+        {
+                "code": "KE",
+                "name": "Kenya",
+                "flagEmoji": "🇰🇪",
+                "continent": "Africa",
+                "isFeatured": true
+        },
+        {
+                "code": "UG",
+                "name": "Uganda",
+                "flagEmoji": "🇺🇬",
+                "continent": "Africa",
+                "isFeatured": true
+        },
+        {
+                "code": "US",
+                "name": "United States",
+                "flagEmoji": "🇺🇸",
+                "continent": "North America",
+                "isFeatured": true
+        },
+        {
+                "code": "GB",
+                "name": "United Kingdom",
+                "flagEmoji": "🇬🇧",
+                "continent": "Europe",
+                "isFeatured": true
+        },
+        {
+                "code": "NG",
+                "name": "Nigeria",
+                "flagEmoji": "🇳🇬",
+                "continent": "Africa",
+                "isFeatured": true
+        },
+        {
+                "code": "ZA",
+                "name": "South Africa",
+                "flagEmoji": "🇿🇦",
+                "continent": "Africa",
+                "isFeatured": true
+        },
+        {
+                "code": "GH",
+                "name": "Ghana",
+                "flagEmoji": "🇬🇭",
+                "continent": "Africa",
+                "isFeatured": true
+        },
+        {
+                "code": "RW",
+                "name": "Rwanda",
+                "flagEmoji": "🇷🇼",
+                "continent": "Africa",
+                "isFeatured": true
+        },
+        {
+                "code": "ZM",
+                "name": "Zambia",
+                "flagEmoji": "🇿🇲",
+                "continent": "Africa",
+                "isFeatured": false
+        },
+        {
+                "code": "MW",
+                "name": "Malawi",
+                "flagEmoji": "🇲🇼",
+                "continent": "Africa",
+                "isFeatured": false
+        },
+        {
+                "code": "BR",
+                "name": "Brazil",
+                "flagEmoji": "🇧🇷",
+                "continent": "South America",
+                "isFeatured": false
+        },
+        {
+                "code": "CA",
+                "name": "Canada",
+                "flagEmoji": "🇨🇦",
+                "continent": "North America",
+                "isFeatured": false
+        },
+        {
+                "code": "AU",
+                "name": "Australia",
+                "flagEmoji": "🇦🇺",
+                "continent": "Oceania",
+                "isFeatured": false
+        }
+],
       stations: [],
       imports: [],
       stationClaims: [],
@@ -249,7 +348,106 @@ class DatabaseEngine {
         };
 
         if (!Array.isArray(this.data.countries) || this.data.countries.length < 100) {
-          this.data.countries = defaults.countries;
+          this.data.countries = [
+          {
+                    "code": "TZ",
+                    "name": "Tanzania",
+                    "flagEmoji": "🇹🇿",
+                    "continent": "Africa",
+                    "isFeatured": true
+          },
+          {
+                    "code": "KE",
+                    "name": "Kenya",
+                    "flagEmoji": "🇰🇪",
+                    "continent": "Africa",
+                    "isFeatured": true
+          },
+          {
+                    "code": "UG",
+                    "name": "Uganda",
+                    "flagEmoji": "🇺🇬",
+                    "continent": "Africa",
+                    "isFeatured": true
+          },
+          {
+                    "code": "US",
+                    "name": "United States",
+                    "flagEmoji": "🇺🇸",
+                    "continent": "North America",
+                    "isFeatured": true
+          },
+          {
+                    "code": "GB",
+                    "name": "United Kingdom",
+                    "flagEmoji": "🇬🇧",
+                    "continent": "Europe",
+                    "isFeatured": true
+          },
+          {
+                    "code": "NG",
+                    "name": "Nigeria",
+                    "flagEmoji": "🇳🇬",
+                    "continent": "Africa",
+                    "isFeatured": true
+          },
+          {
+                    "code": "ZA",
+                    "name": "South Africa",
+                    "flagEmoji": "🇿🇦",
+                    "continent": "Africa",
+                    "isFeatured": true
+          },
+          {
+                    "code": "GH",
+                    "name": "Ghana",
+                    "flagEmoji": "🇬🇭",
+                    "continent": "Africa",
+                    "isFeatured": true
+          },
+          {
+                    "code": "RW",
+                    "name": "Rwanda",
+                    "flagEmoji": "🇷🇼",
+                    "continent": "Africa",
+                    "isFeatured": true
+          },
+          {
+                    "code": "ZM",
+                    "name": "Zambia",
+                    "flagEmoji": "🇿🇲",
+                    "continent": "Africa",
+                    "isFeatured": false
+          },
+          {
+                    "code": "MW",
+                    "name": "Malawi",
+                    "flagEmoji": "🇲🇼",
+                    "continent": "Africa",
+                    "isFeatured": false
+          },
+          {
+                    "code": "BR",
+                    "name": "Brazil",
+                    "flagEmoji": "🇧🇷",
+                    "continent": "South America",
+                    "isFeatured": false
+          },
+          {
+                    "code": "CA",
+                    "name": "Canada",
+                    "flagEmoji": "🇨🇦",
+                    "continent": "North America",
+                    "isFeatured": false
+          },
+          {
+                    "code": "AU",
+                    "name": "Australia",
+                    "flagEmoji": "🇦🇺",
+                    "continent": "Oceania",
+                    "isFeatured": false
+          }
+];
         }
 
         const realJsonPath = path.resolve(process.cwd(), 'data/real_stations.json');
