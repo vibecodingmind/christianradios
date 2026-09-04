@@ -15,25 +15,66 @@ import { aiRouter } from './server/routes/ai.js';
 import { kycRouter } from './server/routes/kyc.js';
 import { adminVerificationRouter } from './server/routes/adminVerification.js';
 
+import { authRateLimiter, sensitiveActionRateLimiter, apiRateLimiter } from './server/rateLimiter.js';
+
 async function bootstrap() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   // 1. Initial Database Seed & Worker initialization
   runSeed();
   startStreamMonitorWorker();
 
-  // 2. Middlewares
+  // 2. Production Security Headers & CORS Middleware
+  app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+
+    if (process.env.NODE_ENV === 'production') {
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+
+    const origin = req.headers.origin;
+    const allowedOrigins = [process.env.APP_URL, 'http://localhost:3000', 'http://localhost:5173'].filter(Boolean);
+
+    if (origin && (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production')) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    }
+
+    if (req.method === 'OPTIONS') {
+      res.sendStatus(204);
+      return;
+    }
+
+    next();
+  });
+
+  // 3. Request Parsing & Session Extraction
   app.use(express.json({ limit: '15mb' }));
   app.use(express.urlencoded({ extended: true, limit: '15mb' }));
   app.use(cookieParser());
   app.use(extractUserFromCookie);
 
-  // 3. API Routes
+  // 4. Rate Limiting Middlewares
+  app.use('/api/', apiRateLimiter);
+  app.use('/api/auth/login', authRateLimiter);
+  app.use('/api/auth/register', authRateLimiter);
+  app.use('/api/auth/forgot-password', authRateLimiter);
+  app.use('/api/auth/reset-password', authRateLimiter);
+  app.use('/api/payments/create-checkout', sensitiveActionRateLimiter);
+
+  // 5. API Routes
   app.get('/api/health', (req, res) => {
     res.json({
       status: 'ok',
       service: 'Christian Radios API Engine',
+      environment: process.env.NODE_ENV || 'development',
       timestamp: new Date().toISOString(),
     });
   });
@@ -53,7 +94,17 @@ async function bootstrap() {
     res.status(404).json({ error: `Endpoint ${req.method} ${req.path} not found` });
   });
 
-  // 4. Vite Middleware (Dev) or Static Assets (Prod)
+  // Global Express Error Sanitization Handler
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error('[Unhandled API Error]:', err);
+    res.status(err.status || 500).json({
+      error: process.env.NODE_ENV === 'production'
+        ? 'An internal server error occurred.'
+        : err.message || 'Internal Server Error',
+    });
+  });
+
+  // 6. Vite Middleware (Dev) or Static Assets (Prod)
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -68,7 +119,7 @@ async function bootstrap() {
     });
   }
 
-  // 5. Start Server
+  // 7. Start Server
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Christian Radios] Server active at http://0.0.0.0:${PORT}`);
   });

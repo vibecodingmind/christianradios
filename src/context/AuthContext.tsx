@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { User, OwnerProfile, Subscription, SubscriptionPlan, Role } from '../types';
-import { apiFetch, getAuthToken, setAuthToken, removeAuthToken } from '../lib/api';
+import { apiFetch } from '../lib/api';
 
 interface AuthContextType {
   user: User | null;
@@ -65,17 +65,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
       }
-      if (!getAuthToken()) {
-        setUser(null);
-        setOwnerProfile(undefined);
-        setSubscription(undefined);
-        setPlan(undefined);
-      }
+      setUser(null);
+      setOwnerProfile(undefined);
+      setSubscription(undefined);
+      setPlan(undefined);
     } catch (err) {
       console.error('refreshUser error:', err);
-      if (!getAuthToken()) {
-        setUser(null);
-      }
+      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -97,9 +93,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: data.error || 'Login failed' };
       }
 
-      if (data.token) {
-        setAuthToken(data.token);
-      }
       setUser(data.user);
       if (data.ownerProfile) {
         setOwnerProfile(data.ownerProfile);
@@ -131,9 +124,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: data.error || 'Registration failed' };
       }
 
-      if (data.token) {
-        setAuthToken(data.token);
-      }
       setUser(data.user);
       if (data.ownerProfile) {
         setOwnerProfile(data.ownerProfile);
@@ -151,7 +141,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.warn('Logout request failed:', err);
     } finally {
-      removeAuthToken();
       setUser(null);
       setOwnerProfile(undefined);
       setSubscription(undefined);
@@ -215,9 +204,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: data.error || 'Google login failed' };
       }
 
-      if (data.token) {
-        setAuthToken(data.token);
-      }
       setUser(data.user);
       if (data.ownerProfile) {
         setOwnerProfile(data.ownerProfile);

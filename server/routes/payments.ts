@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../auth.js';
 import { db } from '../db.js';
-import { createPesaPalOrder, finalizePaymentTransaction } from '../pesapal.js';
+import { createPesaPalOrder, finalizePaymentTransaction, queryPesaPalTransactionStatus } from '../pesapal.js';
 import type { PaymentMethod } from '../types.js';
 
 export const paymentsRouter = Router();
@@ -72,25 +72,50 @@ paymentsRouter.post('/create-checkout', requireAuth, async (req: AuthenticatedRe
 // 2. PesaPal IPN Webhook Receiver (Server-to-Server)
 paymentsRouter.post('/pesapal/ipn-webhook', async (req, res) => {
   const { OrderTrackingId, OrderNotificationType, OrderMerchantReference } = req.body;
-  console.log(`[PesaPal IPN] Received notification for Tracking ID: ${OrderTrackingId}, Ref: ${OrderMerchantReference}`);
+  console.log(`[PesaPal IPN] Notification received: ${OrderTrackingId}, Ref: ${OrderMerchantReference}`);
 
   if (!OrderTrackingId) {
     res.status(400).json({ error: 'OrderTrackingId required' });
     return;
   }
 
-  // Idempotently finalize transaction
-  const result = await finalizePaymentTransaction(
-    OrderTrackingId,
-    'COMPLETED',
-    'MPESA'
-  );
+  // Query PesaPal API 3.0 server-to-server for verified transaction status
+  const verification = await queryPesaPalTransactionStatus(OrderTrackingId);
+
+  if (verification.status === 'COMPLETED') {
+    const result = await finalizePaymentTransaction(
+      OrderTrackingId,
+      'COMPLETED',
+      verification.paymentMethod || 'MPESA'
+    );
+    res.json({
+      orderNotificationType: OrderNotificationType || 'IPNCHANGE',
+      orderTrackingId: OrderTrackingId,
+      orderMerchantReference: OrderMerchantReference,
+      status: result.success ? '200' : '500',
+    });
+    return;
+  } else if (verification.status === 'FAILED') {
+    await finalizePaymentTransaction(
+      OrderTrackingId,
+      'FAILED',
+      verification.paymentMethod || 'MPESA',
+      verification.description
+    );
+    res.json({
+      orderNotificationType: OrderNotificationType || 'IPNCHANGE',
+      orderTrackingId: OrderTrackingId,
+      orderMerchantReference: OrderMerchantReference,
+      status: '200',
+    });
+    return;
+  }
 
   res.json({
     orderNotificationType: OrderNotificationType || 'IPNCHANGE',
     orderTrackingId: OrderTrackingId,
     orderMerchantReference: OrderMerchantReference,
-    status: result.success ? '200' : '500',
+    status: '200',
   });
 });
 
@@ -108,9 +133,14 @@ paymentsRouter.get('/pesapal/verify', async (req, res) => {
     return;
   }
 
-  // Finalize as completed if still pending
+  // Query PesaPal API if pending
   if (payment.status === 'PENDING') {
-    await finalizePaymentTransaction(trackingId, 'COMPLETED', payment.paymentMethod || 'MPESA');
+    const verification = await queryPesaPalTransactionStatus(trackingId);
+    if (verification.status === 'COMPLETED') {
+      await finalizePaymentTransaction(trackingId, 'COMPLETED', verification.paymentMethod || payment.paymentMethod || 'MPESA');
+    } else if (verification.status === 'FAILED') {
+      await finalizePaymentTransaction(trackingId, 'FAILED', verification.paymentMethod || payment.paymentMethod || 'MPESA', verification.description);
+    }
   }
 
   const updatedPayment = db.payments.findByTrackingId(trackingId);

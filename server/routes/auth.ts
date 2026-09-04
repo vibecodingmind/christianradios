@@ -6,6 +6,9 @@ import {
   signSessionToken,
   requireAuth,
   sanitizeUser,
+  createPasswordResetToken,
+  verifyPasswordResetToken,
+  consumePasswordResetToken,
   type AuthenticatedRequest,
 } from '../auth.js';
 import { db } from '../db.js';
@@ -323,12 +326,75 @@ authRouter.post('/change-password', requireAuth, (req: AuthenticatedRequest, res
 
 authRouter.post('/forgot-password', (req, res) => {
   const { email } = req.body;
-  // Always return success message for security to prevent user enumeration
+  if (email && typeof email === 'string') {
+    const user = db.users.findByEmail(email.toLowerCase().trim());
+    if (user && user.status !== 'SUSPENDED') {
+      const resetToken = createPasswordResetToken(user.email);
+      db.auditLogs.log({
+        actorId: user.id,
+        actorEmail: user.email,
+        actorRole: user.role,
+        action: 'PASSWORD_RESET_REQUESTED',
+        entityType: 'User',
+        entityId: user.id,
+        details: `Password reset token generated (valid for 15m). Token: ${resetToken}`,
+        ipAddress: req.ip || '127.0.0.1',
+      });
+    }
+  }
+
+  // Always return consistent success message for security to prevent user enumeration
   res.json({
     success: true,
     message: 'If an account exists with this email, password reset instructions have been sent.',
   });
 });
+
+authRouter.post('/reset-password', (req, res) => {
+  const { token, newPassword } = req.body;
+
+  if (!token || typeof token !== 'string' || !newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+    res.status(400).json({ error: 'Valid token and new password (minimum 8 characters) are required.' });
+    return;
+  }
+
+  const email = verifyPasswordResetToken(token);
+  if (!email) {
+    res.status(400).json({ error: 'Invalid or expired password reset token.' });
+    return;
+  }
+
+  const user = db.users.findByEmail(email);
+  if (!user || user.status === 'SUSPENDED') {
+    res.status(400).json({ error: 'Account not eligible for password reset.' });
+    return;
+  }
+
+  // Consume token so it cannot be reused
+  consumePasswordResetToken(token);
+
+  // Update user password
+  db.users.update(user.id, {
+    passwordHash: hashPassword(newPassword),
+  });
+
+  db.auditLogs.log({
+    actorId: user.id,
+    actorEmail: user.email,
+    actorRole: user.role,
+    action: 'PASSWORD_RESET_COMPLETED',
+    entityType: 'User',
+    entityId: user.id,
+    details: 'Password reset completed via token authorization.',
+    ipAddress: req.ip || '127.0.0.1',
+  });
+
+  res.json({
+    success: true,
+    message: 'Password reset successfully. You can now log in with your new password.',
+  });
+});
+
 
 // Google Social OAuth Authentication Endpoint
 authRouter.get('/google-config', (req, res) => {

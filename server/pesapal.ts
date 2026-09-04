@@ -52,6 +52,87 @@ export async function getPesaPalAuthToken(): Promise<string> {
   }
 }
 
+export async function queryPesaPalTransactionStatus(orderTrackingId: string): Promise<{
+  verified: boolean;
+  status: PaymentStatus;
+  paymentMethod?: PaymentMethod;
+  description?: string;
+}> {
+  const hasRealKeys =
+    PESAPAL_CONSUMER_KEY &&
+    PESAPAL_CONSUMER_KEY !== 'pesapal_live_or_sandbox_consumer_key';
+
+  if (!hasRealKeys) {
+    // Development / Sandbox mode without keys configured
+    return {
+      verified: true,
+      status: 'COMPLETED',
+      paymentMethod: 'MPESA',
+      description: 'Dev sandbox verified status',
+    };
+  }
+
+  try {
+    const token = await getPesaPalAuthToken();
+    const url = `${BASE_URL}/api/Transactions/GetTransactionStatus?orderTrackingId=${encodeURIComponent(orderTrackingId)}`;
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!res.ok) {
+      console.warn(`[PesaPal API Error] GetTransactionStatus returned HTTP ${res.status}`);
+      return { verified: false, status: 'PENDING' };
+    }
+
+    const data = (await res.json()) as {
+      payment_status_description?: string;
+      status_code?: number;
+      payment_method?: string;
+    };
+
+    const statusDesc = (data.payment_status_description || '').toLowerCase();
+
+    if (statusDesc === 'completed' || data.status_code === 1) {
+      let method: PaymentMethod = 'MPESA';
+      const pm = (data.payment_method || '').toUpperCase();
+      if (pm.includes('CARD') || pm.includes('VISA') || pm.includes('MASTERCARD')) {
+        method = 'CARD';
+      } else if (pm.includes('TIGO')) {
+        method = 'TIGOPESA';
+      } else if (pm.includes('AIRTEL')) {
+        method = 'AIRTELMONEY';
+      }
+
+      return {
+        verified: true,
+        status: 'COMPLETED',
+        paymentMethod: method,
+        description: data.payment_status_description,
+      };
+    } else if (statusDesc === 'failed' || statusDesc === 'invalid' || data.status_code === 2) {
+      return {
+        verified: false,
+        status: 'FAILED',
+        description: data.payment_status_description,
+      };
+    }
+
+    return {
+      verified: false,
+      status: 'PENDING',
+      description: data.payment_status_description || 'Pending confirmation',
+    };
+  } catch (err) {
+    console.error('Error querying PesaPal transaction status:', err);
+    return { verified: false, status: 'PENDING' };
+  }
+}
+
+
 export interface CreateOrderParams {
   ownerId: string;
   userEmail: string;

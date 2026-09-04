@@ -114,7 +114,12 @@ ownerRouter.post('/extract-stream-link', async (req: AuthenticatedRequest, res) 
         },
       }, (fetchRes) => {
         if (fetchRes.statusCode && fetchRes.statusCode >= 300 && fetchRes.statusCode < 400 && fetchRes.headers.location) {
-          return resolve(fetchRes.headers.location);
+          try {
+            const resolvedRedirect = new URL(fetchRes.headers.location, targetUrl).toString();
+            return resolve(resolvedRedirect);
+          } catch {
+            return resolve(fetchRes.headers.location);
+          }
         }
         let body = '';
         fetchRes.setEncoding('utf-8');
@@ -140,10 +145,13 @@ ownerRouter.post('/extract-stream-link', async (req: AuthenticatedRequest, res) 
       if (check.isValid) {
         res.json({
           success: true,
-          extractedStreamUrl: htmlBody,
+          extractedStreamUrl: check.normalizedUrl || htmlBody,
           detectedType: check.detectedType || 'MP3',
-          candidateUrls: [htmlBody],
+          candidateUrls: [check.normalizedUrl || htmlBody],
         });
+        return;
+      } else {
+        res.status(400).json({ success: false, error: `Redirect target prohibited: ${check.error}` });
         return;
       }
     }
@@ -1420,48 +1428,8 @@ ownerRouter.get('/earnings', (req: AuthenticatedRequest, res) => {
   });
 });
 
-// 23. Owner Withdrawal Request
-ownerRouter.post('/withdrawals', (req: AuthenticatedRequest, res) => {
-  const ownerId = req.user!.id;
-  const { amount, paymentMethod = 'MOBILE_MONEY', accountDetails } = req.body;
+// 23. Owner Financial Summary & Ledger
 
-  const numAmount = parseInt(amount, 10);
-  const settings = db.settings.get();
-  const minAmount = settings.minWithdrawalAmount || 20000;
-
-  if (isNaN(numAmount) || numAmount < minAmount) {
-    res.status(400).json({ error: `Minimum withdrawal amount is TZS ${minAmount.toLocaleString()}` });
-    return;
-  }
-
-  const financial = db.getUserFinancialSummary(ownerId);
-  if (numAmount > financial.availableBalance) {
-    res.status(400).json({
-      error: `Insufficient available balance. Your current available balance is TZS ${financial.availableBalance.toLocaleString()}`,
-    });
-    return;
-  }
-
-  const request = db.withdrawalRequests.create({
-    id: `wth_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-    ownerId,
-    ownerName: req.user!.fullName || req.user!.email,
-    ownerEmail: req.user!.email,
-    amount: numAmount,
-    currency: 'TZS',
-    status: 'PENDING',
-    payoutMethod: paymentMethod,
-    accountDetails: accountDetails || 'Mobile Money Account',
-    requestedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  });
-
-  res.status(201).json({
-    success: true,
-    message: 'Payout withdrawal request submitted successfully.',
-    withdrawal: request,
-  });
-});
 
 // 24. Owner Referral Dashboard
 ownerRouter.get('/referrals', (req: AuthenticatedRequest, res) => {

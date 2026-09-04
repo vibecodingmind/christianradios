@@ -139,8 +139,51 @@ export function extractUserFromCookie(req: AuthenticatedRequest, res: Response, 
   next();
 }
 
+export interface ResetTokenEntry {
+  email: string;
+  tokenHash: string;
+  expiresAt: number;
+}
+
+const resetTokensStore = new Map<string, ResetTokenEntry>();
+
+export function createPasswordResetToken(email: string): string {
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes TTL
+
+  resetTokensStore.set(tokenHash, {
+    email: email.toLowerCase().trim(),
+    tokenHash,
+    expiresAt,
+  });
+
+  return rawToken;
+}
+
+export function verifyPasswordResetToken(rawToken: string): string | null {
+  if (!rawToken || typeof rawToken !== 'string') return null;
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const entry = resetTokensStore.get(tokenHash);
+
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    resetTokensStore.delete(tokenHash);
+    return null;
+  }
+
+  return entry.email;
+}
+
+export function consumePasswordResetToken(rawToken: string): boolean {
+  if (!rawToken || typeof rawToken !== 'string') return false;
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  return resetTokensStore.delete(tokenHash);
+}
+
 export function sanitizeUser(user: User): Omit<User, 'passwordHash'> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { passwordHash, ...sanitized } = user;
   return sanitized;
 }
+
