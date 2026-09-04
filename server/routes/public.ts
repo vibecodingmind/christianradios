@@ -208,6 +208,7 @@ publicRouter.get('/stations/:slug', (req, res) => {
 
 // 3. Categories
 publicRouter.get('/categories', (req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=600');
   const categories = db.categories.getAll().filter((c) => c.isActive);
   const activeStations = db.stations
     .getAll()
@@ -684,8 +685,11 @@ publicRouter.get('/stream-proxy', async (req, res) => {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
       'Accept': '*/*',
+      'Accept-Encoding': 'identity',
       'Icy-MetaData': '1',
+      ...(req.headers.range ? { 'Range': req.headers.range } : {}),
     },
+    timeout: 8000,
   };
 
   const proxyReq = client.get(streamUrl, reqOptions, (proxyRes) => {
@@ -700,6 +704,8 @@ publicRouter.get('/stream-proxy', async (req, res) => {
       'Access-Control-Allow-Origin': '*',
       'Cache-Control': 'no-cache, no-store, must-revalidate',
       'Connection': 'keep-alive',
+      'Transfer-Encoding': 'chunked',
+      'X-Content-Type-Options': 'nosniff',
     });
 
     proxyRes.pipe(res);
