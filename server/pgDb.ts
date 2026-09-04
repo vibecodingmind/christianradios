@@ -164,57 +164,55 @@ export class PgDatabaseSync {
         if (Array.isArray(data.stations) && data.stations.length > 0) {
           console.log(`[PostgreSQL] Syncing ${data.stations.length} stations to PostgreSQL...`);
           for (const s of data.stations) {
-            await client.query(
-              `INSERT INTO stations (
-                id, owner_id, name, slug, tagline, description, logo_url, cover_url,
-                country_code, region, city, language, genre, category_id, denomination,
-                website_url, email, phone, stream_url, backup_stream_url, stream_type,
-                bitrate_kbps, timezone, status, verification_status, claim_status,
-                is_featured, stream_status, play_count, favorite_count, created_at, updated_at
-              ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32
-              ) ON CONFLICT (id) DO UPDATE SET
-                name = $3, slug = $4, tagline = $5, description = $6, logo_url = $7, cover_url = $8,
-                country_code = $9, region = $10, city = $11, language = $12, genre = $13, category_id = $14,
-                denomination = $15, website_url = $16, email = $17, phone = $18, stream_url = $19,
-                backup_stream_url = $20, stream_type = $21, bitrate_kbps = $22, timezone = $23, status = $24,
-                verification_status = $25, claim_status = $26, is_featured = $27, stream_status = $28,
-                play_count = $29, favorite_count = $30, updated_at = $32;`,
-              [
-                s.id,
-                s.ownerId || 'usr_owner_01',
-                s.name,
-                s.slug,
-                s.tagline || '',
-                s.description || '',
-                s.logoUrl || '',
-                s.coverUrl || '',
-                s.countryCode || 'TZ',
-                s.region || '',
-                s.city || '',
-                s.language || 'English',
-                s.genre || 'Gospel',
-                s.categoryId || 'cat_gospel',
-                s.denomination || '',
-                s.websiteUrl || '',
-                s.email || '',
-                s.phone || '',
-                s.streamUrl,
-                s.backupStreamUrl || '',
-                s.streamType || 'MP3',
-                s.bitrateKbps || 128,
-                s.timezone || 'UTC',
-                s.status || 'ACTIVE',
-                s.verificationStatus || 'VERIFIED',
-                s.claimStatus || 'CLAIMED',
-                !!s.isFeatured,
-                s.streamStatus || 'ONLINE',
-                s.playCount || 0,
-                s.favoriteCount || 0,
-                s.createdAt ? new Date(s.createdAt) : new Date(),
-                s.updatedAt ? new Date(s.updatedAt) : new Date(),
-              ]
-            );
+            try {
+              await client.query(
+                `INSERT INTO stations (
+                  id, owner_id, name, slug, tagline, description, logo_url, cover_url,
+                  country_code, region, city, language, genre, category_id, denomination,
+                  website_url, email, phone, stream_url, backup_stream_url, stream_type,
+                  bitrate_kbps, timezone, status, verification_status, claim_status,
+                  is_featured, stream_status, play_count, favorite_count, created_at, updated_at
+                ) VALUES (
+                  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32
+                ) ON CONFLICT (id) DO NOTHING;`,
+                [
+                  s.id,
+                  s.ownerId || 'usr_owner_01',
+                  s.name,
+                  s.slug,
+                  s.tagline || '',
+                  s.description || '',
+                  s.logoUrl || '',
+                  s.coverUrl || '',
+                  s.countryCode || 'TZ',
+                  s.region || '',
+                  s.city || '',
+                  s.language || 'English',
+                  s.genre || 'Gospel',
+                  s.categoryId || 'cat_gospel',
+                  s.denomination || '',
+                  s.websiteUrl || '',
+                  s.email || '',
+                  s.phone || '',
+                  s.streamUrl,
+                  s.backupStreamUrl || '',
+                  s.streamType || 'MP3',
+                  s.bitrateKbps || 128,
+                  s.timezone || 'UTC',
+                  s.status || 'ACTIVE',
+                  s.verificationStatus || 'VERIFIED',
+                  s.claimStatus || 'CLAIMED',
+                  !!s.isFeatured,
+                  s.streamStatus || 'ONLINE',
+                  s.playCount || 0,
+                  s.favoriteCount || 0,
+                  s.createdAt ? new Date(s.createdAt) : new Date(),
+                  s.updatedAt ? new Date(s.updatedAt) : new Date(),
+                ]
+              );
+            } catch (err) {
+              // Ignore individual row conflict or format errors
+            }
           }
         }
 

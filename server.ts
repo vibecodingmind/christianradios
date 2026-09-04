@@ -21,10 +21,6 @@ async function bootstrap() {
   const app = express();
   const PORT = process.env.PORT || 3000;
 
-  // 1. Initial Database Seed & Worker initialization
-  runSeed();
-  startStreamMonitorWorker();
-
   // 2. Production Security Headers & CORS Middleware
   app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -137,6 +133,16 @@ async function bootstrap() {
   // 7. Start Server
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Christian Radios] Server active at http://0.0.0.0:${PORT}`);
+
+    // Deferred initialization of initial database seed and stream monitoring workers
+    setTimeout(() => {
+      try {
+        runSeed();
+        startStreamMonitorWorker();
+      } catch (err) {
+        console.error('[Christian Radios] Error running background initialization:', err);
+      }
+    }, 200);
   });
 }
 
