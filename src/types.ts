@@ -974,28 +974,22 @@ export interface PlatformSettings {
   aiRateLimitAuth?: number;
   systemPromptOverride?: string;
 
-  // Payment Gateways
+  // Payment Gateways (PesaPal, PayPal & Stripe)
   pesapalEnabled: boolean;
   pesapalEnv: 'sandbox' | 'live';
   pesapalConsumerKey: string;
   pesapalConsumerSecret: string;
   pesapalIpnId: string;
 
+  paypalEnabled?: boolean;
+  paypalEnv?: 'sandbox' | 'live';
+  paypalClientId?: string;
+  paypalClientSecret?: string;
+
   stripeEnabled: boolean;
   stripePublishableKey: string;
   stripeSecretKey: string;
   stripeWebhookSecret: string;
-
-  directMpesaEnabled: boolean;
-  directMpesaTill: string;
-  directTigoPesaEnabled: boolean;
-  directTigoPesaTill: string;
-  directAirtelMoneyEnabled: boolean;
-  directAirtelMoneyTill: string;
-  directHaloPesaEnabled: boolean;
-  directHaloPesaTill: string;
-  bankTransferEnabled: boolean;
-  bankTransferInstructions: string;
 
   // Social & Auth
   googleAuthEnabled: boolean;

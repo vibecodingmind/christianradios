@@ -27,7 +27,7 @@ export function AdminSettingsTab() {
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [activeSubSection, setActiveSubSection] = useState<'gateways' | 'security' | 'social' | 'general' | 'ai'>('gateways');
-  const [gatewayTesting, setGatewayTesting] = useState<'pesapal' | 'stripe' | null>(null);
+  const [gatewayTesting, setGatewayTesting] = useState<'pesapal' | 'paypal' | 'stripe' | null>(null);
   const [gatewayTestResult, setGatewayTestResult] = useState<{
     gateway: string;
     status: string;
@@ -83,7 +83,7 @@ export function AdminSettingsTab() {
     }
   };
 
-  const testGateway = async (gateway: 'pesapal' | 'stripe') => {
+  const testGateway = async (gateway: 'pesapal' | 'paypal' | 'stripe') => {
     setGatewayTesting(gateway);
     setGatewayTestResult(null);
     try {
@@ -385,7 +385,91 @@ export function AdminSettingsTab() {
             </div>
           </div>
 
-          {/* 2. Stripe Gateway */}
+          {/* 2. PayPal Gateway */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400">
+                  <Globe className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">PayPal International (PayPal Wallet & Recurring)</h3>
+                  <p className="text-xs text-slate-400">
+                    Express Checkout and recurring subscriptions via PayPal account balance or linked debit cards.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => testGateway('paypal')}
+                  disabled={gatewayTesting === 'paypal'}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 rounded-lg transition-colors flex items-center gap-1.5"
+                >
+                  {gatewayTesting === 'paypal' ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Zap className="w-3.5 h-3.5 text-sky-400" />
+                  )}
+                  Test Connection
+                </button>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.paypalEnabled ?? true}
+                    onChange={(e) => updateSetting('paypalEnabled', e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600"></div>
+                </label>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Environment Mode
+                </label>
+                <select
+                  value={settings.paypalEnv || 'sandbox'}
+                  onChange={(e) => updateSetting('paypalEnv', e.target.value as 'sandbox' | 'live')}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-sky-500"
+                >
+                  <option value="sandbox">Sandbox (Testing / Developer Account)</option>
+                  <option value="live">Live Production (Real transactions)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  PayPal Client ID
+                </label>
+                <input
+                  type="text"
+                  value={settings.paypalClientId || ''}
+                  onChange={(e) => updateSetting('paypalClientId', e.target.value)}
+                  placeholder="client_id_..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-sky-500 font-mono text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  PayPal Client Secret
+                </label>
+                <input
+                  type="password"
+                  value={settings.paypalClientSecret || ''}
+                  onChange={(e) => updateSetting('paypalClientSecret', e.target.value)}
+                  placeholder="••••••••••••••••••••"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-sky-500 font-mono text-xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Stripe Gateway */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <div className="flex items-center gap-3">
@@ -463,128 +547,6 @@ export function AdminSettingsTab() {
                   onChange={(e) => updateSetting('stripeWebhookSecret', e.target.value)}
                   placeholder="whsec_..."
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-purple-500 font-mono text-xs"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* 3. Direct Mobile Money Numbers (Lipa Namba / Paybill) */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
-            <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                <Smartphone className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-white">Direct Mobile Money & Merchant Tills</h3>
-                <p className="text-xs text-slate-400">
-                  Enable direct USSD/Lipa Namba instructions shown on donation and subscription checkout pages.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-              {/* M-Pesa */}
-              <div className="p-4 bg-slate-950 border border-slate-800/80 rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-emerald-400">Vodacom M-Pesa Till / Paybill</span>
-                  <input
-                    type="checkbox"
-                    checked={settings.directMpesaEnabled}
-                    onChange={(e) => updateSetting('directMpesaEnabled', e.target.checked)}
-                    className="w-4 h-4 rounded text-emerald-500 focus:ring-0"
-                  />
-                </div>
-                <input
-                  type="text"
-                  value={settings.directMpesaTill || ''}
-                  onChange={(e) => updateSetting('directMpesaTill', e.target.value)}
-                  placeholder="e.g. Lipa Namba: 5432100"
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200"
-                />
-              </div>
-
-              {/* Tigo Pesa */}
-              <div className="p-4 bg-slate-950 border border-slate-800/80 rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-blue-400">Tigo Pesa (Mixx) Lipa Namba</span>
-                  <input
-                    type="checkbox"
-                    checked={settings.directTigoPesaEnabled}
-                    onChange={(e) => updateSetting('directTigoPesaEnabled', e.target.checked)}
-                    className="w-4 h-4 rounded text-blue-500 focus:ring-0"
-                  />
-                </div>
-                <input
-                  type="text"
-                  value={settings.directTigoPesaTill || ''}
-                  onChange={(e) => updateSetting('directTigoPesaTill', e.target.value)}
-                  placeholder="e.g. Lipa Namba: 8765432"
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200"
-                />
-              </div>
-
-              {/* Airtel Money */}
-              <div className="p-4 bg-slate-950 border border-slate-800/80 rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-red-400">Airtel Money Merchant Till</span>
-                  <input
-                    type="checkbox"
-                    checked={settings.directAirtelMoneyEnabled}
-                    onChange={(e) => updateSetting('directAirtelMoneyEnabled', e.target.checked)}
-                    className="w-4 h-4 rounded text-red-500 focus:ring-0"
-                  />
-                </div>
-                <input
-                  type="text"
-                  value={settings.directAirtelMoneyTill || ''}
-                  onChange={(e) => updateSetting('directAirtelMoneyTill', e.target.value)}
-                  placeholder="e.g. Airtel Till: 334455"
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200"
-                />
-              </div>
-
-              {/* HaloPesa */}
-              <div className="p-4 bg-slate-950 border border-slate-800/80 rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-orange-400">HaloPesa Merchant Code</span>
-                  <input
-                    type="checkbox"
-                    checked={settings.directHaloPesaEnabled}
-                    onChange={(e) => updateSetting('directHaloPesaEnabled', e.target.checked)}
-                    className="w-4 h-4 rounded text-orange-500 focus:ring-0"
-                  />
-                </div>
-                <input
-                  type="text"
-                  value={settings.directHaloPesaTill || ''}
-                  onChange={(e) => updateSetting('directHaloPesaTill', e.target.value)}
-                  placeholder="e.g. HaloPesa Till: 998877"
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200"
-                />
-              </div>
-            </div>
-
-            {/* Direct Bank Wire */}
-            <div className="pt-2">
-              <div className="p-4 bg-slate-950 border border-slate-800/80 rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-amber-400" />
-                    <span className="text-sm font-bold text-slate-200">Direct Bank Wire / SWIFT Instructions</span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={settings.bankTransferEnabled}
-                    onChange={(e) => updateSetting('bankTransferEnabled', e.target.checked)}
-                    className="w-4 h-4 rounded text-amber-500 focus:ring-0"
-                  />
-                </div>
-                <textarea
-                  rows={3}
-                  value={settings.bankTransferInstructions || ''}
-                  onChange={(e) => updateSetting('bankTransferInstructions', e.target.value)}
-                  placeholder="Bank Name: CRDB / NMB, Account Name: Christian Radios Network, Account No: 0150XXXXXXX, SWIFT: CORUTZTZ"
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 font-mono"
                 />
               </div>
             </div>

@@ -772,6 +772,19 @@ adminRouter.post('/settings/test-gateway', (req: AuthenticatedRequest, res) => {
     });
   }
 
+  if (gateway === 'paypal') {
+    const isConfigured = Boolean(settings.paypalClientId && settings.paypalClientSecret);
+    return res.json({
+      success: true,
+      gateway: 'PAYPAL',
+      status: isConfigured ? 'CONNECTED' : 'MISSING_CREDENTIALS',
+      env: settings.paypalEnv || 'sandbox',
+      message: isConfigured
+        ? 'PayPal REST API connected (Sandbox/Live Checkout ready).'
+        : 'Please enter PayPal Client ID and Client Secret.',
+    });
+  }
+
   if (gateway === 'stripe') {
     const isConfigured = Boolean(settings.stripeSecretKey);
     return res.json({

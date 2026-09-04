@@ -162,7 +162,7 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [selectedPlanForCheckout, setSelectedPlanForCheckout] = useState<SubscriptionPlan | null>(null);
   const [billingInterval, setBillingInterval] = useState<'MONTHLY' | 'ANNUAL'>('MONTHLY');
-  const [paymentMethod, setPaymentMethod] = useState<'MPESA' | 'TIGO_PESA' | 'AIRTEL_MONEY' | 'CARD'>('MPESA');
+  const [paymentMethod, setPaymentMethod] = useState<'PESAPAL' | 'PAYPAL' | 'STRIPE' | 'MPESA' | 'TIGO_PESA' | 'AIRTEL_MONEY' | 'CARD'>('PESAPAL');
   const [checkoutPhone, setCheckoutPhone] = useState('255754123456');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
@@ -2084,51 +2084,43 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
                 </div>
 
                 <div>
-                  <label className="block font-medium text-slate-300 mb-1">Payment Method</label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <label className="block font-medium text-slate-300 mb-1">Select Payment Gateway</label>
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
-                      onClick={() => setPaymentMethod('MPESA')}
-                      className={`p-2 rounded-xl border font-semibold ${
-                        paymentMethod === 'MPESA'
+                      onClick={() => setPaymentMethod('PESAPAL')}
+                      className={`p-2.5 rounded-xl border text-left flex flex-col justify-between ${
+                        paymentMethod === 'PESAPAL' || paymentMethod === 'MPESA'
                           ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
                           : 'bg-slate-950 border-slate-800 text-slate-400'
                       }`}
                     >
-                      Vodacom M-Pesa
+                      <span className="text-xs font-bold">PesaPal</span>
+                      <span className="text-[10px] text-slate-400">Mobile Money / Cards</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => setPaymentMethod('TIGO_PESA')}
-                      className={`p-2 rounded-xl border font-semibold ${
-                        paymentMethod === 'TIGO_PESA'
+                      onClick={() => setPaymentMethod('PAYPAL')}
+                      className={`p-2.5 rounded-xl border text-left flex flex-col justify-between ${
+                        paymentMethod === 'PAYPAL'
                           ? 'bg-sky-500/20 border-sky-500 text-sky-400'
                           : 'bg-slate-950 border-slate-800 text-slate-400'
                       }`}
                     >
-                      Tigo Pesa
+                      <span className="text-xs font-bold">PayPal</span>
+                      <span className="text-[10px] text-slate-400">PayPal Account</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => setPaymentMethod('AIRTEL_MONEY')}
-                      className={`p-2 rounded-xl border font-semibold ${
-                        paymentMethod === 'AIRTEL_MONEY'
-                          ? 'bg-rose-500/20 border-rose-500 text-rose-400'
+                      onClick={() => setPaymentMethod('STRIPE')}
+                      className={`p-2.5 rounded-xl border text-left flex flex-col justify-between ${
+                        paymentMethod === 'STRIPE'
+                          ? 'bg-purple-500/20 border-purple-500 text-purple-400'
                           : 'bg-slate-950 border-slate-800 text-slate-400'
                       }`}
                     >
-                      Airtel Money
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('CARD')}
-                      className={`p-2 rounded-xl border font-semibold ${
-                        paymentMethod === 'CARD'
-                          ? 'bg-indigo-500/20 border-indigo-500 text-indigo-400'
-                          : 'bg-slate-950 border-slate-800 text-slate-400'
-                      }`}
-                    >
-                      Credit / Debit Card
+                      <span className="text-xs font-bold">Stripe</span>
+                      <span className="text-[10px] text-slate-400">Visa / MasterCard</span>
                     </button>
                   </div>
                 </div>

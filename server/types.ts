@@ -254,15 +254,16 @@ export type SubscriptionStatus =
 
 export type PaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
 
-export type PaymentProvider = 'PESAPAL' | 'STRIPE' | 'DIRECT';
+export type PaymentProvider = 'PESAPAL' | 'PAYPAL' | 'STRIPE';
 
 export type PaymentMethod =
+  | 'PESAPAL'
+  | 'PAYPAL'
+  | 'STRIPE'
   | 'MPESA'
   | 'TIGO_PESA'
   | 'AIRTEL_MONEY'
-  | 'HALOPESA'
-  | 'CARD'
-  | 'BANK';
+  | 'CARD';
 
 export type ReportStatus = 'OPEN' | 'INVESTIGATING' | 'RESOLVED' | 'DISMISSED';
 
@@ -1003,28 +1004,22 @@ export interface PlatformSettings {
   referralCommissionListenerPercentage?: number;
   referralAttributionWindowDays?: number;
 
-  // Payment Gateways
+  // Payment Gateways (PesaPal, PayPal & Stripe)
   pesapalEnabled: boolean;
   pesapalEnv: 'sandbox' | 'live';
   pesapalConsumerKey: string;
   pesapalConsumerSecret: string;
   pesapalIpnId: string;
 
+  paypalEnabled?: boolean;
+  paypalEnv?: 'sandbox' | 'live';
+  paypalClientId?: string;
+  paypalClientSecret?: string;
+
   stripeEnabled: boolean;
   stripePublishableKey: string;
   stripeSecretKey: string;
   stripeWebhookSecret: string;
-
-  directMpesaEnabled: boolean;
-  directMpesaTill: string;
-  directTigoPesaEnabled: boolean;
-  directTigoPesaTill: string;
-  directAirtelMoneyEnabled: boolean;
-  directAirtelMoneyTill: string;
-  directHaloPesaEnabled: boolean;
-  directHaloPesaTill: string;
-  bankTransferEnabled: boolean;
-  bankTransferInstructions: string;
 
   // Social & Auth
   googleAuthEnabled: boolean;

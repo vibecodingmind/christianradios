@@ -194,28 +194,22 @@ class DatabaseEngine {
         referralCommissionListenerPercentage: 10,
         referralAttributionWindowDays: 30,
 
-        // Payment Gateways
+        // Payment Gateways (PesaPal, PayPal, Stripe)
         pesapalEnabled: true,
         pesapalEnv: 'sandbox',
-        pesapalConsumerKey: 'pspk_live_8391024809',
-        pesapalConsumerSecret: 'psps_sec_9918237192837',
-        pesapalIpnId: 'ipn_882910384',
+        pesapalConsumerKey: process.env.PESAPAL_CONSUMER_KEY || 'pspk_live_8391024809',
+        pesapalConsumerSecret: process.env.PESAPAL_CONSUMER_SECRET || 'psps_sec_9918237192837',
+        pesapalIpnId: process.env.PESAPAL_IPN_ID || 'ipn_882910384',
+
+        paypalEnabled: true,
+        paypalEnv: 'sandbox',
+        paypalClientId: process.env.PAYPAL_CLIENT_ID || '',
+        paypalClientSecret: process.env.PAYPAL_CLIENT_SECRET || '',
 
         stripeEnabled: true,
-        stripePublishableKey: 'pk_test_51MzCRadiosPlatformDemoKey',
-        stripeSecretKey: 'sk_test_51MzCRadiosPlatformSecretKey',
-        stripeWebhookSecret: 'whsec_9918237192837',
-
-        directMpesaEnabled: true,
-        directMpesaTill: '5829100',
-        directTigoPesaEnabled: true,
-        directTigoPesaTill: '492019',
-        directAirtelMoneyEnabled: true,
-        directAirtelMoneyTill: '182901',
-        directHaloPesaEnabled: false,
-        directHaloPesaTill: '',
-        bankTransferEnabled: true,
-        bankTransferInstructions: 'CRDB Bank Account: 0150928371900 | Swift: CORUTZTZ | Name: Christian Radios Org',
+        stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY || 'pk_test_51MzCRadiosPlatformDemoKey',
+        stripeSecretKey: process.env.STRIPE_SECRET_KEY || 'sk_test_51MzCRadiosPlatformSecretKey',
+        stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || 'whsec_9918237192837',
 
         // Social & Auth
         googleAuthEnabled: true,

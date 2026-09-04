@@ -13,6 +13,8 @@ import {
   UserCheck,
   EyeOff,
   Coins,
+  Globe,
+  Zap,
 } from 'lucide-react';
 import type { Station, DonationCampaign } from '../../types';
 
@@ -34,7 +36,8 @@ export function DonationModal({
   const [amount, setAmount] = useState<number>(20000);
   const [currency, setCurrency] = useState<'TZS' | 'USD' | 'KES'>('TZS');
   const [fundType, setFundType] = useState<string>(campaign ? 'CAMPAIGN' : 'GOSPEL_OUTREACH');
-  const [paymentMethod, setPaymentMethod] = useState<'MPESA' | 'TIGO_PESA' | 'AIRTEL_MONEY' | 'CARD'>('MPESA');
+  const [paymentGateway, setPaymentGateway] = useState<'PESAPAL' | 'PAYPAL' | 'STRIPE'>('PESAPAL');
+  const [pesapalChannel, setPesapalChannel] = useState<'MPESA' | 'TIGO_PESA' | 'AIRTEL_MONEY' | 'CARD'>('MPESA');
   const [donorName, setDonorName] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [donorEmail, setDonorEmail] = useState('');
@@ -69,7 +72,8 @@ export function DonationModal({
           amount,
           currency,
           fundType: campaign ? 'CAMPAIGN' : fundType,
-          paymentMethod,
+          paymentMethod: paymentGateway === 'PESAPAL' ? pesapalChannel : paymentGateway,
+          paymentGateway,
           message,
         }),
       });
@@ -208,64 +212,85 @@ export function DonationModal({
                 </div>
               )}
 
-              {/* Payment Method */}
+              {/* Payment Method - 3 Main Gateways */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                  Payment Method
+                  Select Payment Gateway
                 </label>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
-                    onClick={() => setPaymentMethod('MPESA')}
+                    onClick={() => setPaymentGateway('PESAPAL')}
                     className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
-                      paymentMethod === 'MPESA'
+                      paymentGateway === 'PESAPAL'
                         ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
                         : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
                     }`}
                   >
-                    <Smartphone className="w-4 h-4 mb-1 text-emerald-400" />
-                    <span className="text-[11px] font-bold leading-tight">M-Pesa</span>
+                    <Zap className="w-4 h-4 mb-1 text-emerald-400" />
+                    <div>
+                      <span className="text-[11px] font-bold block leading-tight">PesaPal</span>
+                      <span className="text-[9px] text-slate-400">Mobile Money / Cards</span>
+                    </div>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => setPaymentMethod('TIGO_PESA')}
+                    onClick={() => setPaymentGateway('PAYPAL')}
                     className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
-                      paymentMethod === 'TIGO_PESA'
-                        ? 'bg-blue-500/20 border-blue-500 text-blue-300'
+                      paymentGateway === 'PAYPAL'
+                        ? 'bg-sky-500/20 border-sky-500 text-sky-300'
                         : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
                     }`}
                   >
-                    <Smartphone className="w-4 h-4 mb-1 text-blue-400" />
-                    <span className="text-[11px] font-bold leading-tight">Tigo Pesa</span>
+                    <Globe className="w-4 h-4 mb-1 text-sky-400" />
+                    <div>
+                      <span className="text-[11px] font-bold block leading-tight">PayPal</span>
+                      <span className="text-[9px] text-slate-400">PayPal Account</span>
+                    </div>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => setPaymentMethod('AIRTEL_MONEY')}
+                    onClick={() => setPaymentGateway('STRIPE')}
                     className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
-                      paymentMethod === 'AIRTEL_MONEY'
-                        ? 'bg-rose-500/20 border-rose-500 text-rose-300'
+                      paymentGateway === 'STRIPE'
+                        ? 'bg-purple-500/20 border-purple-500 text-purple-300'
                         : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
                     }`}
                   >
-                    <Smartphone className="w-4 h-4 mb-1 text-rose-400" />
-                    <span className="text-[11px] font-bold leading-tight">Airtel</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('CARD')}
-                    className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
-                      paymentMethod === 'CARD'
-                        ? 'bg-amber-500/20 border-amber-500 text-amber-300'
-                        : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
-                    }`}
-                  >
-                    <CreditCard className="w-4 h-4 mb-1 text-amber-400" />
-                    <span className="text-[11px] font-bold leading-tight">Card / Visa</span>
+                    <CreditCard className="w-4 h-4 mb-1 text-purple-400" />
+                    <div>
+                      <span className="text-[11px] font-bold block leading-tight">Stripe</span>
+                      <span className="text-[9px] text-slate-400">Visa / MasterCard</span>
+                    </div>
                   </button>
                 </div>
+
+                {/* Sub-channel selector if PesaPal selected */}
+                {paymentGateway === 'PESAPAL' && (
+                  <div className="mt-2 p-2.5 bg-slate-950 border border-slate-800 rounded-xl space-y-1.5">
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+                      Select Mobile Money / Card Network
+                    </span>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {(['MPESA', 'TIGO_PESA', 'AIRTEL_MONEY', 'CARD'] as const).map((ch) => (
+                        <button
+                          key={ch}
+                          type="button"
+                          onClick={() => setPesapalChannel(ch)}
+                          className={`py-1 px-1 text-[10px] font-bold rounded-lg border text-center transition ${
+                            pesapalChannel === ch
+                              ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
+                              : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          {ch === 'AIRTEL_MONEY' ? 'Airtel' : ch === 'CARD' ? 'Card' : ch.replace('_', ' ')}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Donor Details */}
