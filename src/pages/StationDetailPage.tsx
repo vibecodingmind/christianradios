@@ -143,8 +143,21 @@ export function StationDetailPage({ slug, onNavigate, onPublicAction }: StationD
     }
   };
 
+  const fetchNowPlayingData = async () => {
+    if (!slug) return;
+    try {
+      const res = await apiFetch(`/api/public/stations/${slug}/now-playing`);
+      if (res.ok) {
+        const data = await res.json();
+        setNowPlaying(data);
+      }
+    } catch {}
+  };
+
   useEffect(() => {
     loadAllStationData(true);
+    const interval = setInterval(fetchNowPlayingData, 10000);
+    return () => clearInterval(interval);
   }, [slug]);
 
   useEffect(() => {
@@ -547,42 +560,65 @@ export function StationDetailPage({ slug, onNavigate, onPublicAction }: StationD
           </div>
         </div>
 
-        {/* Live Studio Ticker Bar */}
-        {nowPlaying && (
-          <div className="bg-slate-950/90 border-t border-slate-800/80 px-6 sm:px-10 py-3.5 flex items-center justify-between gap-4 text-xs">
-            <div className="flex items-center gap-3 truncate">
-              <span className="flex h-2.5 w-2.5 relative shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-              </span>
-              <span className="font-bold text-emerald-400 uppercase tracking-wider text-[11px] shrink-0">On-Air Now:</span>
-              <strong className="text-white font-semibold truncate">{nowPlaying.programTitle}</strong>
-              <span className="text-slate-600 shrink-0">•</span>
-              <span className="text-sky-300 truncate flex items-center gap-1.5">
-                <Music className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                {nowPlaying.currentTrack}
-              </span>
-            </div>
-
-            <div className="hidden md:flex items-center gap-4 text-slate-400 text-xs shrink-0">
-              <span className="flex items-center gap-1.5 text-slate-300">
-                <Users className="w-3.5 h-3.5 text-sky-400" />
-                <strong>{nowPlaying.listenersCount || 42}</strong> listeners online
-              </span>
-
-              {station.phone && (
-                <a
-                  href={`https://wa.me/${station.phone.replace(/[^0-9]/g, '')}?text=Listening%20to%20${encodeURIComponent(station.name)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 font-bold transition text-[11px]"
-                >
-                  <MessageCircle className="w-3.5 h-3.5" /> Studio WhatsApp
-                </a>
-              )}
+        {/* Live Studio Currently Playing Bar */}
+        <div className="bg-slate-950/90 border-t border-slate-800/80 px-6 sm:px-10 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
+          <div className="flex items-center gap-3 truncate min-w-0 flex-1">
+            <span className="flex h-3 w-3 relative shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-emerald-400 uppercase tracking-widest text-[11px] shrink-0">
+                  CURRENTLY PLAYING
+                </span>
+                {nowPlaying?.streamQuality && (
+                  <span className="text-[10px] font-mono text-emerald-300/80 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
+                    {nowPlaying.streamQuality}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm font-bold text-white truncate mt-0.5 flex items-center gap-2">
+                <Music className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="truncate">
+                  {nowPlaying?.currentTrack || station.genre || 'Live Gospel Broadcast'}
+                </span>
+                {nowPlaying?.artistOrMinister && (
+                  <span className="text-slate-400 text-xs font-normal truncate">
+                    • {nowPlaying.artistOrMinister}
+                  </span>
+                )}
+              </p>
             </div>
           </div>
-        )}
+
+          <div className="flex items-center gap-3 text-slate-400 text-xs shrink-0 self-end sm:self-auto">
+            <span className="flex items-center gap-1.5 text-slate-200 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl">
+              <Users className="w-3.5 h-3.5 text-emerald-400" />
+              <strong className="text-white">{nowPlaying?.listenersCount || station.currentListenersCount || 42}</strong> live listeners
+            </span>
+
+            <button
+              onClick={fetchNowPlayingData}
+              title="Refresh Currently Playing Metadata"
+              className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-emerald-400 border border-slate-800 transition active:scale-95 flex items-center gap-1 text-[11px] font-semibold"
+            >
+              <RotateCw className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Refresh</span>
+            </button>
+
+            {station.phone && (
+              <a
+                href={`https://wa.me/${station.phone.replace(/[^0-9]/g, '')}?text=Listening%20to%20${encodeURIComponent(station.name)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 font-bold transition text-[11px]"
+              >
+                <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+              </a>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Navigation Tabs for Station Details */}

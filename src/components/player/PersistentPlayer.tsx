@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import {
   Play,
   Pause,
@@ -13,6 +12,7 @@ import {
   Clock,
   Sparkles,
   Signal,
+  Music,
 } from 'lucide-react';
 import { useAudioPlayer } from '../../context/AudioPlayerContext';
 import { ReportModal } from '../station/ReportModal';
@@ -21,6 +21,7 @@ import { ShareModal } from '../station/ShareModal';
 export function PersistentPlayer() {
   const {
     currentStation,
+    nowPlaying,
     isPlaying,
     isLoading,
     isBuffering,
@@ -104,15 +105,19 @@ export function PersistentPlayer() {
               <div className="flex items-center gap-1.5">
                 <span
                   onClick={() => setIsExpanded(true)}
-                  className="font-semibold text-sm sm:text-base text-slate-100 truncate cursor-pointer hover:text-sky-400 transition-colors"
+                  className="font-semibold text-sm sm:text-base text-slate-100 truncate cursor-pointer hover:text-emerald-400 transition-colors"
                 >
                   {currentStation.name}
                 </span>
                 <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 animate-pulse" />
               </div>
-              <p className="text-xs text-slate-400 truncate">
-                {currentStation.city ? `${currentStation.city} • ` : ''}
-                {currentStation.genre || currentStation.language}
+              <p className="text-xs text-slate-300 font-medium truncate flex items-center gap-1">
+                <Music className="w-3 h-3 text-emerald-400 shrink-0" />
+                <span className="truncate">
+                  {nowPlaying?.currentTrack
+                    ? `${nowPlaying.currentTrack}${nowPlaying.artistOrMinister ? ` — ${nowPlaying.artistOrMinister}` : ''}`
+                    : `${currentStation.city ? `${currentStation.city} • ` : ''}${currentStation.genre || currentStation.language}`}
+                </span>
               </p>
             </div>
           </div>
