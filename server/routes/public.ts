@@ -90,8 +90,8 @@ publicRouter.get('/stations', (req, res) => {
   if (search) {
     const q = search.toLowerCase().trim();
     stations = stations.filter((s) => {
-      const country = db.countries.findByCode(s.countryCode);
-      const category = db.categories.findById(s.categoryId);
+    const country = s.countryCode ? db.countries.findByCode(s.countryCode) : undefined;
+    const category = s.categoryId ? db.categories.findById(s.categoryId) : undefined;
       const searchBlob = [
         s.name,
         s.city,

@@ -481,8 +481,8 @@ class DatabaseEngine {
   // --- Countries ---
   public countries = {
     getAll: () => [...this.data.countries].sort((a, b) => a.name.localeCompare(b.name)),
-    findByCode: (code: string) =>
-      this.data.countries.find((c) => c.code.toUpperCase() === code.toUpperCase()),
+    findByCode: (code?: string) =>
+      code ? this.data.countries.find((c) => c.code && c.code.toUpperCase() === code.toUpperCase()) : undefined,
     create: (country: Country) => {
       this.data.countries.push(country);
       this.save();
