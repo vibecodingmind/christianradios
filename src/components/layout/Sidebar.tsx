@@ -60,14 +60,13 @@ export function Sidebar({ currentView, onNavigate, onPublicAction, user, onClose
         <div className="flex items-center justify-between">
           <button
             onClick={() => handleItemClick('home')}
-            className="flex items-center gap-2.5 text-left group"
+            className="flex items-center gap-2 text-left group"
           >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#ff5e3a] to-[#ff8c3a] flex items-center justify-center text-white shadow-lg shadow-[#ff5e3a]/20 group-hover:scale-105 transition-transform">
-              <Radio className="w-5 h-5 fill-current" />
-            </div>
-            <span className="font-black text-xl tracking-wider text-white">
-              CHRISTIAN RADIOS
-            </span>
+            <img
+              src="/brand-logo.png"
+              alt="radios.org"
+              className="h-9 sm:h-11 w-auto object-contain group-hover:scale-105 transition-transform"
+            />
           </button>
 
           {onCloseMobile && (

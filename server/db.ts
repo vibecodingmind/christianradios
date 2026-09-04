@@ -248,6 +248,10 @@ class DatabaseEngine {
           },
         };
 
+        if (!Array.isArray(this.data.countries) || this.data.countries.length < 100) {
+          this.data.countries = defaults.countries;
+        }
+
         const realJsonPath = path.resolve(process.cwd(), 'data/real_stations.json');
         if (fs.existsSync(realJsonPath)) {
           try {

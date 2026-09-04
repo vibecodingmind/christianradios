@@ -23,26 +23,13 @@ export function Header({ currentView, onNavigate, onOpenAuth }: HeaderProps) {
             <button
               id="header-logo-brand"
               onClick={() => onNavigate('home')}
-              className="flex items-center gap-2.5 text-left group focus:outline-none"
+              className="flex items-center gap-2 text-left group focus:outline-none"
             >
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 via-indigo-500 to-amber-400 p-0.5 shadow-lg shadow-sky-500/20 group-hover:scale-105 transition-transform shrink-0">
-                <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-                  <Radio className="w-5 h-5 text-sky-400 group-hover:text-amber-300 transition-colors" />
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">
-                    Christian Radios
-                  </span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider bg-sky-500/20 text-sky-400 border border-sky-500/30 px-1.5 py-0.5 rounded-full">
-                    Live
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400 hidden sm:block">
-                  Discover & Listen Worldwide
-                </p>
-              </div>
+              <img
+                src="/brand-logo.png"
+                alt="radios.org"
+                className="h-10 sm:h-12 w-auto object-contain group-hover:scale-105 transition-transform"
+              />
             </button>
           </div>
 

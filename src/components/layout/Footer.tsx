@@ -17,12 +17,11 @@ export function Footer({ onNavigate, onOpenAuth, onPublicAction }: FooterProps) 
           {/* Brand Col */}
           <div className="lg:col-span-1 space-y-4">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 via-indigo-500 to-amber-400 p-0.5 shadow-md">
-                <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-                  <Radio className="w-4 h-4 text-sky-400" />
-                </div>
-              </div>
-              <span className="font-bold text-lg text-white">Christian Radios</span>
+              <img
+                src="/brand-logo.png"
+                alt="radios.org"
+                className="h-10 w-auto object-contain"
+              />
             </div>
             <p className="text-xs text-slate-400 leading-relaxed">
               The global SaaS directory dedicated exclusively to discovering, broadcasting, and
