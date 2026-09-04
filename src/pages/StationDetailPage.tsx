@@ -54,6 +54,7 @@ import type { Station, StationReview, NowPlayingInfo, DonationCampaign } from '.
 interface StationDetailPageProps {
   slug: string;
   onNavigate: (view: string, param?: string) => void;
+  onPublicAction?: (intent: 'ADD_RADIO' | 'CLAIM_STATION', options?: { stationId?: string }) => void;
 }
 
 interface RecentDonation {
@@ -66,7 +67,7 @@ interface RecentDonation {
   createdAt: string;
 }
 
-export function StationDetailPage({ slug, onNavigate }: StationDetailPageProps) {
+export function StationDetailPage({ slug, onNavigate, onPublicAction }: StationDetailPageProps) {
   const [station, setStation] = useState<Station | null>(null);
   const [relatedStations, setRelatedStations] = useState<Station[]>([]);
   const [reviews, setReviews] = useState<StationReview[]>([]);
@@ -101,16 +102,18 @@ export function StationDetailPage({ slug, onNavigate }: StationDetailPageProps) 
   const { currentStation, isPlaying, isLoading, playStation, togglePlay } = useAudioPlayer();
   const { user } = useAuth();
 
-  const loadAllStationData = async () => {
+  const loadAllStationData = async (isInitial = false) => {
     try {
-      setLoading(true);
+      if (isInitial || !station || (station.slug !== slug && station.id !== slug)) {
+        setLoading(true);
+      }
       const [stnRes, revRes, npRes, donRes, amenRes, campRes] = await Promise.all([
-        fetch(`/api/public/stations/${slug}`).then((r) => r.json()),
-        fetch(`/api/public/stations/${slug}/reviews`).then((r) => r.json()).catch(() => ({ reviews: [], avgRating: 5.0 })),
-        fetch(`/api/public/stations/${slug}/now-playing`).then((r) => r.json()).catch(() => null),
-        fetch(`/api/public/stations/${slug}/donations`).then((r) => r.json()).catch(() => ({ donations: [], totalDonationsCount: 0 })),
-        fetch(`/api/public/stations/${slug}/amen`).then((r) => r.json()).catch(() => ({ amenCount: 142 })),
-        fetch(`/api/public/stations/${slug}/campaigns`).then((r) => r.json()).catch(() => ({ campaigns: [] })),
+        fetch(`/api/public/stations/${encodeURIComponent(slug)}`).then((r) => r.json()),
+        fetch(`/api/public/stations/${encodeURIComponent(slug)}/reviews`).then((r) => r.json()).catch(() => ({ reviews: [], avgRating: 5.0 })),
+        fetch(`/api/public/stations/${encodeURIComponent(slug)}/now-playing`).then((r) => r.json()).catch(() => null),
+        fetch(`/api/public/stations/${encodeURIComponent(slug)}/donations`).then((r) => r.json()).catch(() => ({ donations: [], totalDonationsCount: 0 })),
+        fetch(`/api/public/stations/${encodeURIComponent(slug)}/amen`).then((r) => r.json()).catch(() => ({ amenCount: 142 })),
+        fetch(`/api/public/stations/${encodeURIComponent(slug)}/campaigns`).then((r) => r.json()).catch(() => ({ campaigns: [] })),
       ]);
 
       if (campRes?.campaigns) {
@@ -122,19 +125,6 @@ export function StationDetailPage({ slug, onNavigate }: StationDetailPageProps) 
         setStation(stn);
         setFavoriteCount(stn.favoriteCount || 0);
         setRelatedStations(stnRes.relatedStations || []);
-
-        if (user) {
-          try {
-            const statusRes = await apiFetch(`/api/listener/station-status/${stn.id}`);
-            if (statusRes.ok) {
-              const statusData = await statusRes.json();
-              setIsFavorite(statusData.isFavorite);
-              setIsFollowing(statusData.isFollowing);
-            }
-          } catch (e) {
-            // Non-blocking
-          }
-        }
       }
       setReviews(revRes.reviews || []);
       setAvgRating(revRes.avgRating || 5.0);
@@ -154,8 +144,22 @@ export function StationDetailPage({ slug, onNavigate }: StationDetailPageProps) 
   };
 
   useEffect(() => {
-    loadAllStationData();
-  }, [slug, user]);
+    loadAllStationData(true);
+  }, [slug]);
+
+  useEffect(() => {
+    if (user && station?.id) {
+      apiFetch(`/api/listener/station-status/${station.id}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data) {
+            setIsFavorite(data.isFavorite);
+            setIsFollowing(data.isFollowing);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user?.id, station?.id]);
 
   const handleToggleFavorite = async () => {
     if (!user) {
@@ -292,10 +296,15 @@ export function StationDetailPage({ slug, onNavigate }: StationDetailPageProps) 
         {/* Banner Cover Artwork */}
         <div className="h-52 sm:h-72 w-full relative bg-slate-950 overflow-hidden">
           <img
-            src={station.coverUrl || station.logoUrl}
+            src={station.coverUrl || station.logoUrl || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=1200&auto=format&fit=crop&q=80'}
             alt={station.name}
             className="w-full h-full object-cover blur-md opacity-40 scale-110"
-            referrerPolicy="no-referrer"
+            onError={(e) => {
+              const img = e.currentTarget as HTMLImageElement;
+              if (img.src !== 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=1200&auto=format&fit=crop&q=80') {
+                img.src = 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=1200&auto=format&fit=crop&q=80';
+              }
+            }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-slate-950/40" />
 
@@ -321,7 +330,17 @@ export function StationDetailPage({ slug, onNavigate }: StationDetailPageProps) 
           <div className="flex flex-col sm:flex-row items-start sm:items-end gap-5 w-full lg:w-auto">
             <div className="relative group shrink-0">
               <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-3xl overflow-hidden bg-slate-950 border-4 border-slate-900 shadow-2xl">
-                <img src={station.logoUrl} alt={station.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                <img
+                  src={station.logoUrl || station.coverUrl || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=400&auto=format&fit=crop&q=80'}
+                  alt={station.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const img = e.currentTarget as HTMLImageElement;
+                    if (img.src !== 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=400&auto=format&fit=crop&q=80') {
+                      img.src = 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=400&auto=format&fit=crop&q=80';
+                    }
+                  }}
+                />
               </div>
               {isThisPlaying && (
                 <div className="absolute inset-0 rounded-3xl ring-4 ring-sky-400/60 ring-offset-2 ring-offset-slate-900 pointer-events-none animate-pulse" />
@@ -338,6 +357,12 @@ export function StationDetailPage({ slug, onNavigate }: StationDetailPageProps) 
                 {station.verificationStatus === 'VERIFIED' && (
                   <span className="text-xs font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Verified Station
+                  </span>
+                )}
+
+                {station.licenceVerificationStatus === 'VERIFIED' && (
+                  <span className="text-xs font-semibold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm" title="Broadcasting Licence Verified by Admin">
+                    <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> Licence Verified
                   </span>
                 )}
 
@@ -499,6 +524,16 @@ export function StationDetailPage({ slug, onNavigate }: StationDetailPageProps) 
               title="Share Station"
             >
               <Share2 className="w-4 h-4" />
+            </button>
+
+            {/* Claim Station Button */}
+            <button
+              onClick={() => onPublicAction ? onPublicAction('CLAIM_STATION', { stationId: station.id }) : onNavigate('owner')}
+              className="p-3.5 bg-slate-800 hover:bg-emerald-950/40 text-slate-300 hover:text-emerald-400 border border-slate-700 hover:border-emerald-500/40 rounded-2xl transition-colors flex items-center gap-1.5 text-xs font-semibold"
+              title="Claim ownership of this station"
+            >
+              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="hidden sm:inline">Claim Station</span>
             </button>
 
             {/* Report */}

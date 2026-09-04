@@ -304,4 +304,80 @@ listenerRouter.post('/playlists/:id/toggle-station', requireAuth, (req: Authenti
   });
 });
 
+// Listener Premium Radio Subscriptions
+listenerRouter.get('/premium-subscriptions', requireAuth, (req: AuthenticatedRequest, res) => {
+  const listenerId = req.user!.id;
+  const subs = db.premiumSubscriptions.findByListenerId(listenerId).map((s) => ({
+    ...s,
+    station: db.stations.findById(s.stationId),
+  }));
+  res.json({ subscriptions: subs });
+});
+
+// Listener Referral Dashboard
+listenerRouter.get('/referrals', requireAuth, (req: AuthenticatedRequest, res) => {
+  const listenerId = req.user!.id;
+  const user = db.users.findById(listenerId);
+
+  const referralCode = user?.referralCode || `REF_${listenerId.substring(0, 8).toUpperCase()}`;
+  const referralLink = `${req.protocol}://${req.get('host')}?ref=${referralCode}`;
+
+  const referralsList = db.referrals.findByReferrerId(listenerId);
+  const commissionsList = db.referralCommissions.findByReferrerId(listenerId);
+  const financial = db.getUserFinancialSummary(listenerId);
+
+  res.json({
+    referralCode,
+    referralLink,
+    referralsCount: referralsList.length,
+    qualifiedCount: referralsList.filter((r) => r.status === 'QUALIFIED').length,
+    financialSummary: financial,
+    referrals: referralsList,
+    commissions: commissionsList,
+  });
+});
+
+// Listener Referral Withdrawal Request
+listenerRouter.post('/withdrawals', requireAuth, (req: AuthenticatedRequest, res) => {
+  const listenerId = req.user!.id;
+  const { amount, paymentMethod = 'MOBILE_MONEY', paymentDetails } = req.body;
+
+  const numAmount = parseInt(amount, 10);
+  const settings = db.settings.get();
+  const minAmount = settings.minWithdrawalAmount || 20000;
+
+  if (isNaN(numAmount) || numAmount < minAmount) {
+    res.status(400).json({ error: `Minimum withdrawal amount is TZS ${minAmount.toLocaleString()}` });
+    return;
+  }
+
+  const financial = db.getUserFinancialSummary(listenerId);
+  if (numAmount > financial.availableBalance) {
+    res.status(400).json({
+      error: `Insufficient available referral balance. Your available balance is TZS ${financial.availableBalance.toLocaleString()}`,
+    });
+    return;
+  }
+
+  const request = db.withdrawalRequests.create({
+    id: `wth_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    ownerId: listenerId,
+    ownerName: req.user!.fullName || req.user!.email,
+    ownerEmail: req.user!.email,
+    amount: numAmount,
+    currency: 'TZS',
+    status: 'PENDING',
+    payoutMethod: paymentMethod,
+    accountDetails: paymentDetails || 'Mobile Money Account',
+    requestedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Withdrawal request submitted successfully.',
+    withdrawal: request,
+  });
+});
+
 

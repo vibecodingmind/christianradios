@@ -29,6 +29,18 @@ interface AuthContextType {
     website?: string;
     avatarUrl?: string;
   }) => Promise<{ success: boolean; error?: string }>;
+  loginWithGoogle: (data: {
+    credential?: string;
+    email?: string;
+    name?: string;
+    avatarUrl?: string;
+    role?: Role;
+  }) => Promise<{ success: boolean; error?: string }>;
+  becomeOwner: (data: {
+    organizationName?: string;
+    phone?: string;
+    country?: string;
+  }) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -53,7 +65,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
       }
-      // If server returned null user and no valid token exists, reset
       if (!getAuthToken()) {
         setUser(null);
         setOwnerProfile(undefined);
@@ -93,7 +104,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data.ownerProfile) {
         setOwnerProfile(data.ownerProfile);
       }
-      // Refresh to ensure all relations (subscription/plans) are attached
       await refreshUser();
       return { success: true };
     } catch {
@@ -187,6 +197,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loginWithGoogle = async (googlePayload: {
+    credential?: string;
+    email?: string;
+    name?: string;
+    avatarUrl?: string;
+    role?: Role;
+  }) => {
+    try {
+      const res = await apiFetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(googlePayload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || 'Google login failed' };
+      }
+
+      if (data.token) {
+        setAuthToken(data.token);
+      }
+      setUser(data.user);
+      if (data.ownerProfile) {
+        setOwnerProfile(data.ownerProfile);
+      }
+      await refreshUser();
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Network error during Google login.' };
+    }
+  };
+
+  const becomeOwner = async (data: {
+    organizationName?: string;
+    phone?: string;
+    country?: string;
+  }) => {
+    try {
+      const res = await apiFetch('/api/auth/become-owner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        return { success: false, error: json.error || 'Failed to convert account to Radio Owner.' };
+      }
+      setUser(json.user);
+      if (json.ownerProfile) setOwnerProfile(json.ownerProfile);
+      await refreshUser();
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Network error completing owner onboarding.' };
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -201,6 +267,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         refreshUser,
         quickLoginAs,
         updateProfile,
+        loginWithGoogle,
+        becomeOwner,
       }}
     >
       {children}

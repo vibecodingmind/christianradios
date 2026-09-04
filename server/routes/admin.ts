@@ -8,15 +8,8 @@ import type { Advertisement, Category, SubscriptionPlan } from '../types.js';
 
 export const adminRouter = Router();
 
-// Require Super Admin or Admin Roles
-adminRouter.use(
-  requireRole(
-    'SUPER_ADMIN',
-    'OPERATIONS_ADMIN',
-    'FINANCE_ADMIN',
-    'SUPPORT_AGENT'
-  )
-);
+// Require Super Admin Role
+adminRouter.use(requireRole('SUPER_ADMIN'));
 
 // 1. SaaS Platform & Revenue Metrics
 adminRouter.get('/metrics', (req, res) => {
@@ -470,6 +463,133 @@ adminRouter.post('/tenants/:id/assign-plan', (req: AuthenticatedRequest, res) =>
   });
 
   res.json({ success: true, subscription: sub, plan });
+});
+
+// Admin Subscription Plans Management
+adminRouter.get('/plans', (req, res) => {
+  const plans = db.plans.getAll();
+  res.json({ plans });
+});
+
+adminRouter.post('/plans', (req: AuthenticatedRequest, res) => {
+  try {
+    const body = req.body;
+    const newPlan: SubscriptionPlan = {
+      id: body.id || `plan_${Date.now()}`,
+      name: body.name || 'New Broadcaster Plan',
+      tier: body.tier || 'PRO',
+      description: body.description || '',
+      monthlyPriceTzs: Number(body.monthlyPriceTzs) || 0,
+      annualPriceTzs: Number(body.annualPriceTzs) || 0,
+      monthlyPriceUsd: Number(body.monthlyPriceUsd) || 0,
+      annualPriceUsd: Number(body.annualPriceUsd) || 0,
+      currency: body.currency || 'TZS',
+      maxStations: Number(body.maxStations) || 1,
+      featuredMonthlyQuota: Number(body.featuredMonthlyQuota) || 0,
+      maxActiveFeatured: Number(body.maxActiveFeatured) || 0,
+      donationCampaignLimit: Number(body.donationCampaignLimit) || 0,
+      givingEnabled: Boolean(body.givingEnabled),
+      withdrawalsEnabled: Boolean(body.withdrawalsEnabled),
+      analyticsRetentionDays: Number(body.analyticsRetentionDays) || 30,
+      advancedAnalyticsEnabled: Boolean(body.advancedAnalyticsEnabled),
+      multiStationAnalyticsEnabled: Boolean(body.multiStationAnalyticsEnabled),
+      exportsEnabled: Boolean(body.exportsEnabled),
+      advancedBrandingEnabled: Boolean(body.advancedBrandingEnabled),
+      prioritySupport: Boolean(body.prioritySupport),
+      featuredPlacementPriority: body.featuredPlacementPriority || 'NONE',
+      isActive: body.isActive !== false,
+      featuresList: body.features || body.featuresList || [],
+    };
+
+    const created = db.plans.create(newPlan);
+
+    db.auditLogs.log({
+      actorId: req.user!.id,
+      actorEmail: req.user!.email,
+      actorRole: req.user!.role,
+      action: 'PLAN_CREATED',
+      entityType: 'SubscriptionPlan',
+      entityId: created.id,
+      details: `Created new subscription package "${created.name}" (${created.tier}).`,
+    });
+
+    res.status(201).json({ success: true, plan: created });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message || 'Failed to create plan' });
+  }
+});
+
+adminRouter.put('/plans/:id', (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const existing = db.plans.findById(id);
+    if (!existing) {
+      res.status(404).json({ error: 'Plan not found' });
+      return;
+    }
+
+    const updated = db.plans.update(id, req.body);
+
+    db.auditLogs.log({
+      actorId: req.user!.id,
+      actorEmail: req.user!.email,
+      actorRole: req.user!.role,
+      action: 'PLAN_UPDATED',
+      entityType: 'SubscriptionPlan',
+      entityId: id,
+      details: `Updated subscription package "${existing.name}".`,
+    });
+
+    res.json({ success: true, plan: updated });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message || 'Failed to update plan' });
+  }
+});
+
+adminRouter.post('/plans/:id/toggle', (req: AuthenticatedRequest, res) => {
+  const { id } = req.params;
+  const existing = db.plans.findById(id);
+  if (!existing) {
+    res.status(404).json({ error: 'Plan not found' });
+    return;
+  }
+
+  const updated = db.plans.update(id, { isActive: !existing.isActive });
+
+  db.auditLogs.log({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    actorRole: req.user!.role,
+    action: updated?.isActive ? 'PLAN_ACTIVATED' : 'PLAN_DEACTIVATED',
+    entityType: 'SubscriptionPlan',
+    entityId: id,
+    details: `Toggled package "${existing.name}" status to ${updated?.isActive ? 'ACTIVE' : 'INACTIVE'}.`,
+  });
+
+  res.json({ success: true, plan: updated });
+});
+
+adminRouter.delete('/plans/:id', (req: AuthenticatedRequest, res) => {
+  const { id } = req.params;
+  const existing = db.plans.findById(id);
+  if (!existing) {
+    res.status(404).json({ error: 'Plan not found' });
+    return;
+  }
+
+  db.plans.delete(id);
+
+  db.auditLogs.log({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    actorRole: req.user!.role,
+    action: 'PLAN_DELETED',
+    entityType: 'SubscriptionPlan',
+    entityId: id,
+    details: `Deleted subscription package "${existing.name}".`,
+  });
+
+  res.json({ success: true, message: 'Plan deleted' });
 });
 
 // 5. Payments & Financial Records
@@ -1537,5 +1657,183 @@ adminRouter.post('/stations/:id/sync', async (req: AuthenticatedRequest, res) =>
     const msg = err instanceof Error ? err.message : 'Sync failed';
     res.status(400).json({ error: msg });
   }
+});
+
+// --- ADMIN PREMIUM RADIOS CONFIGURATION ---
+adminRouter.get('/premium-radios', (req: AuthenticatedRequest, res) => {
+  const settings = db.settings.get();
+  const allStations = db.stations.getAll();
+  const premiumStations = allStations.filter((s) => s.accessType === 'PREMIUM');
+  const allPremiumSubs = db.premiumSubscriptions.getAll();
+
+  res.json({
+    settings: {
+      premiumRadiosEnabled: settings.premiumRadiosEnabled ?? true,
+      minPremiumPriceTzs: settings.minPremiumPriceTzs ?? 2000,
+      maxPremiumPriceTzs: settings.maxPremiumPriceTzs ?? 500000,
+      premiumRevenueShareOwnerPercentage: settings.premiumRevenueShareOwnerPercentage ?? 80,
+    },
+    totalPremiumStations: premiumStations.length,
+    totalPremiumSubscriptions: allPremiumSubs.length,
+    activePremiumSubscriptions: allPremiumSubs.filter((s) => s.status === 'ACTIVE').length,
+    premiumStations,
+    subscriptions: allPremiumSubs,
+  });
+});
+
+adminRouter.put('/premium-radios/settings', (req: AuthenticatedRequest, res) => {
+  const {
+    premiumRadiosEnabled,
+    minPremiumPriceTzs,
+    maxPremiumPriceTzs,
+    premiumRevenueShareOwnerPercentage,
+  } = req.body;
+
+  const updatedSettings = db.settings.update({
+    ...(premiumRadiosEnabled !== undefined ? { premiumRadiosEnabled: Boolean(premiumRadiosEnabled) } : {}),
+    ...(minPremiumPriceTzs ? { minPremiumPriceTzs: parseInt(minPremiumPriceTzs, 10) } : {}),
+    ...(maxPremiumPriceTzs ? { maxPremiumPriceTzs: parseInt(maxPremiumPriceTzs, 10) } : {}),
+    ...(premiumRevenueShareOwnerPercentage ? { premiumRevenueShareOwnerPercentage: parseInt(premiumRevenueShareOwnerPercentage, 10) } : {}),
+  });
+
+  db.auditLogs.log({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    actorRole: 'SUPER_ADMIN',
+    action: 'PLATFORM_SETTINGS_UPDATE',
+    entityType: 'PlatformSettings',
+    entityId: 'settings',
+    details: 'Updated Premium Radios global rules and revenue split.',
+  });
+
+  res.json({ success: true, settings: updatedSettings });
+});
+
+// --- ADMIN REFERRAL SYSTEM AUDIT & CONFIGURATION ---
+adminRouter.get('/referrals', (req: AuthenticatedRequest, res) => {
+  const settings = db.settings.get();
+  const referrals = db.referrals.getAll();
+  const commissions = db.referralCommissions.getAll();
+
+  res.json({
+    settings: {
+      referralCommissionOwnerPercentage: settings.referralCommissionOwnerPercentage ?? 10,
+      referralCommissionListenerPercentage: settings.referralCommissionListenerPercentage ?? 10,
+      referralAttributionWindowDays: settings.referralAttributionWindowDays ?? 30,
+    },
+    totalReferrals: referrals.length,
+    totalCommissions: commissions.length,
+    totalCommissionAmountTzs: commissions.reduce((sum, c) => sum + c.commissionAmountTzs, 0),
+    referrals,
+    commissions,
+  });
+});
+
+adminRouter.put('/referrals/settings', (req: AuthenticatedRequest, res) => {
+  const {
+    referralCommissionOwnerPercentage,
+    referralCommissionListenerPercentage,
+    referralAttributionWindowDays,
+  } = req.body;
+
+  const updatedSettings = db.settings.update({
+    ...(referralCommissionOwnerPercentage ? { referralCommissionOwnerPercentage: parseInt(referralCommissionOwnerPercentage, 10) } : {}),
+    ...(referralCommissionListenerPercentage ? { referralCommissionListenerPercentage: parseInt(referralCommissionListenerPercentage, 10) } : {}),
+    ...(referralAttributionWindowDays ? { referralAttributionWindowDays: parseInt(referralAttributionWindowDays, 10) } : {}),
+  });
+
+  res.json({ success: true, settings: updatedSettings });
+});
+
+// --- ADMIN FEATURED PACKAGES CRUD ---
+adminRouter.get('/featured-packages', (req: AuthenticatedRequest, res) => {
+  const packages = db.featuredPackages.getAll();
+  const purchases = db.featuredPurchases.getAll();
+  res.json({ packages, purchases });
+});
+
+adminRouter.post('/featured-packages', (req: AuthenticatedRequest, res) => {
+  const { name, description, durationDays, priceTzs, priceUsd, placementPriority = 'HOMEPAGE_HERO' } = req.body;
+
+  if (!name || !durationDays || !priceTzs) {
+    res.status(400).json({ error: 'Name, duration (days), and price (TZS) are required.' });
+    return;
+  }
+
+  const pkg = db.featuredPackages.create({
+    id: `feat_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    name: name.trim(),
+    description: description ? description.trim() : '',
+    durationDays: parseInt(durationDays, 10),
+    priceTzs: parseInt(priceTzs, 10),
+    priceUsd: priceUsd ? parseInt(priceUsd, 10) : Math.round(parseInt(priceTzs, 10) / 2500),
+    currency: 'TZS',
+    placementPriority,
+    isActive: true,
+  });
+
+  res.status(201).json({ success: true, package: pkg });
+});
+
+adminRouter.put('/featured-packages/:id', (req: AuthenticatedRequest, res) => {
+  const { id } = req.params;
+  const { name, description, durationDays, priceTzs, priceUsd, placementPriority, isActive } = req.body;
+
+  const updated = db.featuredPackages.update(id, {
+    ...(name ? { name: name.trim() } : {}),
+    ...(description !== undefined ? { description: description.trim() } : {}),
+    ...(durationDays ? { durationDays: parseInt(durationDays, 10) } : {}),
+    ...(priceTzs ? { priceTzs: parseInt(priceTzs, 10) } : {}),
+    ...(priceUsd ? { priceUsd: parseInt(priceUsd, 10) } : {}),
+    ...(placementPriority ? { placementPriority } : {}),
+    ...(isActive !== undefined ? { isActive: Boolean(isActive) } : {}),
+  });
+
+  res.json({ success: true, package: updated });
+});
+
+// --- ADMIN PAYOUT WITHDRAWAL APPROVAL WORKFLOW ---
+adminRouter.post('/withdrawals/:id/process', (req: AuthenticatedRequest, res) => {
+  const { id } = req.params;
+  const { status, adminNotes } = req.body; // 'APPROVED' | 'PAID' | 'REJECTED'
+
+  if (status !== 'APPROVED' && status !== 'PAID' && status !== 'REJECTED') {
+    res.status(400).json({ error: 'Status must be APPROVED, PAID, or REJECTED.' });
+    return;
+  }
+
+  const withdrawal = db.withdrawalRequests.getAll().find((w) => w.id === id);
+  if (!withdrawal) {
+    res.status(404).json({ error: 'Withdrawal request not found.' });
+    return;
+  }
+
+  const updatedWithdrawal = db.withdrawalRequests.update(id, {
+    status,
+    ...(status === 'PAID' ? { processedAt: new Date().toISOString() } : {}),
+  });
+
+  // Log Notification to User
+  db.notifications.create({
+    id: `notif_${Date.now()}`,
+    userId: withdrawal.ownerId,
+    title: `Withdrawal Request Update: TZS ${withdrawal.amount.toLocaleString()}`,
+    message: `Your payout withdrawal request for TZS ${withdrawal.amount.toLocaleString()} has been marked as ${status}.${adminNotes ? ` Note: ${adminNotes}` : ''}`,
+    type: status === 'PAID' ? 'SYSTEM_ALERT' : 'SYSTEM_ALERT',
+    read: false,
+    createdAt: new Date().toISOString(),
+  });
+
+  db.auditLogs.log({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    actorRole: 'SUPER_ADMIN',
+    action: `WITHDRAWAL_${status}`,
+    entityType: 'WithdrawalRequest',
+    entityId: id,
+    details: `Processed withdrawal ${id} for user ${withdrawal.ownerName} (${withdrawal.ownerEmail}) to status ${status}.`,
+  });
+
+  res.json({ success: true, withdrawal: updatedWithdrawal });
 });
 

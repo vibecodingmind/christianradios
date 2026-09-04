@@ -47,7 +47,6 @@ export function PersistentPlayer() {
     return null;
   }
 
-  // Format sleep timer seconds to MM:SS
   const formatTimer = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -57,7 +56,6 @@ export function PersistentPlayer() {
   return (
     <>
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800/90 text-white shadow-2xl transition-all">
-        {/* Buffering or Error Notification Strip */}
         {hasError && (
           <div className="bg-rose-900/90 border-b border-rose-700/60 px-4 py-1.5 text-xs text-rose-200 flex items-center justify-between">
             <div className="flex items-center gap-2 truncate">
@@ -80,19 +78,21 @@ export function PersistentPlayer() {
           </div>
         )}
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between gap-3">
-          {/* Left: Station Info & Cover */}
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 max-w-[280px] sm:max-w-xs md:max-w-sm">
             <div
               onClick={() => setIsExpanded(true)}
               className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden bg-slate-800 border border-slate-700 shrink-0 cursor-pointer group shadow-md"
             >
               <img
-                src={currentStation.logoUrl}
+                src={currentStation.logoUrl || currentStation.coverUrl || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=400&auto=format&fit=crop&q=80'}
                 alt={currentStation.name}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                 onError={(e) => {
-                  (e.target as HTMLElement).style.display = 'none';
+                  const img = e.currentTarget as HTMLImageElement;
+                  if (img.src !== 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=400&auto=format&fit=crop&q=80') {
+                    img.src = 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=400&auto=format&fit=crop&q=80';
+                  }
                 }}
               />
               <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
@@ -117,14 +117,15 @@ export function PersistentPlayer() {
             </div>
           </div>
 
-          {/* Center: Main Play Controls & Audio Waveform */}
           <div className="flex flex-col items-center gap-1">
             <div className="flex items-center gap-3 sm:gap-4">
               <button
                 onClick={togglePlay}
                 disabled={isLoading}
                 aria-label={isPlaying ? 'Pause broadcast' : 'Play broadcast'}
-                className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white flex items-center justify-center shadow-lg shadow-sky-500/25 active:scale-95 transition-all disabled:opacity-75 focus:outline-none"
+                className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white flex items-center justify-center shadow-lg shadow-sky-500/25 active:scale-95 transition-all disabled:opacity-75 focus:outline-none ${
+                  isPlaying ? 'ring-4 ring-sky-500/30 animate-glow-pulse' : ''
+                }`}
               >
                 {isLoading || isBuffering ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -136,26 +137,23 @@ export function PersistentPlayer() {
               </button>
             </div>
 
-            {/* Audio Wave Visualizer Bars */}
-            <div className="hidden sm:flex items-center gap-1 h-3 mt-0.5">
-              {[40, 75, 55, 90, 60, 85, 45, 70, 95, 50, 65, 80].map((height, i) => (
+            <div className="hidden sm:flex items-center gap-1 h-3.5 mt-0.5">
+              {[40, 85, 55, 100, 60, 90, 45, 75, 95, 50, 70, 80, 60, 90].map((height, i) => (
                 <span
                   key={i}
                   style={{
                     height: isPlaying ? `${height}%` : '20%',
-                    animationDuration: isPlaying ? `${0.4 + (i % 4) * 0.2}s` : '0s',
+                    animationDuration: isPlaying ? `${0.35 + (i % 5) * 0.15}s` : '0s',
                   }}
-                  className={`w-0.5 rounded-full bg-sky-400 transition-all ${
-                    isPlaying ? 'animate-pulse' : 'opacity-40'
+                  className={`w-0.5 rounded-full bg-gradient-to-t from-sky-500 to-indigo-400 transition-all ${
+                    isPlaying ? 'animate-bounce' : 'opacity-40'
                   }`}
                 />
               ))}
             </div>
           </div>
 
-          {/* Right: Volume & Secondary Tools */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Sleep Timer button */}
             <button
               onClick={() => setShowSleepTimerModal(!showSleepTimerModal)}
               title="Sleep Timer"
@@ -173,7 +171,6 @@ export function PersistentPlayer() {
               )}
             </button>
 
-            {/* Share button */}
             <button
               onClick={() => setShowShareModal(true)}
               title="Share station"
@@ -182,7 +179,6 @@ export function PersistentPlayer() {
               <Share2 className="w-4 h-4" />
             </button>
 
-            {/* Report issue */}
             <button
               onClick={() => setShowReportModal(true)}
               title="Report stream issue"
@@ -191,7 +187,6 @@ export function PersistentPlayer() {
               <AlertTriangle className="w-4 h-4" />
             </button>
 
-            {/* Desktop Volume Slider */}
             <div className="hidden lg:flex items-center gap-2 pl-2 border-l border-slate-800">
               <button
                 onClick={toggleMute}
@@ -214,7 +209,6 @@ export function PersistentPlayer() {
               />
             </div>
 
-            {/* Fullscreen Player Button */}
             <button
               onClick={() => setIsExpanded(true)}
               title="Expand player view"
@@ -226,7 +220,6 @@ export function PersistentPlayer() {
         </div>
       </div>
 
-      {/* Sleep Timer Selector Modal */}
       {showSleepTimerModal && (
         <div className="fixed bottom-24 right-4 sm:right-12 z-50 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-2xl w-64 text-slate-100">
           <div className="flex items-center justify-between mb-3">
@@ -248,13 +241,9 @@ export function PersistentPlayer() {
                   setSleepTimer(mins);
                   setShowSleepTimerModal(false);
                 }}
-                className={`text-xs py-2 px-3 rounded-xl font-medium transition-colors ${
-                  sleepTimerMinutes === mins
-                    ? 'bg-amber-500 text-slate-950 font-bold'
-                    : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-                }`}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs py-2 rounded-xl transition-colors"
               >
-                {mins} Minutes
+                {mins} mins
               </button>
             ))}
           </div>
@@ -264,16 +253,15 @@ export function PersistentPlayer() {
                 setSleepTimer(null);
                 setShowSleepTimerModal(false);
               }}
-              className="w-full mt-3 text-xs text-rose-400 hover:bg-rose-500/10 py-1.5 rounded-lg transition-colors"
+              className="w-full mt-3 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs py-2 rounded-xl transition-colors"
             >
-              Turn Off Sleep Timer
+              Turn Off Timer
             </button>
           )}
         </div>
       )}
 
-      {/* Report Modal */}
-      {showReportModal && (
+      {showReportModal && currentStation && (
         <ReportModal
           stationId={currentStation.id}
           stationName={currentStation.name}
@@ -281,8 +269,7 @@ export function PersistentPlayer() {
         />
       )}
 
-      {/* Share Modal */}
-      {showShareModal && (
+      {showShareModal && currentStation && (
         <ShareModal
           station={currentStation}
           onClose={() => setShowShareModal(false)}

@@ -1,8 +1,10 @@
 import { Router } from 'express';
+import http from 'http';
+import https from 'https';
 import { db } from '../db.js';
 import { validateStreamUrl } from '../ssrf.js';
 import { getLiveNowPlayingMetadata } from '../icyMetadata.js';
-import type { StationReport } from '../types.js';
+import type { StationReport, TicketPriority } from '../types.js';
 
 export const publicRouter = Router();
 
@@ -15,6 +17,7 @@ publicRouter.get('/stations', (req, res) => {
     genre,
     denomination,
     streamStatus,
+    accessType,
     search,
     sort = 'popular',
     page = '1',
@@ -28,7 +31,7 @@ publicRouter.get('/stations', (req, res) => {
   if (category) {
     const cat = db.categories.findBySlug(category) || db.categories.findById(category);
     if (cat) {
-      stations = stations.filter((s) => s.categoryId === cat.id);
+      stations = stations.filter((s) => s.categoryId === cat.id || (Array.isArray(s.categoryIds) && s.categoryIds.includes(cat.id)));
     }
   }
 
@@ -60,6 +63,28 @@ publicRouter.get('/stations', (req, res) => {
     stations = stations.filter(
       (s) => s.streamStatus.toUpperCase() === streamStatus.toUpperCase()
     );
+  }
+
+  if (accessType) {
+    stations = stations.filter(
+      (s) => (s.accessType || 'FREE').toUpperCase() === accessType.toUpperCase()
+    );
+  }
+
+  if (req.query.isFeatured === 'true') {
+    stations = stations.filter((s) => Boolean(s.isFeatured));
+  }
+
+  if (req.query.isVerified === 'true') {
+    stations = stations.filter((s) => s.verificationStatus === 'VERIFIED');
+  }
+
+  if (req.query.donationEnabled === 'true') {
+    stations = stations.filter((s) => Boolean(s.donationEnabled));
+  }
+
+  if (req.query.hasSchedule === 'true') {
+    stations = stations.filter((s) => Array.isArray(s.schedule) && s.schedule.length > 0);
   }
 
   if (search) {
@@ -100,7 +125,7 @@ publicRouter.get('/stations', (req, res) => {
   }
 
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
-  const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 24));
+  const limitNum = Math.min(1000, Math.max(1, parseInt(limit, 10) || 50));
   const total = stations.length;
   const totalPages = Math.ceil(total / limitNum);
   const paginated = stations.slice((pageNum - 1) * limitNum, pageNum * limitNum);
@@ -123,11 +148,21 @@ publicRouter.get('/stations', (req, res) => {
   });
 });
 
-// 2. Get Single Station by Slug
+// 2. Get Single Station by Slug or ID
 publicRouter.get('/stations/:slug', (req, res) => {
-  const { slug } = req.params;
+  const rawParam = req.params.slug;
+  const decodedParam = decodeURIComponent(rawParam);
+
   const station =
-    db.stations.findBySlug(slug) || db.stations.findById(slug);
+    db.stations.findBySlug(rawParam) ||
+    db.stations.findBySlug(decodedParam) ||
+    db.stations.findById(rawParam) ||
+    db.stations.getAll().find(
+      (s) =>
+        s.slug?.toLowerCase() === rawParam.toLowerCase() ||
+        s.slug?.toLowerCase() === decodedParam.toLowerCase() ||
+        s.id === rawParam
+    );
 
   if (!station) {
     res.status(404).json({ error: 'Radio station not found.' });
@@ -277,6 +312,24 @@ publicRouter.get('/featured', (req, res) => {
   res.json({ stations: featuredStations });
 });
 
+// 5b. Premium Stations
+publicRouter.get('/premium', (req, res) => {
+  const premiumStations = db.stations
+    .getAll()
+    .filter(
+      (s) =>
+        (s.status === 'ACTIVE' || s.status === 'APPROVED') &&
+        s.accessType === 'PREMIUM'
+    )
+    .map((s) => ({
+      ...s,
+      category: db.categories.findById(s.categoryId),
+      country: db.countries.findByCode(s.countryCode),
+    }));
+
+  res.json({ stations: premiumStations, total: premiumStations.length });
+});
+
 // 6. Live Now Stations
 publicRouter.get('/live', (req, res) => {
   const liveStations = db.stations
@@ -349,6 +402,41 @@ publicRouter.get('/search', (req, res) => {
     stations: matchingStations,
     categories: matchingCategories,
     countries: matchingCountries,
+  });
+});
+
+// 7b. Public Featured Promotion Packages
+publicRouter.get('/featured-packages', (req, res) => {
+  const packages = (db.featuredPackages.getAll() || []).filter((p) => p.isActive);
+  res.json({ packages });
+});
+
+// 7c. Station Access & Premium Status Check
+publicRouter.get('/stations/:id/access', (req, res) => {
+  const { id } = req.params;
+  const listenerId = req.query.listenerId as string | undefined;
+
+  const station = db.stations.findById(id);
+  if (!station) {
+    res.status(404).json({ error: 'Station not found.' });
+    return;
+  }
+
+  const isPremium = station.accessType === 'PREMIUM';
+  let hasAccess = !isPremium;
+
+  if (isPremium && listenerId) {
+    hasAccess = db.premiumSubscriptions.hasActiveAccess(listenerId, id);
+  }
+
+  res.json({
+    stationId: id,
+    accessType: station.accessType || 'FREE',
+    isPremium,
+    hasAccess,
+    monthlyPriceTzs: station.monthlyPriceTzs || 5000,
+    annualPriceTzs: station.annualPriceTzs || 50000,
+    premiumDescription: station.premiumDescription || 'Subscribe to listen to this Premium Christian Radio.',
   });
 });
 
@@ -475,6 +563,16 @@ publicRouter.post('/prayers/:id/pray', (req, res) => {
 });
 
 // 13. Station Reviews & Testimonies
+publicRouter.get('/plans', (req, res) => {
+  const plans = db.plans.getAll().filter((p) => p.isActive !== false);
+  res.json({ plans });
+});
+
+publicRouter.get('/reviews', (req, res) => {
+  const reviews = db.stationReviews.getAll().filter((r) => r.isApproved);
+  res.json({ reviews });
+});
+
 publicRouter.get('/stations/:slug/reviews', (req, res) => {
   const { slug } = req.params;
   const st = db.stations.findBySlug(slug) || db.stations.findById(slug);
@@ -562,6 +660,60 @@ publicRouter.get('/stations/:slug/now-playing', async (req, res) => {
       updatedAt: new Date().toISOString(),
     });
   }
+});
+
+// Stream proxy to resolve CORS and Mixed-Content HTTP/HTTPS audio stream issues
+publicRouter.get('/stream-proxy', async (req, res) => {
+  const targetUrl = req.query.url as string;
+  if (!targetUrl) {
+    res.status(400).send('Missing url parameter');
+    return;
+  }
+
+  const ssrfCheck = await validateStreamUrl(targetUrl);
+  if (!ssrfCheck.isValid) {
+    res.status(400).send('Invalid or prohibited stream URL');
+    return;
+  }
+
+  const streamUrl = ssrfCheck.normalizedUrl || targetUrl;
+  const isHttps = streamUrl.startsWith('https:');
+  const client = isHttps ? https : http;
+
+  const reqOptions = {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      'Accept': '*/*',
+      'Icy-MetaData': '1',
+    },
+  };
+
+  const proxyReq = client.get(streamUrl, reqOptions, (proxyRes) => {
+    if (proxyRes.statusCode && proxyRes.statusCode >= 300 && proxyRes.statusCode < 400 && proxyRes.headers.location) {
+      const redirectUrl = proxyRes.headers.location;
+      res.redirect(`/api/public/stream-proxy?url=${encodeURIComponent(redirectUrl)}`);
+      return;
+    }
+
+    res.writeHead(proxyRes.statusCode || 200, {
+      'Content-Type': proxyRes.headers['content-type'] || 'audio/mpeg',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Connection': 'keep-alive',
+    });
+
+    proxyRes.pipe(res);
+  });
+
+  proxyReq.on('error', () => {
+    if (!res.headersSent) {
+      res.status(502).send('Stream gateway proxy connection error');
+    }
+  });
+
+  req.on('close', () => {
+    proxyReq.destroy();
+  });
 });
 
 // 17. Ministry Direct Donations & Station Campaigns
@@ -949,7 +1101,6 @@ publicRouter.post('/stations/:slug/claim', (req, res) => {
     db.stationClaims.create(newClaim);
     db.stations.update(st.id, { claimStatus: 'CLAIM_PENDING' });
 
-    // Notify Super Admin
     db.notifications.create({
       id: `notif_${Date.now()}`,
       userId: 'usr_superadmin',
@@ -969,4 +1120,50 @@ publicRouter.post('/stations/:slug/claim', (req, res) => {
     res.status(500).json({ error: 'Failed to process claim request.' });
   }
 });
+
+// 22. Public Contact Form Submission Endpoint
+publicRouter.post('/contact', (req, res) => {
+  try {
+    const { name, email, subject, message, topic = 'GENERAL' } = req.body;
+
+    if (!name || !email || !message) {
+      return res.status(400).json({ error: 'Name, email, and message are required fields.' });
+    }
+
+    const ticketId = `tkt_${Date.now()}`;
+    const newTicket = {
+      id: ticketId,
+      ownerId: 'PUBLIC_VISITOR',
+      subject: subject || `Public Inquiry: ${topic || 'General'}`,
+      category: topic || 'GENERAL',
+      message: `${message}\n\nSender: ${name} (${email})`,
+      status: 'OPEN' as const,
+      priority: (topic === 'STREAM_ISSUE' ? 'HIGH' : 'MEDIUM') as TicketPriority,
+      responses: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    db.supportTickets.create(newTicket);
+
+    db.notifications.create({
+      id: `notif_${Date.now()}`,
+      userId: 'usr_superadmin',
+      title: `New Support Inquiry: ${name}`,
+      message: `${name} (${email}) sent a message: "${subject || topic}".`,
+      type: 'SYSTEM_ALERT',
+      read: false,
+      createdAt: new Date().toISOString(),
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Thank you for reaching out! Your message has been received by our engineering and support team.',
+      ticketId,
+    });
+  } catch {
+    return res.status(500).json({ error: 'Failed to submit contact message.' });
+  }
+});
+
 

@@ -1,87 +1,68 @@
-import { hashPassword } from './auth.js';
+import fs from 'fs';
+import path from 'path';
 import { db } from './db.js';
 import type { Category, Country, Station, SubscriptionPlan, User } from './types.js';
+import { DEFAULT_OFFICIAL_PLANS } from './services/entitlement.js';
+import { hashPassword } from './auth.js';
 
 export function runSeed() {
   db.seedInitialData((data) => {
     console.log('Seeding Christian Radios initial database...');
 
     // 1. Subscription Plans
-    const plans: SubscriptionPlan[] = [
-      {
-        id: 'plan_free',
-        name: 'Free Directory',
-        tier: 'FREE',
-        description: 'Basic listing for registered non-profit Christian radio stations.',
-        monthlyPriceTzs: 0,
-        annualPriceTzs: 0,
-        monthlyPriceUsd: 0,
-        annualPriceUsd: 0,
-        currency: 'TZS',
-        maxStations: 1,
-        analyticsAccessLevel: 'BASIC',
-        featuredIncluded: false,
-        streamMonitoringIntervalMinutes: 30,
-        customBranding: false,
-        prioritySupport: false,
-        isActive: true,
-      },
-      {
-        id: 'plan_starter',
-        name: 'Starter Broadcaster',
-        tier: 'STARTER',
-        description: 'Ideal for local and community Christian broadcasters looking to grow.',
-        monthlyPriceTzs: 35000,
-        annualPriceTzs: 350000,
-        monthlyPriceUsd: 15,
-        annualPriceUsd: 150,
-        currency: 'TZS',
-        maxStations: 2,
-        analyticsAccessLevel: 'ADVANCED',
-        featuredIncluded: false,
-        streamMonitoringIntervalMinutes: 15,
-        customBranding: true,
-        prioritySupport: false,
-        isActive: true,
-      },
-      {
-        id: 'plan_professional',
-        name: 'Professional Radio Network',
-        tier: 'PROFESSIONAL',
-        description: 'Advanced analytics, fast stream monitoring, and featured search placement.',
-        monthlyPriceTzs: 85000,
-        annualPriceTzs: 850000,
-        monthlyPriceUsd: 35,
-        annualPriceUsd: 350,
-        currency: 'TZS',
-        maxStations: 5,
-        analyticsAccessLevel: 'ADVANCED',
-        featuredIncluded: true,
-        streamMonitoringIntervalMinutes: 5,
-        customBranding: true,
-        prioritySupport: true,
-        isActive: true,
-      },
-      {
-        id: 'plan_business',
-        name: 'Enterprise Broadcast Network',
-        tier: 'BUSINESS',
-        description: 'Multi-station syndicate with real-time 1-minute telemetry and homepage placements.',
-        monthlyPriceTzs: 195000,
-        annualPriceTzs: 1950000,
-        monthlyPriceUsd: 80,
-        annualPriceUsd: 800,
-        currency: 'TZS',
-        maxStations: 15,
-        analyticsAccessLevel: 'FULL_ENTERPRISE',
-        featuredIncluded: true,
-        streamMonitoringIntervalMinutes: 1,
-        customBranding: true,
-        prioritySupport: true,
-        isActive: true,
-      },
-    ];
-    data.plans = plans;
+    if (!data.plans || data.plans.length === 0 || !data.plans.some((p: any) => p.tier === 'FREE' || p.tier === 'BASIC')) {
+      data.plans = DEFAULT_OFFICIAL_PLANS;
+    }
+
+    // 1b. Featured Packages
+    if (!data.featuredPackages || data.featuredPackages.length === 0) {
+      data.featuredPackages = [
+        {
+          id: 'feat_7d',
+          name: '7-Day Spotlight Boost',
+          description: 'High-visibility spotlight placement on Homepage & Directory Top for 7 days.',
+          durationDays: 7,
+          priceTzs: 15000,
+          priceUsd: 6,
+          currency: 'TZS',
+          placementPriority: 'HOMEPAGE_HERO',
+          isActive: true,
+        },
+        {
+          id: 'feat_30d',
+          name: '30-Day Ministry Reach',
+          description: 'Featured Spotlight position with animated equalizer badge for 30 days.',
+          durationDays: 30,
+          priceTzs: 45000,
+          priceUsd: 18,
+          currency: 'TZS',
+          placementPriority: 'HOMEPAGE_HERO',
+          isActive: true,
+        },
+        {
+          id: 'feat_90d',
+          name: '90-Day Kingdom Impact',
+          description: 'Quarterly featured spotlight banner & priority search ranking for 90 days.',
+          durationDays: 90,
+          priceTzs: 120000,
+          priceUsd: 48,
+          currency: 'TZS',
+          placementPriority: 'HOMEPAGE_HERO',
+          isActive: true,
+        },
+        {
+          id: 'feat_365d',
+          name: '365-Day Global Fleet Banner',
+          description: 'Annual top-tier featured placement across all platform pages.',
+          durationDays: 365,
+          priceTzs: 400000,
+          priceUsd: 160,
+          currency: 'TZS',
+          placementPriority: 'HOMEPAGE_HERO',
+          isActive: true,
+        },
+      ];
+    }
 
     // 2. Categories
     const categories: Category[] = [
@@ -135,7 +116,7 @@ export function runSeed() {
         name: 'Youth & Contemporary',
         slug: 'youth-contemporary',
         iconName: 'Sparkles',
-        description: 'Christian hip-hop, contemporary Christian hits, and young adult programs.',
+        description: 'Contemporary Christian hits, pop, and young adult programs.',
         displayOrder: 6,
         isActive: true,
       },
@@ -157,109 +138,178 @@ export function runSeed() {
         displayOrder: 8,
         isActive: true,
       },
+      {
+        id: 'cat_hiphop',
+        name: 'Christian Hip-Hop & Rap',
+        slug: 'christian-hiphop',
+        iconName: 'Headphones',
+        description: 'Urban Christian rap, holy hip-hop, and rhythmic faith tracks.',
+        displayOrder: 9,
+        isActive: true,
+      },
+      {
+        id: 'cat_country',
+        name: 'Christian Country & Bluegrass',
+        slug: 'christian-country',
+        iconName: 'Guitar',
+        description: 'Acoustic worship, Christian country music, and bluegrass faith tunes.',
+        displayOrder: 10,
+        isActive: true,
+      },
+      {
+        id: 'cat_rock',
+        name: 'Christian Rock & Metal',
+        slug: 'christian-rock',
+        iconName: 'Zap',
+        description: 'Christian rock, alternative, hard rock, and faith-centered metal radio.',
+        displayOrder: 11,
+        isActive: true,
+      },
+      {
+        id: 'cat_prophetic',
+        name: 'Prophetic & Deliverance',
+        slug: 'prophetic-deliverance',
+        iconName: 'ShieldAlert',
+        description: 'Prophetic ministry, spiritual warfare, healing altars, and deliverance services.',
+        displayOrder: 12,
+        isActive: true,
+      },
+      {
+        id: 'cat_instrumental',
+        name: 'Instrumental & Soaking Worship',
+        slug: 'instrumental-soaking',
+        iconName: 'Volume2',
+        description: 'Piano worship, soaking prayer music, instrumental Scriptures, and meditation.',
+        displayOrder: 13,
+        isActive: true,
+      },
+      {
+        id: 'cat_audiobible',
+        name: 'Audio Bible & Scripture',
+        slug: 'audio-bible',
+        iconName: 'Book',
+        description: '24/7 continuous Audio Bible reading, Scripture recitations, and Psalm chanting.',
+        displayOrder: 14,
+        isActive: true,
+      },
+      {
+        id: 'cat_evangelism',
+        name: 'Missions & Evangelism',
+        slug: 'missions-evangelism',
+        iconName: 'Globe',
+        description: 'Missionary stories, gospel outreach, testimony broadcasts, and soul winning.',
+        displayOrder: 15,
+        isActive: true,
+      },
+      {
+        id: 'cat_catholic',
+        name: 'Catholic & Liturgical',
+        slug: 'catholic-liturgical',
+        iconName: 'Cross',
+        description: 'Catholic broadcasts, Holy Mass, Rosary prayer, Gregorian chants, and Vatican news.',
+        displayOrder: 16,
+        isActive: true,
+      },
+      {
+        id: 'cat_messianic',
+        name: 'Messianic & Hebrew Roots',
+        slug: 'messianic-hebrew',
+        iconName: 'Star',
+        description: 'Messianic worship, Jewish heritage, Hebrew roots teaching, and Israel news.',
+        displayOrder: 17,
+        isActive: true,
+      },
+      {
+        id: 'cat_swahili',
+        name: 'Swahili Gospel & Kwaya',
+        slug: 'swahili-gospel',
+        iconName: 'Mic',
+        description: 'Swahili praise, Kwaya, Taarab ya Dini, and East African gospel hits.',
+        displayOrder: 18,
+        isActive: true,
+      },
+      {
+        id: 'cat_afrogospel',
+        name: 'Afro Gospel & Highlife',
+        slug: 'afro-gospel',
+        iconName: 'Disc3',
+        description: 'Afrobeats for Jesus, Ghanaian Highlife gospel, Nigerian praise, and Francophone worship.',
+        displayOrder: 19,
+        isActive: true,
+      },
+      {
+        id: 'cat_safrogospel',
+        name: 'Southern Africa Gospel & Choral',
+        slug: 'southern-africa-gospel',
+        iconName: 'Users',
+        description: 'Zionist gospel, South African choral worship, Zulu/Xhosa praise, and gospel choirs.',
+        displayOrder: 20,
+        isActive: true,
+      },
     ];
     data.categories = categories;
 
-    // 3. Countries
+    // 3. Countries (All Worldwide Countries)
     const countries: Country[] = [
-      {
-        code: 'TZ',
-        name: 'Tanzania',
-        flagEmoji: '🇹🇿',
-        continent: 'Africa',
-        isFeatured: true,
-      },
-      {
-        code: 'KE',
-        name: 'Kenya',
-        flagEmoji: '🇰🇪',
-        continent: 'Africa',
-        isFeatured: true,
-      },
-      {
-        code: 'UG',
-        name: 'Uganda',
-        flagEmoji: '🇺🇬',
-        continent: 'Africa',
-        isFeatured: true,
-      },
-      {
-        code: 'US',
-        name: 'United States',
-        flagEmoji: '🇺🇸',
-        continent: 'North America',
-        isFeatured: true,
-      },
-      {
-        code: 'GB',
-        name: 'United Kingdom',
-        flagEmoji: '🇬🇧',
-        continent: 'Europe',
-        isFeatured: true,
-      },
-      {
-        code: 'NG',
-        name: 'Nigeria',
-        flagEmoji: '🇳🇬',
-        continent: 'Africa',
-        isFeatured: true,
-      },
-      {
-        code: 'ZA',
-        name: 'South Africa',
-        flagEmoji: '🇿🇦',
-        continent: 'Africa',
-        isFeatured: true,
-      },
-      {
-        code: 'GH',
-        name: 'Ghana',
-        flagEmoji: '🇬🇭',
-        continent: 'Africa',
-        isFeatured: true,
-      },
-      {
-        code: 'RW',
-        name: 'Rwanda',
-        flagEmoji: '🇷🇼',
-        continent: 'Africa',
-        isFeatured: true,
-      },
-      {
-        code: 'ZM',
-        name: 'Zambia',
-        flagEmoji: '🇿🇲',
-        continent: 'Africa',
-        isFeatured: false,
-      },
-      {
-        code: 'MW',
-        name: 'Malawi',
-        flagEmoji: '🇲🇼',
-        continent: 'Africa',
-        isFeatured: false,
-      },
-      {
-        code: 'BR',
-        name: 'Brazil',
-        flagEmoji: '🇧🇷',
-        continent: 'South America',
-        isFeatured: false,
-      },
-      {
-        code: 'CA',
-        name: 'Canada',
-        flagEmoji: '🇨🇦',
-        continent: 'North America',
-        isFeatured: false,
-      },
-      {
-        code: 'AU',
-        name: 'Australia',
-        flagEmoji: '🇦🇺',
-        continent: 'Oceania',
-        isFeatured: false,
-      },
+      // Africa
+      { code: 'TZ', name: 'Tanzania', flagEmoji: '🇹🇿', continent: 'Africa', isFeatured: true },
+      { code: 'KE', name: 'Kenya', flagEmoji: '🇰🇪', continent: 'Africa', isFeatured: true },
+      { code: 'UG', name: 'Uganda', flagEmoji: '🇺🇬', continent: 'Africa', isFeatured: true },
+      { code: 'NG', name: 'Nigeria', flagEmoji: '🇳🇬', continent: 'Africa', isFeatured: true },
+      { code: 'ZA', name: 'South Africa', flagEmoji: '🇿🇦', continent: 'Africa', isFeatured: true },
+      { code: 'GH', name: 'Ghana', flagEmoji: '🇬🇭', continent: 'Africa', isFeatured: true },
+      { code: 'RW', name: 'Rwanda', flagEmoji: '🇷🇼', continent: 'Africa', isFeatured: true },
+      { code: 'ET', name: 'Ethiopia', flagEmoji: '🇪🇹', continent: 'Africa', isFeatured: true },
+      { code: 'ZM', name: 'Zambia', flagEmoji: '🇿🇲', continent: 'Africa', isFeatured: false },
+      { code: 'MW', name: 'Malawi', flagEmoji: '🇲🇼', continent: 'Africa', isFeatured: false },
+      { code: 'ZW', name: 'Zimbabwe', flagEmoji: '🇿🇼', continent: 'Africa', isFeatured: false },
+      { code: 'CD', name: 'DR Congo', flagEmoji: '🇨🇩', continent: 'Africa', isFeatured: false },
+      { code: 'CG', name: 'Congo', flagEmoji: '🇨🇬', continent: 'Africa', isFeatured: false },
+      { code: 'CM', name: 'Cameroon', flagEmoji: '🇨🇲', continent: 'Africa', isFeatured: false },
+      { code: 'CI', name: 'Ivory Coast', flagEmoji: '🇨🇮', continent: 'Africa', isFeatured: false },
+      { code: 'SN', name: 'Senegal', flagEmoji: '🇸🇳', continent: 'Africa', isFeatured: false },
+      { code: 'AO', name: 'Angola', flagEmoji: '🇦🇴', continent: 'Africa', isFeatured: false },
+      { code: 'MZ', name: 'Mozambique', flagEmoji: '🇲🇿', continent: 'Africa', isFeatured: false },
+      { code: 'BI', name: 'Burundi', flagEmoji: '🇧🇮', continent: 'Africa', isFeatured: false },
+      { code: 'SS', name: 'South Sudan', flagEmoji: '🇸🇸', continent: 'Africa', isFeatured: false },
+      { code: 'SD', name: 'Sudan', flagEmoji: '🇸🇩', continent: 'Africa', isFeatured: false },
+      { code: 'EG', name: 'Egypt', flagEmoji: '🇪🇬', continent: 'Africa', isFeatured: false },
+      { code: 'MA', name: 'Morocco', flagEmoji: '🇲🇦', continent: 'Africa', isFeatured: false },
+
+      // Americas
+      { code: 'US', name: 'United States', flagEmoji: '🇺🇸', continent: 'North America', isFeatured: true },
+      { code: 'CA', name: 'Canada', flagEmoji: '🇨🇦', continent: 'North America', isFeatured: true },
+      { code: 'MX', name: 'Mexico', flagEmoji: '🇲🇽', continent: 'North America', isFeatured: false },
+      { code: 'BR', name: 'Brazil', flagEmoji: '🇧🇷', continent: 'South America', isFeatured: true },
+      { code: 'AR', name: 'Argentina', flagEmoji: '🇦🇷', continent: 'South America', isFeatured: false },
+      { code: 'CO', name: 'Colombia', flagEmoji: '🇨🇴', continent: 'South America', isFeatured: false },
+      { code: 'CL', name: 'Chile', flagEmoji: '🇨🇱', continent: 'South America', isFeatured: false },
+      { code: 'PE', name: 'Peru', flagEmoji: '🇵🇪', continent: 'South America', isFeatured: false },
+      { code: 'JM', name: 'Jamaica', flagEmoji: '🇯🇲', continent: 'North America', isFeatured: false },
+      { code: 'HT', name: 'Haiti', flagEmoji: '🇭🇹', continent: 'North America', isFeatured: false },
+
+      // Europe
+      { code: 'GB', name: 'United Kingdom', flagEmoji: '🇬🇧', continent: 'Europe', isFeatured: true },
+      { code: 'DE', name: 'Germany', flagEmoji: '🇩🇪', continent: 'Europe', isFeatured: true },
+      { code: 'FR', name: 'France', flagEmoji: '🇫🇷', continent: 'Europe', isFeatured: true },
+      { code: 'IT', name: 'Italy', flagEmoji: '🇮🇹', continent: 'Europe', isFeatured: false },
+      { code: 'ES', name: 'Spain', flagEmoji: '🇪🇸', continent: 'Europe', isFeatured: false },
+      { code: 'NL', name: 'Netherlands', flagEmoji: '🇳🇱', continent: 'Europe', isFeatured: false },
+      { code: 'CH', name: 'Switzerland', flagEmoji: '🇨🇭', continent: 'Europe', isFeatured: false },
+      { code: 'SE', name: 'Sweden', flagEmoji: '🇸🇪', continent: 'Europe', isFeatured: false },
+
+      // Asia & Middle East
+      { code: 'IN', name: 'India', flagEmoji: '🇮🇳', continent: 'Asia', isFeatured: true },
+      { code: 'PH', name: 'Philippines', flagEmoji: '🇵🇭', continent: 'Asia', isFeatured: true },
+      { code: 'KR', name: 'South Korea', flagEmoji: '🇰🇷', continent: 'Asia', isFeatured: true },
+      { code: 'JP', name: 'Japan', flagEmoji: '🇯🇵', continent: 'Asia', isFeatured: false },
+      { code: 'SG', name: 'Singapore', flagEmoji: '🇸🇬', continent: 'Asia', isFeatured: false },
+      { code: 'IL', name: 'Israel', flagEmoji: '🇮🇱', continent: 'Middle East', isFeatured: true },
+
+      // Oceania
+      { code: 'AU', name: 'Australia', flagEmoji: '🇦🇺', continent: 'Oceania', isFeatured: true },
+      { code: 'NZ', name: 'New Zealand', flagEmoji: '🇳🇿', continent: 'Oceania', isFeatured: true },
+      { code: 'FJ', name: 'Fiji', flagEmoji: '🇫🇯', continent: 'Oceania', isFeatured: false },
     ];
     data.countries = countries;
 
@@ -282,7 +332,7 @@ export function runSeed() {
       id: 'usr_ops_01',
       email: 'ops@christianradios.org',
       passwordHash: hashPassword('Ops@2026!'),
-      role: 'OPERATIONS_ADMIN',
+      role: 'SUPER_ADMIN',
       name: 'Grace Mlay',
       emailVerified: true,
       status: 'ACTIVE',
@@ -294,7 +344,7 @@ export function runSeed() {
       id: 'usr_fin_01',
       email: 'finance@christianradios.org',
       passwordHash: hashPassword('Finance@2026!'),
-      role: 'FINANCE_ADMIN',
+      role: 'SUPER_ADMIN',
       name: 'Emanuel Kimaro',
       emailVerified: true,
       status: 'ACTIVE',
@@ -400,7 +450,22 @@ export function runSeed() {
     data.subscriptions = [sub1, sub2];
 
     // 7. Seed Stations
-    const stations: Station[] = [
+    if (!data.stations || data.stations.length < 50) {
+      let realStations: Station[] = [];
+      try {
+        const realJsonPath = path.resolve(process.cwd(), 'data/real_stations.json');
+        if (fs.existsSync(realJsonPath)) {
+          const raw = fs.readFileSync(realJsonPath, 'utf-8');
+          realStations = JSON.parse(raw);
+        }
+      } catch (err) {
+        console.error('Failed to load real_stations.json:', err);
+      }
+
+      if (realStations.length > 0) {
+        data.stations = realStations;
+      } else {
+        const stations: Station[] = [
       {
         id: 'stn_radio_maria_tz',
         ownerId: ownerUser1.id,
@@ -966,7 +1031,9 @@ export function runSeed() {
       },
     ];
 
-    data.stations = stations;
+      data.stations = stations;
+      }
+    }
 
     // 8. Sample Payments & Invoices
     const pay1 = {
@@ -1086,7 +1153,7 @@ export function runSeed() {
             id: 'resp_01',
             authorId: adminUser.id,
             authorName: 'Support Agent Emanuel',
-            authorRole: 'SUPPORT_AGENT',
+            authorRole: 'SUPER_ADMIN',
             message: 'Hello Father Telesphore. Yes, Christian Radios player automatically switches to your configured backup stream within 2.5 seconds if the primary endpoint is unreachable.',
             timestamp: new Date(Date.now() - 2 * 86400000).toISOString(),
           },

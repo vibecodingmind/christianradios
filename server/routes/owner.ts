@@ -1,3 +1,5 @@
+import http from 'http';
+import https from 'https';
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireRole, type AuthenticatedRequest } from '../auth.js';
@@ -6,12 +8,20 @@ import { validateStreamUrl } from '../ssrf.js';
 import { checkSingleStream } from '../streamMonitor.js';
 import { radioImportService } from '../import/importService.js';
 import { syncStationFromSource } from '../import/syncService.js';
+import { PlanEntitlementService } from '../services/entitlement.js';
 import type { Station, StationStatus, RadioStationClaim } from '../types.js';
 
 export const ownerRouter = Router();
 
 // Protect all owner routes: Must be RADIO_OWNER or SUPER_ADMIN
 ownerRouter.use(requireRole('RADIO_OWNER'));
+
+// 0. Get Owner Subscription Entitlements & Usage
+ownerRouter.get('/entitlements', (req: AuthenticatedRequest, res) => {
+  const ownerId = req.user!.id;
+  const entitlements = PlanEntitlementService.getOwnerEntitlements(ownerId);
+  res.json(entitlements);
+});
 
 // 1. Get Owner's Stations (Tenant-Isolated)
 ownerRouter.get('/stations', (req: AuthenticatedRequest, res) => {
@@ -22,23 +32,22 @@ ownerRouter.get('/stations', (req: AuthenticatedRequest, res) => {
     country: db.countries.findByCode(s.countryCode),
   }));
 
-  const subscription = db.subscriptions.findByOwnerId(ownerId);
-  const plan = subscription ? db.plans.findById(subscription.planId) : undefined;
-  const maxAllowed = plan?.maxStations ?? 1;
+  const entitlements = PlanEntitlementService.getOwnerEntitlements(ownerId);
 
   res.json({
     stations,
     limits: {
-      used: stations.length,
-      maxAllowed,
-      canAddMore: stations.length < maxAllowed,
+      used: entitlements.usage.stationsCount,
+      maxAllowed: entitlements.limits.maxStations,
+      canAddMore: entitlements.capabilities.canAddStation,
     },
+    entitlements,
   });
 });
 
 // Plans endpoint for owner subscription tiers
 ownerRouter.get('/plans', (req: AuthenticatedRequest, res) => {
-  const plans = db.plans.getAll().filter((p) => p.isActive);
+  const plans = db.plans.getAll().filter((p) => p.isActive !== false);
   res.json({ plans });
 });
 
@@ -78,6 +87,126 @@ ownerRouter.post('/test-stream', async (req: AuthenticatedRequest, res) => {
   }
 });
 
+// Stream Link Extractor Endpoint: Scans radio page HTML and extracts direct audio stream URL
+ownerRouter.post('/extract-stream-link', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { pageUrl } = req.body;
+    if (!pageUrl || typeof pageUrl !== 'string') {
+      res.status(400).json({ success: false, error: 'Page URL is required.' });
+      return;
+    }
+
+    const ssrfCheck = await validateStreamUrl(pageUrl);
+    if (!ssrfCheck.isValid) {
+      res.status(400).json({ success: false, error: `Invalid URL: ${ssrfCheck.error}` });
+      return;
+    }
+
+    const targetUrl = ssrfCheck.normalizedUrl || pageUrl.trim();
+    const isHttps = targetUrl.startsWith('https:');
+    const client = isHttps ? https : http;
+
+    const htmlBody = await new Promise<string>((resolve, reject) => {
+      const fetchReq = client.get(targetUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        },
+      }, (fetchRes) => {
+        if (fetchRes.statusCode && fetchRes.statusCode >= 300 && fetchRes.statusCode < 400 && fetchRes.headers.location) {
+          return resolve(fetchRes.headers.location);
+        }
+        let body = '';
+        fetchRes.setEncoding('utf-8');
+        fetchRes.on('data', (chunk) => {
+          body += chunk;
+          if (body.length > 2000000) {
+            fetchReq.destroy();
+            resolve(body);
+          }
+        });
+        fetchRes.on('end', () => resolve(body));
+      });
+
+      fetchReq.on('error', reject);
+      setTimeout(() => {
+        fetchReq.destroy();
+        reject(new Error('Page request timed out after 7s'));
+      }, 7000);
+    });
+
+    if (htmlBody.startsWith('http://') || htmlBody.startsWith('https://')) {
+      const check = await validateStreamUrl(htmlBody);
+      if (check.isValid) {
+        res.json({
+          success: true,
+          extractedStreamUrl: htmlBody,
+          detectedType: check.detectedType || 'MP3',
+          candidateUrls: [htmlBody],
+        });
+        return;
+      }
+    }
+
+    const patterns = [
+      /https?:\/\/[^\s"'<>]+\.(?:mp3|aac|m3u8)(?:\?[^\s"'<>]*)?/gi,
+      /https?:\/\/[^\s"'<>]+\/stream(?:\/[^\s"'<>]*)?/gi,
+      /https?:\/\/[^\s"'<>]+\/live(?:\/[^\s"'<>]*)?/gi,
+      /https?:\/\/stream\.zeno\.fm\/[^\s"'<>]+/gi,
+      /https?:\/\/listen\.radioking\.com\/radio\/[^\s"'<>]+/gi,
+      /https?:\/\/[^\s"'<>]+:8[0-9]{3}\/[^\s"'<>]+/gi,
+      /source\s+src=["'](https?:\/\/[^"']+)["']/gi,
+      /audio\s+src=["'](https?:\/\/[^"']+)["']/gi,
+      /file:\s*["'](https?:\/\/[^"']+)["']/gi,
+      /streamUrl:\s*["'](https?:\/\/[^"']+)["']/gi,
+    ];
+
+    const candidates = new Set<string>();
+    for (const pat of patterns) {
+      let match;
+      while ((match = pat.exec(htmlBody)) !== null) {
+        const found = match[1] || match[0];
+        if (found && (found.startsWith('http://') || found.startsWith('https://'))) {
+          if (!found.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf)(\?|$)/i)) {
+            candidates.add(found);
+          }
+        }
+      }
+    }
+
+    const candidateList = Array.from(candidates);
+    const validCandidates: { url: string; type: string }[] = [];
+
+    for (const cand of candidateList.slice(0, 15)) {
+      const check = await validateStreamUrl(cand);
+      if (check.isValid) {
+        validCandidates.push({
+          url: check.normalizedUrl || cand,
+          type: check.detectedType || 'MP3',
+        });
+      }
+    }
+
+    if (validCandidates.length === 0) {
+      res.status(404).json({
+        success: false,
+        error: 'No direct audio stream links found on the provided page. Try entering the direct Icecast/Shoutcast/Zeno stream URL directly.',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      extractedStreamUrl: validCandidates[0].url,
+      detectedType: validCandidates[0].type,
+      candidateUrls: validCandidates.map((c) => c.url),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Extraction error';
+    res.status(500).json({ success: false, error: `Failed to extract stream link: ${msg}` });
+  }
+});
+
 const StationInputSchema = z.object({
   name: z.string().min(2, 'Station name is required'),
   tagline: z.string().optional(),
@@ -90,6 +219,7 @@ const StationInputSchema = z.object({
   language: z.string().min(2, 'Language is required'),
   genre: z.string().min(2, 'Genre is required'),
   categoryId: z.string().min(1, 'Category is required'),
+  categoryIds: z.array(z.string()).optional(),
   denomination: z.string().optional(),
   websiteUrl: z.string().url().optional().or(z.literal('')),
   email: z.string().email().optional().or(z.literal('')),
@@ -128,15 +258,15 @@ ownerRouter.post('/stations', async (req: AuthenticatedRequest, res) => {
     const ownerId = req.user!.id;
     const body = StationInputSchema.parse(req.body);
 
-    // Check Plan Station Limits
-    const existing = db.stations.findByOwnerId(ownerId);
-    const subscription = db.subscriptions.findByOwnerId(ownerId);
-    const plan = subscription ? db.plans.findById(subscription.planId) : undefined;
-    const maxAllowed = plan?.maxStations ?? 1;
-
-    if (existing.length >= maxAllowed) {
+    // Check Plan Station Limits via Central Entitlement Engine
+    const entitlements = PlanEntitlementService.getOwnerEntitlements(ownerId);
+    if (!entitlements.capabilities.canAddStation) {
       res.status(403).json({
-        error: `Your current plan (${plan?.name || 'Free'}) allows a maximum of ${maxAllowed} station(s). Please upgrade to add more.`,
+        code: 'PLAN_LIMIT_REACHED',
+        error: `Station limit reached for your ${entitlements.plan.name} plan (${entitlements.usage.stationsCount}/${entitlements.limits.maxStations}). Upgrade your plan to add another station.`,
+        limit: entitlements.limits.maxStations,
+        usage: entitlements.usage.stationsCount,
+        requiredPlan: 'PRO',
       });
       return;
     }
@@ -177,6 +307,7 @@ ownerRouter.post('/stations', async (req: AuthenticatedRequest, res) => {
       language: body.language.trim(),
       genre: body.genre.trim(),
       categoryId: body.categoryId,
+      categoryIds: body.categoryIds && body.categoryIds.length > 0 ? body.categoryIds : [body.categoryId],
       denomination: body.denomination,
       websiteUrl: body.websiteUrl || undefined,
       email: body.email || undefined,
@@ -200,6 +331,18 @@ ownerRouter.post('/stations', async (req: AuthenticatedRequest, res) => {
 
     db.stations.create(newStation);
 
+    // Create Station Application for Admin Verification Workflow
+    db.stationApplications.create({
+      id: `stn_app_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      stationId: newStation.id,
+      ownerId,
+      licenceVerificationStatus: 'UNVERIFIED',
+      status: 'SUBMITTED',
+      submittedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
     // Trigger initial health check in background
     setTimeout(() => {
       checkSingleStream(newStation.id).catch(() => {});
@@ -208,12 +351,13 @@ ownerRouter.post('/stations', async (req: AuthenticatedRequest, res) => {
     // Audit log
     db.auditLogs.log({
       actorId: ownerId,
+      actorName: req.user!.name || req.user!.email,
       actorEmail: req.user!.email,
-      actorRole: 'RADIO_OWNER',
-      action: 'STATION_CREATED',
-      entityType: 'Station',
-      entityId: newStation.id,
-      details: `Created radio station "${newStation.name}" with status ${newStation.status}.`,
+      actorRole: req.user!.role,
+      action: 'STATION_SUBMITTED',
+      targetType: 'STATION_APPLICATION',
+      targetId: newStation.id,
+      details: { stationName: newStation.name, status: newStation.status },
     });
 
     res.status(201).json({
@@ -543,6 +687,22 @@ ownerRouter.post('/featured-campaigns', (req: AuthenticatedRequest, res) => {
   const ownerId = req.user!.id;
   const { stationId, placement, durationDays = 30 } = req.body;
 
+  const entitlements = PlanEntitlementService.getOwnerEntitlements(ownerId);
+  if (!entitlements.capabilities.canCreateFeaturedCampaign) {
+    res.status(403).json({
+      code: 'PLAN_LIMIT_REACHED',
+      error: `Featured campaign monthly quota reached for your ${entitlements.plan.name} plan (${entitlements.usage.featuredMonthlyCount}/${entitlements.limits.featuredMonthlyQuota}). Upgrade your plan to launch more campaigns.`,
+    });
+    return;
+  }
+  if (!entitlements.capabilities.canActivateFeaturedCampaign) {
+    res.status(403).json({
+      code: 'PLAN_LIMIT_REACHED',
+      error: `Active featured campaign limit reached for your ${entitlements.plan.name} plan (${entitlements.usage.activeFeaturedCount}/${entitlements.limits.maxActiveFeatured}).`,
+    });
+    return;
+  }
+
   const station = db.stations.findById(stationId);
   if (!station || station.ownerId !== ownerId) {
     res.status(404).json({ error: 'Station not found.' });
@@ -715,6 +875,22 @@ ownerRouter.post(['/giving/campaigns', '/campaigns'], (req: AuthenticatedRequest
   const ownerId = req.user!.id;
   const { stationId, title, description, goalAmount, currency = 'TZS', startDate, endDate, imageUrl } = req.body;
 
+  const entitlements = PlanEntitlementService.getOwnerEntitlements(ownerId);
+  if (!entitlements.capabilities.canUseGiving) {
+    res.status(403).json({
+      code: 'FEATURE_LOCKED',
+      error: `Giving feature is disabled on the Free plan. Upgrade to Basic, Pro, or VIP to launch fundraising campaigns.`,
+    });
+    return;
+  }
+  if (!entitlements.capabilities.canCreateDonationCampaign) {
+    res.status(403).json({
+      code: 'PLAN_LIMIT_REACHED',
+      error: `Donation campaign limit reached for your ${entitlements.plan.name} plan (${entitlements.usage.donationCampaignsCount}/${entitlements.limits.donationCampaignLimit}). Upgrade your plan to launch more campaigns.`,
+    });
+    return;
+  }
+
   if (!stationId || !title || !goalAmount) {
     res.status(400).json({ error: 'Station, campaign title, and fundraising goal are required.' });
     return;
@@ -832,6 +1008,15 @@ ownerRouter.post(['/giving/withdrawals', '/withdrawals'], (req: AuthenticatedReq
     stationId,
     notes,
   } = req.body;
+
+  const entitlements = PlanEntitlementService.getOwnerEntitlements(ownerId);
+  if (!entitlements.capabilities.canWithdraw) {
+    res.status(403).json({
+      code: 'FEATURE_LOCKED',
+      error: `Payout withdrawals are disabled on your current plan (${entitlements.plan.name}). Upgrade to Basic, Pro, or VIP to request payouts.`,
+    });
+    return;
+  }
 
   const numAmount = Number(amount);
   if (!numAmount || !payoutMethod || !payoutAccountName || !payoutAccountNumber) {
@@ -1154,5 +1339,197 @@ ownerRouter.delete('/claims/:id', (req: AuthenticatedRequest, res) => {
 
   db.stationClaims.update(id, { status: 'CANCELLED' });
   res.json({ success: true, message: 'Claim request cancelled.' });
+});
+
+// 21. Configure Station Premium/Free Access Mode
+ownerRouter.put('/stations/:id/access', (req: AuthenticatedRequest, res) => {
+  const ownerId = req.user!.id;
+  const { id } = req.params;
+  const { accessType, monthlyPriceTzs, annualPriceTzs, premiumDescription } = req.body;
+
+  const station = db.stations.findById(id);
+  if (!station || station.ownerId !== ownerId) {
+    res.status(404).json({ error: 'Station not found or unauthorized.' });
+    return;
+  }
+
+  const settings = db.settings.get();
+
+  if (accessType === 'PREMIUM' && settings.premiumRadiosEnabled === false) {
+    res.status(400).json({ error: 'Premium Radios model is currently disabled by platform administrator.' });
+    return;
+  }
+
+  const minPrice = settings.minPremiumPriceTzs || 2000;
+  const maxPrice = settings.maxPremiumPriceTzs || 500000;
+
+  let mPrice = station.monthlyPriceTzs || 5000;
+  let aPrice = station.annualPriceTzs || 50000;
+
+  if (accessType === 'PREMIUM') {
+    if (monthlyPriceTzs) {
+      const parsedM = parseInt(monthlyPriceTzs, 10);
+      if (isNaN(parsedM) || parsedM < minPrice || parsedM > maxPrice) {
+        res.status(400).json({
+          error: `Monthly price must be between TZS ${minPrice.toLocaleString()} and TZS ${maxPrice.toLocaleString()}`,
+        });
+        return;
+      }
+      mPrice = parsedM;
+    }
+
+    if (annualPriceTzs) {
+      const parsedA = parseInt(annualPriceTzs, 10);
+      if (isNaN(parsedA) || parsedA < minPrice || parsedA > maxPrice) {
+        res.status(400).json({
+          error: `Annual price must be between TZS ${minPrice.toLocaleString()} and TZS ${maxPrice.toLocaleString()}`,
+        });
+        return;
+      }
+      aPrice = parsedA;
+    }
+  }
+
+  const updatedStation = db.stations.update(id, {
+    accessType: accessType === 'PREMIUM' ? 'PREMIUM' : 'FREE',
+    monthlyPriceTzs: mPrice,
+    annualPriceTzs: aPrice,
+    premiumDescription: premiumDescription ? premiumDescription.trim() : station.premiumDescription,
+  });
+
+  res.json({
+    success: true,
+    message: `Station access updated to ${accessType === 'PREMIUM' ? 'PREMIUM' : 'FREE'}.`,
+    station: updatedStation,
+  });
+});
+
+// 22. Owner Complete Financial Earnings & Ledger Summary
+ownerRouter.get('/earnings', (req: AuthenticatedRequest, res) => {
+  const ownerId = req.user!.id;
+  const financial = db.getUserFinancialSummary(ownerId);
+  const ledgerEntries = (db.ledgerEntries.getAll() || []).filter((e) => e.ownerId === ownerId);
+  const withdrawalHistory = (db.withdrawalRequests.getAll() || []).filter((w) => w.ownerId === ownerId);
+  const premiumSubs = db.premiumSubscriptions.findByOwnerId(ownerId);
+
+  res.json({
+    financialSummary: financial,
+    ledgerEntries,
+    withdrawalHistory,
+    premiumSubscriptions: premiumSubs,
+  });
+});
+
+// 23. Owner Withdrawal Request
+ownerRouter.post('/withdrawals', (req: AuthenticatedRequest, res) => {
+  const ownerId = req.user!.id;
+  const { amount, paymentMethod = 'MOBILE_MONEY', accountDetails } = req.body;
+
+  const numAmount = parseInt(amount, 10);
+  const settings = db.settings.get();
+  const minAmount = settings.minWithdrawalAmount || 20000;
+
+  if (isNaN(numAmount) || numAmount < minAmount) {
+    res.status(400).json({ error: `Minimum withdrawal amount is TZS ${minAmount.toLocaleString()}` });
+    return;
+  }
+
+  const financial = db.getUserFinancialSummary(ownerId);
+  if (numAmount > financial.availableBalance) {
+    res.status(400).json({
+      error: `Insufficient available balance. Your current available balance is TZS ${financial.availableBalance.toLocaleString()}`,
+    });
+    return;
+  }
+
+  const request = db.withdrawalRequests.create({
+    id: `wth_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    ownerId,
+    ownerName: req.user!.fullName || req.user!.email,
+    ownerEmail: req.user!.email,
+    amount: numAmount,
+    currency: 'TZS',
+    status: 'PENDING',
+    payoutMethod: paymentMethod,
+    accountDetails: accountDetails || 'Mobile Money Account',
+    requestedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Payout withdrawal request submitted successfully.',
+    withdrawal: request,
+  });
+});
+
+// 24. Owner Referral Dashboard
+ownerRouter.get('/referrals', (req: AuthenticatedRequest, res) => {
+  const ownerId = req.user!.id;
+  const user = db.users.findById(ownerId);
+
+  const referralCode = user?.referralCode || `REF_${ownerId.substring(0, 8).toUpperCase()}`;
+  const referralLink = `${req.protocol}://${req.get('host')}?ref=${referralCode}`;
+
+  const referralsList = db.referrals.findByReferrerId(ownerId);
+  const commissionsList = db.referralCommissions.findByReferrerId(ownerId);
+  const financial = db.getUserFinancialSummary(ownerId);
+
+  res.json({
+    referralCode,
+    referralLink,
+    referralsCount: referralsList.length,
+    qualifiedCount: referralsList.filter((r) => r.status === 'QUALIFIED').length,
+    financialSummary: financial,
+    referrals: referralsList,
+    commissions: commissionsList,
+  });
+});
+
+// 25. Owner Featured Packages & Featured Purchases
+ownerRouter.get('/featured-packages', (req: AuthenticatedRequest, res) => {
+  const packages = (db.featuredPackages.getAll() || []).filter((p) => p.isActive);
+  const myPurchases = db.featuredPurchases.findByOwnerId(req.user!.id);
+
+  res.json({
+    packages,
+    purchases: myPurchases,
+  });
+});
+
+ownerRouter.post('/featured-purchases/checkout', (req: AuthenticatedRequest, res) => {
+  const ownerId = req.user!.id;
+  const { stationId, packageId } = req.body;
+
+  const station = db.stations.findById(stationId);
+  if (!station || station.ownerId !== ownerId) {
+    res.status(404).json({ error: 'Station not found or unauthorized.' });
+    return;
+  }
+
+  const pkg = db.featuredPackages.findById(packageId);
+  if (!pkg || !pkg.isActive) {
+    res.status(404).json({ error: 'Featured promotion package not found or inactive.' });
+    return;
+  }
+
+  const purchase = db.featuredPurchases.create({
+    id: `ftp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    stationId,
+    ownerId,
+    packageId: pkg.id,
+    packageName: pkg.name,
+    durationDays: pkg.durationDays,
+    amountTzs: pkg.priceTzs,
+    currency: pkg.currency || 'TZS',
+    status: 'PENDING_PAYMENT',
+    createdAt: new Date().toISOString(),
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Featured promotion order created.',
+    purchase,
+  });
 });
 

@@ -3,6 +3,7 @@ import { HeartHandshake, Plus, Search, Filter, Sparkles, Heart, Radio, Shield, U
 import type { PrayerRequest } from '../types';
 import { PrayerRequestModal } from '../components/modals/PrayerRequestModal';
 import { ReportPrayerModal } from '../components/modals/ReportPrayerModal';
+import { AIPrayerModal } from '../components/ai/AIPrayerModal';
 import { apiFetch } from '../lib/api';
 
 interface PrayerWallPageProps {
@@ -15,6 +16,7 @@ export function PrayerWallPage({ onNavigate }: PrayerWallPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [aiPrayerOpen, setAiPrayerOpen] = useState(false);
   const [reportingPrayer, setReportingPrayer] = useState<PrayerRequest | null>(null);
   const [prayedIds, setPrayedIds] = useState<Set<string>>(new Set());
 
@@ -83,10 +85,18 @@ export function PrayerWallPage({ onNavigate }: PrayerWallPageProps) {
           <div className="pt-2 flex flex-wrap gap-3">
             <button
               onClick={() => setModalOpen(true)}
-              className="px-6 py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-purple-600/30 flex items-center gap-2 transition"
+              className="px-6 py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-purple-600/30 flex items-center gap-2 transition cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Submit Prayer Request</span>
+            </button>
+
+            <button
+              onClick={() => setAiPrayerOpen(true)}
+              className="px-6 py-3 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-cyan-500/30 text-cyan-300 font-bold text-sm shadow-xl flex items-center gap-2 transition cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-cyan-400 animate-pulse" />
+              <span>AI Prayer Helper</span>
             </button>
           </div>
         </div>
@@ -245,6 +255,15 @@ export function PrayerWallPage({ onNavigate }: PrayerWallPageProps) {
         onClose={() => setModalOpen(false)}
         onSuccess={() => {
           fetchPrayers();
+        }}
+      />
+
+      {/* AI Prayer Assistant Modal */}
+      <AIPrayerModal
+        isOpen={aiPrayerOpen}
+        onClose={() => setAiPrayerOpen(false)}
+        onShareToPrayerWall={(title, content, category) => {
+          setModalOpen(true);
         }}
       />
 

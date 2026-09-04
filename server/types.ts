@@ -1,10 +1,4 @@
-export type Role =
-  | 'LISTENER'
-  | 'RADIO_OWNER'
-  | 'SUPPORT_AGENT'
-  | 'FINANCE_ADMIN'
-  | 'OPERATIONS_ADMIN'
-  | 'SUPER_ADMIN';
+export type Role = 'SUPER_ADMIN' | 'RADIO_OWNER' | 'LISTENER';
 
 export type SourceType =
   | 'MANUAL'
@@ -53,11 +47,202 @@ export type StationStatus =
 
 export type VerificationStatus = 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
 
+export type KYCOwnerType = 'INDIVIDUAL' | 'ORGANIZATION';
+
+export type KYCStatus =
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'UNDER_REVIEW'
+  | 'CHANGES_REQUIRED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'SUSPENDED';
+
+export type DocumentType =
+  | 'NATIONAL_ID'
+  | 'PASSPORT'
+  | 'DRIVERS_LICENSE'
+  | 'BUSINESS_REGISTRATION'
+  | 'TAX_CERTIFICATE'
+  | 'STATION_LICENSE'
+  | 'OTHER';
+
+export type DocumentStatus =
+  | 'PENDING'
+  | 'VERIFIED'
+  | 'INVALID'
+  | 'CHANGES_REQUESTED';
+
+export type StationApplicationStatus =
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'UNDER_REVIEW'
+  | 'CHANGES_REQUIRED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'SUSPENDED';
+
+export type LicenceVerificationStatus =
+  | 'UNVERIFIED'
+  | 'PENDING'
+  | 'VERIFIED'
+  | 'REJECTED'
+  | 'EXPIRED'
+  | 'REQUIRES_REVIEW';
+
+export interface KYCApplication {
+  id: string;
+  userId: string;
+  verificationType: KYCOwnerType;
+  fullName?: string;
+  organizationName?: string;
+  organizationType?: string;
+  country: string;
+  address?: string;
+  phone: string;
+  email: string;
+  idType?: string;
+  idNumber?: string;
+  registrationNumber?: string;
+  taxId?: string;
+  website?: string;
+  representativeName?: string;
+  representativeTitle?: string;
+  representativeIdNumber?: string;
+  status: KYCStatus;
+  submittedAt?: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  rejectionReason?: string;
+  changesRequestedReason?: string;
+  adminNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface KYCDocument {
+  id: string;
+  kycApplicationId: string;
+  userId: string;
+  documentType: DocumentType;
+  fileName: string;
+  fileReference: string;
+  fileSize?: number;
+  mimeType?: string;
+  status: DocumentStatus;
+  uploadedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  reviewNotes?: string;
+}
+
+export interface StationApplication {
+  id: string;
+  stationId: string;
+  ownerId: string;
+  licenceNumber?: string;
+  licenceType?: string;
+  issuingAuthority?: string;
+  issueDate?: string;
+  expiryDate?: string;
+  licenceDocumentRef?: string;
+  licenceVerificationStatus: LicenceVerificationStatus;
+  status: StationApplicationStatus;
+  submittedAt?: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  rejectionReason?: string;
+  changesRequestedReason?: string;
+  adminNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuditLog {
+  id: string;
+  actorId?: string;
+  actorName?: string;
+  actorEmail?: string;
+  actorRole?: Role | string;
+  action: string;
+  targetType?: string;
+  targetId?: string;
+  entityType?: string;
+  entityId?: string;
+  details?: any;
+  reason?: string;
+  ipAddress?: string;
+  timestamp: string;
+}
+
 export type StreamStatus = 'ONLINE' | 'OFFLINE' | 'UNKNOWN';
 
 export type StreamType = 'MP3' | 'AAC' | 'HLS' | 'ICECAST' | 'SHOUTCAST' | 'OGG' | 'FLAC' | 'OPUS';
 
-export type SubscriptionTier = 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'BUSINESS';
+export type SubscriptionTier = 'FREE' | 'BASIC' | 'PRO' | 'VIP' | 'STARTER' | 'PROFESSIONAL' | 'BUSINESS';
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  tier: SubscriptionTier;
+  description: string;
+  monthlyPriceTzs: number; // in minor units / integer TZS
+  annualPriceTzs: number;
+  monthlyPriceUsd: number;
+  annualPriceUsd: number;
+  currency: string;
+  maxStations: number;
+  featuredMonthlyQuota: number;
+  maxActiveFeatured: number;
+  donationCampaignLimit: number;
+  givingEnabled: boolean;
+  withdrawalsEnabled: boolean;
+  analyticsRetentionDays: number;
+  advancedAnalyticsEnabled: boolean;
+  multiStationAnalyticsEnabled: boolean;
+  exportsEnabled: boolean;
+  advancedBrandingEnabled: boolean;
+  prioritySupport: boolean;
+  featuredPlacementPriority: 'NONE' | 'BASIC' | 'HIGH' | 'HIGHEST';
+  streamMonitoringIntervalMinutes?: number;
+  customBranding?: boolean;
+  analyticsAccessLevel?: 'BASIC' | 'ADVANCED' | 'FULL_ENTERPRISE';
+  featuredIncluded?: boolean;
+  isActive: boolean;
+  isPopular?: boolean;
+  featuresList?: string[];
+}
+
+export interface PlanEntitlements {
+  plan: SubscriptionPlan;
+  usage: {
+    stationsCount: number;
+    featuredMonthlyCount: number;
+    activeFeaturedCount: number;
+    donationCampaignsCount: number;
+  };
+  limits: {
+    maxStations: number;
+    featuredMonthlyQuota: number;
+    maxActiveFeatured: number;
+    donationCampaignLimit: number;
+    analyticsRetentionDays: number;
+  };
+  capabilities: {
+    canAddStation: boolean;
+    canCreateFeaturedCampaign: boolean;
+    canActivateFeaturedCampaign: boolean;
+    canCreateDonationCampaign: boolean;
+    canUseGiving: boolean;
+    canWithdraw: boolean;
+    canUseAdvancedAnalytics: boolean;
+    canUseMultiStationAnalytics: boolean;
+    canExportReports: boolean;
+    canUseAdvancedBranding: boolean;
+    prioritySupport: boolean;
+    featuredPlacementPriority: 'NONE' | 'BASIC' | 'HIGH' | 'HIGHEST';
+  };
+}
 
 export type SubscriptionStatus =
   | 'TRIALING'
@@ -96,6 +281,8 @@ export interface User {
   passwordHash: string;
   role: Role;
   name: string;
+  fullName?: string;
+  referralCode?: string;
   avatarUrl?: string;
   emailVerified: boolean;
   phone?: string;
@@ -112,6 +299,8 @@ export interface RadioOwnerProfile {
   country: string;
   bio?: string;
   verified: boolean;
+  verificationStatus?: VerificationStatus;
+  kycApplicationId?: string;
   website?: string;
   taxId?: string;
 }
@@ -131,7 +320,7 @@ export interface Country {
   name: string;
   flagEmoji: string;
   continent: string;
-  isFeatured: boolean;
+  isFeatured?: boolean;
 }
 
 export interface BroadcastScheduleItem {
@@ -158,10 +347,12 @@ export interface Station {
   language: string;
   genre: string;
   categoryId: string;
+  categoryIds?: string[];
   denomination?: string;
   websiteUrl?: string;
   email?: string;
   phone?: string;
+  donationEnabled?: boolean;
   socialLinks?: {
     facebook?: string;
     twitter?: string;
@@ -177,6 +368,8 @@ export interface Station {
   schedule?: BroadcastScheduleItem[];
   status: StationStatus;
   verificationStatus: VerificationStatus;
+  licenceVerificationStatus?: LicenceVerificationStatus;
+  stationApplicationId?: string;
   isFeatured: boolean;
   streamStatus: StreamStatus;
   lastCheckedAt?: string;
@@ -191,8 +384,87 @@ export interface Station {
   importId?: string;
   claimStatus?: 'UNCLAIMED' | 'CLAIM_PENDING' | 'CLAIMED';
   lastSyncedAt?: string;
+
+  // Premium Radios Model
+  accessType?: 'FREE' | 'PREMIUM';
+  monthlyPriceTzs?: number;
+  annualPriceTzs?: number;
+  premiumDescription?: string;
+
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PremiumRadioSubscription {
+  id: string;
+  listenerId: string;
+  stationId: string;
+  ownerId: string;
+  status: 'PENDING' | 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'REFUNDED';
+  billingInterval: 'MONTHLY' | 'ANNUAL';
+  amountTzs: number;
+  ownerShareTzs: number;
+  platformShareTzs: number;
+  currency: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  autoRenew: boolean;
+  paymentId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Referral {
+  id: string;
+  referrerId: string;
+  referrerRole: 'RADIO_OWNER' | 'LISTENER';
+  referredUserId: string;
+  referralCode: string;
+  status: 'PENDING' | 'QUALIFIED' | 'EXPIRED';
+  createdAt: string;
+}
+
+export interface ReferralCommission {
+  id: string;
+  referralId: string;
+  referrerId: string;
+  referredUserId: string;
+  sourcePaymentId: string;
+  paymentType: 'OWNER_SUBSCRIPTION' | 'PREMIUM_RADIO_SUBSCRIPTION';
+  grossAmountTzs: number;
+  commissionPercentage: number;
+  commissionAmountTzs: number;
+  status: 'PENDING' | 'SETTLED' | 'REVERSED';
+  settlesAt: string;
+  createdAt: string;
+}
+
+export interface FeaturedPackage {
+  id: string;
+  name: string;
+  description: string;
+  durationDays: number;
+  priceTzs: number;
+  priceUsd: number;
+  currency: string;
+  placementPriority: 'HOMEPAGE_HERO' | 'DIRECTORY_TOP' | 'CATEGORY_FEATURED';
+  isActive: boolean;
+}
+
+export interface FeaturedPurchase {
+  id: string;
+  stationId: string;
+  ownerId: string;
+  packageId: string;
+  packageName: string;
+  durationDays: number;
+  amountTzs: number;
+  currency: string;
+  status: 'PENDING_PAYMENT' | 'PAID' | 'SCHEDULED' | 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'REFUNDED' | 'FAILED';
+  paymentId?: string;
+  startDate?: string;
+  endDate?: string;
+  createdAt: string;
 }
 
 export interface RadioImport {
@@ -348,24 +620,7 @@ export interface StreamHealthCheck {
   bitrateDetected?: number;
 }
 
-export interface SubscriptionPlan {
-  id: string;
-  name: string;
-  tier: SubscriptionTier;
-  description: string;
-  monthlyPriceTzs: number; // in minor units / integer TZS
-  annualPriceTzs: number;
-  monthlyPriceUsd: number;
-  annualPriceUsd: number;
-  currency: string;
-  maxStations: number;
-  analyticsAccessLevel: 'BASIC' | 'ADVANCED' | 'FULL_ENTERPRISE';
-  featuredIncluded: boolean;
-  streamMonitoringIntervalMinutes: number;
-  customBranding: boolean;
-  prioritySupport: boolean;
-  isActive: boolean;
-}
+
 
 export interface Subscription {
   id: string;
@@ -478,19 +733,6 @@ export interface NowPlayingInfo {
   bitrate: number;
   streamQuality: string;
   updatedAt: string;
-}
-
-export interface AuditLog {
-  id: string;
-  actorId?: string;
-  actorEmail?: string;
-  actorRole?: Role | 'SYSTEM';
-  action: string;
-  entityType: string;
-  entityId: string;
-  details: string;
-  ipAddress?: string;
-  timestamp: string;
 }
 
 export interface SupportTicketResponse {
@@ -625,6 +867,9 @@ export interface Donation {
 
 export type LedgerEntryType =
   | 'DONATION_CREDIT'
+  | 'DONATION_PAYOUT'
+  | 'PREMIUM_SHARE_CREDIT'
+  | 'REFERRAL_CREDIT'
   | 'PLATFORM_FEE_DEBIT'
   | 'WITHDRAWAL_DEBIT'
   | 'REFUND_DEBIT'
@@ -641,16 +886,19 @@ export interface LedgerEntry {
   type: LedgerEntryType;
   amount: number;
   currency: string;
+  status?: 'SETTLED' | 'PENDING' | 'REVERSED';
   balanceAfter: number;
   description: string;
   createdAt: string;
 }
 
 export type WithdrawalStatus =
+  | 'PENDING'
   | 'REQUESTED'
   | 'UNDER_REVIEW'
   | 'APPROVED'
   | 'PROCESSING'
+  | 'PAID'
   | 'COMPLETED'
   | 'FAILED'
   | 'REJECTED'
@@ -664,18 +912,20 @@ export interface WithdrawalRequest {
   stationId?: string;
   amount: number;
   currency: string;
-  fee: number;
-  netAmount: number;
-  payoutMethod: 'MPESA' | 'TIGO_PESA' | 'AIRTEL_MONEY' | 'BANK_TRANSFER';
-  payoutAccountName: string;
-  payoutAccountNumber: string;
-  payoutBankOrProvider: string;
+  fee?: number;
+  netAmount?: number;
+  payoutMethod: string;
+  payoutAccountName?: string;
+  payoutAccountNumber?: string;
+  payoutBankOrProvider?: string;
+  accountDetails?: string;
   status: WithdrawalStatus;
   notes?: string;
   adminNotes?: string;
   processedBy?: string;
   failureReason?: string;
   requestedAt: string;
+  updatedAt?: string;
   processedAt?: string;
   completedAt?: string;
 }
@@ -734,7 +984,24 @@ export interface PlatformSettings {
   donationMaxAmount?: number;
   minWithdrawalAmount?: number;
   withdrawalFeePercentage?: number;
+
+  // AI Platform Configuration
+  aiEnabled?: boolean;
+  aiProvider?: string;
+  aiModel?: string;
+  aiRateLimitAnon?: number;
+  aiRateLimitAuth?: number;
+  systemPromptOverride?: string;
   givingAllowedPlans?: string[];
+
+  // Premium Radios & Referral Rules Configuration
+  premiumRadiosEnabled?: boolean;
+  minPremiumPriceTzs?: number;
+  maxPremiumPriceTzs?: number;
+  premiumRevenueShareOwnerPercentage?: number;
+  referralCommissionOwnerPercentage?: number;
+  referralCommissionListenerPercentage?: number;
+  referralAttributionWindowDays?: number;
 
   // Payment Gateways
   pesapalEnabled: boolean;

@@ -35,6 +35,8 @@ import {
   Play,
   Pause,
   Filter,
+  ArrowLeft,
+  LogOut,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAudioPlayer } from '../../context/AudioPlayerContext';
@@ -48,6 +50,7 @@ import { AdminSettingsTab } from '../../components/admin/AdminSettingsTab';
 import { AdminGivingTab } from '../../components/admin/AdminGivingTab';
 import { AdminImportsTab } from '../../components/admin/AdminImportsTab';
 import { AdminClaimsTab } from '../../components/admin/AdminClaimsTab';
+import { AdminVerificationCenter } from '../../components/admin/AdminVerificationCenter';
 import type {
   Station,
   User,
@@ -63,14 +66,16 @@ import type {
 
 interface AdminDashboardProps {
   onNavigate: (view: string, param?: string) => void;
+  initialParam?: string;
 }
 
-export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
-  const { user } = useAuth();
+export function AdminDashboard({ onNavigate, initialParam }: AdminDashboardProps) {
+  const { user, logout } = useAuth();
   const { playStation } = useAudioPlayer();
 
   const [activeTab, setActiveTab] = useState<
     | 'metrics'
+    | 'verification'
     | 'stations'
     | 'imports'
     | 'claims'
@@ -85,6 +90,14 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     | 'tickets'
     | 'audit'
   >('metrics');
+
+  useEffect(() => {
+    if (initialParam === 'create-station' || initialParam === 'add-station') {
+      setActiveTab('stations');
+    } else if (initialParam === 'claims' || initialParam?.startsWith('claim')) {
+      setActiveTab('claims');
+    }
+  }, [initialParam]);
 
   const [metrics, setMetrics] = useState<any>({
     totalTenants: 0,
@@ -274,9 +287,10 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
 
   const adminMenuGroups: AdminMenuGroup[] = [
     {
-      title: 'Executive',
+      title: 'Executive & Compliance',
       items: [
         { id: 'metrics', label: 'Overview', icon: TrendingUp },
+        { id: 'verification', label: 'Verification Center', icon: ShieldCheck, badge: 'KYC Hub', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
         { id: 'streams', label: 'Stream Health', icon: Activity },
       ],
     },
@@ -329,7 +343,14 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => onNavigate('home')}
+            className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 border border-slate-700 transition-all cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4 text-amber-400" />
+            <span>Back to Christian Radios</span>
+          </button>
           <button
             onClick={handleTriggerGlobalStreamCheck}
             disabled={isCheckingStreams}
@@ -525,10 +546,41 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               </div>
             ))}
           </div>
+
+          {/* Sidebar Footer: Back to Website & Logout */}
+          <div className="pt-3 mt-3 border-t border-slate-800/80 space-y-1">
+            <button
+              onClick={() => onNavigate('home')}
+              title={!isSidebarOpen ? 'Back to Christian Radios' : undefined}
+              className={`w-full rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800/80 transition-all flex items-center ${
+                isSidebarOpen ? 'px-3 py-2.5 gap-2.5' : 'p-3 justify-center'
+              }`}
+            >
+              <ArrowLeft className="w-4 h-4 text-amber-400 shrink-0" />
+              {isSidebarOpen && <span>Back to Website</span>}
+            </button>
+
+            <button
+              onClick={async () => {
+                await logout();
+                onNavigate('home');
+              }}
+              title={!isSidebarOpen ? 'Sign Out' : undefined}
+              className={`w-full rounded-2xl text-xs font-bold text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-all flex items-center ${
+                isSidebarOpen ? 'px-3 py-2.5 gap-2.5' : 'p-3 justify-center'
+              }`}
+            >
+              <LogOut className="w-4 h-4 text-rose-400 shrink-0" />
+              {isSidebarOpen && <span>Sign Out</span>}
+            </button>
+          </div>
         </aside>
 
         {/* Tab Content Panel (Right side) */}
         <main className="flex-1 min-w-0 space-y-6">
+
+      {/* Verification Center */}
+      {activeTab === 'verification' && <AdminVerificationCenter />}
 
       {/* Tab 1: Executive Metrics & Overview Command Center */}
       {activeTab === 'metrics' && (

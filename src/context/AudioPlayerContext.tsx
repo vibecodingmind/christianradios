@@ -67,7 +67,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (!audioRef.current) {
       const audio = new Audio();
       audio.preload = 'none';
-      audio.crossOrigin = 'anonymous';
       audioRef.current = audio;
 
       audio.onwaiting = () => {
@@ -213,8 +212,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [currentStation, refreshNowPlaying]);
 
-  // Play audio url
-  const attachAndPlayStream = (streamUrl: string, isBackup = false) => {
+  // Play audio url with automatic stream proxy fallback
+  const attachAndPlayStream = (streamUrl: string, isBackup = false, isProxy = false) => {
     const audio = audioRef.current;
     if (!audio) return;
 
@@ -228,7 +227,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setErrorMessage(null);
     setIsUsingBackupStream(isBackup);
 
-    // Timeout trigger for backup stream fallback
+    // Timeout trigger for backup / proxy stream fallback
     if (fallbackTimeoutRef.current) {
       clearTimeout(fallbackTimeoutRef.current);
     }
@@ -254,55 +253,48 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           })
           .catch((err) => {
             console.error('HLS play error:', err);
-            handlePlaybackError(streamUrl, isBackup);
+            handlePlaybackError(streamUrl, isBackup, isProxy);
           });
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
         if (data.fatal) {
-          handlePlaybackError(streamUrl, isBackup);
+          handlePlaybackError(streamUrl, isBackup, isProxy);
         }
       });
     } else {
       // Standard MP3 / AAC / Icecast stream
       audio.src = streamUrl;
-      audio.load();
-
-      // If stream fails to connect within 5 seconds, attempt backup stream
-      fallbackTimeoutRef.current = setTimeout(() => {
-        if (audio.readyState === 0 && !isBackup && currentStation?.backupStreamUrl) {
-          console.log('[Player] Primary stream timed out. Switching to backup stream...');
-          attachAndPlayStream(currentStation.backupStreamUrl, true);
-        }
-      }, 5000);
 
       audio
         .play()
         .then(() => {
-          if (fallbackTimeoutRef.current) {
-            clearTimeout(fallbackTimeoutRef.current);
-          }
           setIsPlaying(true);
           setIsLoading(false);
         })
         .catch((err) => {
-          console.warn('[Player] Audio play interrupted or rejected:', err);
-          handlePlaybackError(streamUrl, isBackup);
+          console.warn('[Player] Direct audio play rejected, attempting proxy gateway:', err);
+          handlePlaybackError(streamUrl, isBackup, isProxy);
         });
 
       audio.onerror = () => {
-        handlePlaybackError(streamUrl, isBackup);
+        console.warn('[Player] Direct audio stream error, attempting proxy gateway...');
+        handlePlaybackError(streamUrl, isBackup, isProxy);
       };
     }
   };
 
-  const handlePlaybackError = (failedUrl: string, wasBackup: boolean) => {
+  const handlePlaybackError = (failedUrl: string, wasBackup: boolean, wasProxy: boolean) => {
     setIsLoading(false);
     setIsBuffering(false);
 
-    if (!wasBackup && currentStation?.backupStreamUrl) {
-      console.log('[Player] Primary failed, attempting backup stream:', currentStation.backupStreamUrl);
-      attachAndPlayStream(currentStation.backupStreamUrl, true);
+    if (!wasProxy && !failedUrl.includes('/api/public/stream-proxy')) {
+      console.log('[Player] Direct stream failed. Retrying via stream proxy server...');
+      const proxyUrl = `/api/public/stream-proxy?url=${encodeURIComponent(failedUrl)}`;
+      attachAndPlayStream(proxyUrl, wasBackup, true);
+    } else if (!wasBackup && currentStation?.backupStreamUrl) {
+      console.log('[Player] Stream failed, attempting backup stream:', currentStation.backupStreamUrl);
+      attachAndPlayStream(currentStation.backupStreamUrl, true, false);
     } else {
       setHasError(true);
       setIsPlaying(false);

@@ -6,6 +6,7 @@ import {
   BarChart3,
   CreditCard,
   Sparkles,
+  Wand2,
   LifeBuoy,
   Settings,
   CheckCircle2,
@@ -30,6 +31,10 @@ import {
   HeartHandshake,
   DownloadCloud,
   Layers,
+  LayoutGrid,
+  List,
+  ArrowLeft,
+  LogOut,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAudioPlayer } from '../../context/AudioPlayerContext';
@@ -40,6 +45,8 @@ import { DonationsLedger } from '../../components/owner/DonationsLedger';
 import { RadioImportModal } from '../../components/owner/RadioImportModal';
 import { StationClaimsTab } from '../../components/owner/StationClaimsTab';
 import { ClaimStationModal } from '../../components/station/ClaimStationModal';
+import { OwnerKYCForm } from '../../components/kyc/OwnerKYCForm';
+import { WORLDWIDE_COUNTRIES } from '../../data/worldwideCountries';
 import type {
   Station,
   SubscriptionPlan,
@@ -55,15 +62,17 @@ import type {
 
 interface OwnerDashboardProps {
   onNavigate: (view: string, param?: string) => void;
+  initialParam?: string;
 }
 
-export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
-  const { user, ownerProfile, subscription, plan, refreshUser } = useAuth();
+export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps) {
+  const { user, ownerProfile, subscription, plan, refreshUser, logout } = useAuth();
   const { playStation } = useAudioPlayer();
 
   const [activeTab, setActiveTab] = useState<
     | 'overview'
     | 'stations'
+    | 'verification'
     | 'claims'
     | 'schedule'
     | 'health'
@@ -73,6 +82,15 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
     | 'promotion'
     | 'support'
   >('overview');
+
+  useEffect(() => {
+    if (initialParam === 'add-station') {
+      setActiveTab('stations');
+      setShowStationModal(true);
+    } else if (initialParam?.startsWith('claim-station')) {
+      setActiveTab('claims');
+    }
+  }, [initialParam]);
 
   const [stations, setStations] = useState<Station[]>([]);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
@@ -97,6 +115,7 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
 
   const [loading, setLoading] = useState(true);
   const [syncingStationId, setSyncingStationId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
   // Import & Claims Modals
   const [showImportModal, setShowImportModal] = useState(false);
@@ -116,7 +135,8 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
     city: '',
     language: 'Swahili',
     genre: 'Gospel & Praise',
-    categoryId: 'cat_gospel_music',
+    categoryId: 'cat_gospel',
+    categoryIds: ['cat_gospel'],
     denomination: '',
     websiteUrl: '',
     email: '',
@@ -133,6 +153,10 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
     error?: string;
     details?: any;
   } | null>(null);
+
+  const [extractingStream, setExtractingStream] = useState(false);
+  const [extractPageUrl, setExtractPageUrl] = useState('');
+  const [showExtractorInput, setShowExtractorInput] = useState(false);
 
   // Billing Modal State
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
@@ -274,6 +298,40 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
       setStreamTestResult({ valid: false, error: 'Network error during stream check.' });
     } finally {
       setTestingStream(false);
+    }
+  };
+
+  // Handle Automatic Stream Link Extraction from Web Page URL
+  const handleExtractStream = async () => {
+    if (!extractPageUrl.trim()) return;
+    setExtractingStream(true);
+    try {
+      const res = await apiFetch('/api/owner/extract-stream-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pageUrl: extractPageUrl.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.extractedStreamUrl) {
+        setFormData((prev) => ({
+          ...prev,
+          streamUrl: data.extractedStreamUrl,
+          streamType: data.detectedType || prev.streamType,
+        }));
+        setStreamTestResult({
+          valid: true,
+          error: undefined,
+          details: { message: `Extracted direct stream URL: ${data.extractedStreamUrl}` },
+        });
+        alert(`Successfully extracted direct stream URL: ${data.extractedStreamUrl}`);
+        setShowExtractorInput(false);
+      } else {
+        alert(data.error || 'Could not find a direct stream URL on that page source.');
+      }
+    } catch (err: any) {
+      alert('Extraction failed: ' + (err.message || 'Network error'));
+    } finally {
+      setExtractingStream(false);
     }
   };
 
@@ -428,6 +486,13 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
     {
       title: 'Account & Desk',
       items: [
+        {
+          id: 'verification',
+          label: 'Verification & Compliance',
+          icon: ShieldCheck,
+          badge: ownerProfile?.verified ? '✓ Verified' : 'Pending',
+          badgeColor: ownerProfile?.verified ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300',
+        },
         { id: 'billing', label: 'Plan & Billing', icon: CreditCard },
         { id: 'support', label: 'Support Desk', icon: LifeBuoy, badge: tickets.length || undefined, badgeColor: 'bg-sky-500/20 text-sky-300' },
       ],
@@ -460,6 +525,13 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => onNavigate('home')}
+            className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 border border-slate-700 transition-all cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4 text-emerald-400" />
+            <span>Back to Christian Radios</span>
+          </button>
           <button
             onClick={() => setShowImportModal(true)}
             className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
@@ -684,10 +756,80 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
               </div>
             ))}
           </div>
+
+          {/* Sidebar Footer: Back to Website & Logout */}
+          <div className="pt-3 mt-3 border-t border-slate-800/80 space-y-1">
+            <button
+              onClick={() => onNavigate('home')}
+              title={!isSidebarOpen ? 'Back to Christian Radios' : undefined}
+              className={`w-full rounded-2xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800/80 transition-all flex items-center ${
+                isSidebarOpen ? 'px-3 py-2.5 gap-2.5' : 'p-3 justify-center'
+              }`}
+            >
+              <ArrowLeft className="w-4 h-4 text-emerald-400 shrink-0" />
+              {isSidebarOpen && <span>Back to Website</span>}
+            </button>
+
+            <button
+              onClick={async () => {
+                await logout();
+                onNavigate('home');
+              }}
+              title={!isSidebarOpen ? 'Sign Out' : undefined}
+              className={`w-full rounded-2xl text-xs font-bold text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-all flex items-center ${
+                isSidebarOpen ? 'px-3 py-2.5 gap-2.5' : 'p-3 justify-center'
+              }`}
+            >
+              <LogOut className="w-4 h-4 text-rose-400 shrink-0" />
+              {isSidebarOpen && <span>Sign Out</span>}
+            </button>
+          </div>
         </aside>
 
         {/* Tab Content Panel (Right side) */}
         <main className="flex-1 min-w-0 space-y-6">
+
+          {/* Radio Owner Verification Alert Banner */}
+          {!ownerProfile?.verified && (
+            <div className="bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 border border-amber-500/30 rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+              <div className="flex items-start gap-3.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0 mt-0.5">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div className="space-y-0.5">
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                    Radio Owner Verification Required
+                    <span className="text-[10px] font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                      {ownerProfile?.verificationStatus || 'UNVERIFIED'}
+                    </span>
+                  </h4>
+                  <p className="text-xs text-slate-300">
+                    Complete your Radio Owner KYC verification to publish stations, display public verification badges, and receive listener donations.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setActiveTab('verification')}
+                className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shrink-0 shadow-lg shadow-amber-500/20 transition flex items-center gap-1.5"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Complete Verification</span>
+              </button>
+            </div>
+          )}
+
+          {/* Tab: Verification & Compliance */}
+          {activeTab === 'verification' && (
+            <div className="space-y-6">
+              <OwnerKYCForm
+                onSuccess={() => {
+                  refreshUser();
+                  loadOwnerData();
+                }}
+              />
+            </div>
+          )}
 
       {/* Tab 1: Overview */}
       {activeTab === 'overview' && (
@@ -839,6 +981,36 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2.5">
+              {/* View Mode Switcher */}
+              <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1 mr-2">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('grid')}
+                  className={`p-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    viewMode === 'grid'
+                      ? 'bg-amber-500 text-slate-950 shadow-md font-extrabold'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Card Grid View"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Grid</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('table')}
+                  className={`p-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    viewMode === 'table'
+                      ? 'bg-amber-500 text-slate-950 shadow-md font-extrabold'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Dense Table View"
+                >
+                  <List className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Table</span>
+                </button>
+              </div>
+
               <button
                 onClick={() => {
                   setClaimingStationInfo(null);
@@ -867,7 +1039,8 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
                     city: 'Dar es Salaam',
                     language: 'Swahili',
                     genre: 'Gospel & Praise',
-                    categoryId: 'cat_gospel_music',
+                    categoryId: 'cat_gospel',
+                    categoryIds: ['cat_gospel'],
                     denomination: '',
                     websiteUrl: '',
                     email: '',
@@ -945,6 +1118,138 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
                     Is your station already in our global directory? Verify your ministry credentials to take ownership.
                   </p>
                 </div>
+              </div>
+            </div>
+          ) : viewMode === 'table' ? (
+            /* Broadcaster Dense Table View */
+            <div className="bg-slate-900/80 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+              <div className="overflow-x-auto custom-scrollbar">
+                <table className="w-full text-left text-xs min-w-[850px]">
+                  <thead>
+                    <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase tracking-wider text-[11px] font-semibold">
+                      <th className="py-3.5 px-4">Station & Stream Endpoint</th>
+                      <th className="py-3.5 px-4">Location & Genre</th>
+                      <th className="py-3.5 px-4">Stream Status</th>
+                      <th className="py-3.5 px-4">Format & Bitrate</th>
+                      <th className="py-3.5 px-4">Total Plays</th>
+                      <th className="py-3.5 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {stations.map((st) => (
+                      <tr key={st.id} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={st.logoUrl}
+                              alt=""
+                              className="w-10 h-10 rounded-xl object-cover bg-slate-800 shrink-0 border border-slate-700"
+                            />
+                            <div className="min-w-0">
+                              <div className="font-bold text-white text-sm flex items-center gap-2">
+                                <span>{st.name}</span>
+                                {st.sourceType && st.sourceType !== 'MANUAL' && (
+                                  <span className="text-[10px] font-semibold text-amber-300 bg-amber-500/10 px-1.5 py-0.2 rounded">
+                                    {st.sourceType}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] font-mono text-slate-400 truncate max-w-xs">
+                                {st.streamUrl}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <div className="space-y-0.5">
+                            <div className="font-medium text-slate-200">{st.city}, {st.countryCode}</div>
+                            <div className="text-[11px] text-slate-400">{st.genre}</div>
+                          </div>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          {st.streamStatus === 'ONLINE' ? (
+                            <span className="inline-flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                              Online ({st.responseLatencyMs || 120}ms)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-rose-400 font-bold bg-rose-500/10 px-2.5 py-0.5 rounded-full border border-rose-500/20">
+                              Offline
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <span className="font-semibold text-slate-200">
+                            {st.streamType} • {st.bitrateKbps || 128} kbps
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <span className="font-bold text-sky-400">
+                            {(st.playCount || 0).toLocaleString()}
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => playStation(st)}
+                              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-xl text-xs font-semibold transition"
+                            >
+                              Play
+                            </button>
+                            <button
+                              onClick={() => {
+                                setScheduleStation(st);
+                                setActiveTab('schedule');
+                              }}
+                              className="p-1.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white transition"
+                              title="Edit Schedule"
+                            >
+                              <Calendar className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingStation(st);
+                                setFormData({
+                                  name: st.name,
+                                  tagline: st.tagline || '',
+                                  description: st.description,
+                                  logoUrl: st.logoUrl,
+                                  coverUrl: st.coverUrl || '',
+                                  countryCode: st.countryCode,
+                                  city: st.city,
+                                  language: st.language,
+                                  genre: st.genre,
+                                  categoryId: st.categoryId,
+                                  categoryIds: st.categoryIds && st.categoryIds.length > 0 ? st.categoryIds : [st.categoryId],
+                                  denomination: st.denomination || '',
+                                  websiteUrl: st.websiteUrl || '',
+                                  email: st.email || '',
+                                  phone: st.phone || '',
+                                  streamUrl: st.streamUrl,
+                                  backupStreamUrl: st.backupStreamUrl || '',
+                                  streamType: st.streamType,
+                                  bitrateKbps: st.bitrateKbps || 128,
+                                  timezone: st.timezone || 'Africa/Dar_es_Salaam',
+                                });
+                                setStreamTestResult(null);
+                                setShowStationModal(true);
+                              }}
+                              className="p-1.5 rounded-xl bg-slate-800 text-slate-300 hover:text-amber-400 transition"
+                              title="Edit Station"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           ) : (
@@ -1039,6 +1344,7 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
                           language: st.language,
                           genre: st.genre,
                           categoryId: st.categoryId,
+                          categoryIds: st.categoryIds && st.categoryIds.length > 0 ? st.categoryIds : [st.categoryId],
                           denomination: st.denomination || '',
                           websiteUrl: st.websiteUrl || '',
                           email: st.email || '',
@@ -1080,8 +1386,9 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
+    )}
 
       {/* Tab: Station Ownership Claims */}
       {activeTab === 'claims' && (
@@ -1515,15 +1822,13 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
                   <select
                     value={formData.countryCode}
                     onChange={(e) => setFormData({ ...formData, countryCode: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 cursor-pointer"
                   >
-                    <option value="TZ">🇹🇿 Tanzania</option>
-                    <option value="KE">🇰🇪 Kenya</option>
-                    <option value="UG">🇺🇬 Uganda</option>
-                    <option value="US">🇺🇸 United States</option>
-                    <option value="GB">🇬🇧 United Kingdom</option>
-                    <option value="NG">🇳🇬 Nigeria</option>
-                    <option value="ZA">🇿🇦 South Africa</option>
+                    {WORLDWIDE_COUNTRIES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.flagEmoji} {c.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -1550,11 +1855,86 @@ export function OwnerDashboard({ onNavigate }: OwnerDashboardProps) {
                 </div>
               </div>
 
+              {/* Multi-Category Selector for Radio Owners */}
+              <div>
+                <label className="block font-medium text-slate-300 mb-1">
+                  Radio Categories (Select all categories that apply to your radio)
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-2.5 bg-slate-950 border border-slate-800 rounded-xl custom-scrollbar">
+                  {categories.map((cat) => {
+                    const isSelected = (formData.categoryIds || []).includes(cat.id);
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => {
+                          const currentIds = formData.categoryIds || [];
+                          let nextCatIds: string[];
+                          if (isSelected) {
+                            nextCatIds = currentIds.filter((id) => id !== cat.id);
+                          } else {
+                            nextCatIds = [...currentIds, cat.id];
+                          }
+                          setFormData({
+                            ...formData,
+                            categoryIds: nextCatIds,
+                            categoryId: nextCatIds[0] || cat.id,
+                          });
+                        }}
+                        className={`p-2 rounded-xl text-[11px] font-semibold text-left flex items-center justify-between border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-sky-500/20 border-sky-500 text-sky-300 font-bold shadow-sm'
+                            : 'bg-slate-900 border-slate-800/80 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <span className="truncate">{cat.name}</span>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-sky-400 shrink-0 ml-1" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Stream URL & Live SSRF Test */}
               <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-sky-400">
-                  Audio Stream Endpoint Configuration
-                </span>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-sky-400">
+                    Audio Stream Endpoint Configuration
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowExtractorInput(!showExtractorInput)}
+                    className="text-xs font-semibold text-amber-400 hover:text-amber-300 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-xl flex items-center gap-1.5 transition-all"
+                  >
+                    <Wand2 className="w-3.5 h-3.5" />
+                    Auto-Extract Stream from Page Source
+                  </button>
+                </div>
+
+                {showExtractorInput && (
+                  <div className="p-3 bg-amber-950/40 border border-amber-500/30 rounded-xl space-y-2 text-xs">
+                    <p className="text-amber-200">
+                      Paste any radio web page URL (e.g. Zeno.fm page, Streema, RadioKing, website player page). We will automatically inspect the page HTML source code and extract the direct audio stream URL!
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        placeholder="https://zeno.fm/radio/your-radio-page"
+                        value={extractPageUrl}
+                        onChange={(e) => setExtractPageUrl(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white font-mono text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleExtractStream}
+                        disabled={extractingStream || !extractPageUrl.trim()}
+                        className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1.5 rounded-xl shrink-0 disabled:opacity-50 flex items-center gap-1"
+                      >
+                        {extractingStream ? 'Extracting...' : 'Extract Stream'}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <label className="block font-medium text-slate-300 mb-1">

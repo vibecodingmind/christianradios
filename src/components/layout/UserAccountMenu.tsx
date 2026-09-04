@@ -69,10 +69,7 @@ export function UserAccountMenu({ onNavigate, onLogoutSuccess, className = '' }:
   };
 
   const isRadioOwner = user.role === 'RADIO_OWNER';
-  const isSuperAdmin =
-    user.role === 'SUPER_ADMIN' ||
-    user.role === 'OPERATIONS_ADMIN' ||
-    user.role === 'FINANCE_ADMIN';
+  const isSuperAdmin = user.role === 'SUPER_ADMIN';
 
   const roleBadge = isSuperAdmin ? (
     <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full">
@@ -242,6 +239,22 @@ export function UserAccountMenu({ onNavigate, onLogoutSuccess, className = '' }:
                 <Heart className="w-4 h-4" />
               </div>
               <span>Favourite</span>
+            </button>
+
+            {/* REFERRALS / EARNINGS (Available for all authenticated users) */}
+            <button
+              id="menu-referrals"
+              role="menuitem"
+              onClick={() => {
+                setIsOpen(false);
+                onNavigate('referrals');
+              }}
+              className="w-full text-left px-3 py-2.5 text-xs font-semibold text-slate-200 hover:text-white hover:bg-slate-800 rounded-xl flex items-center gap-3 transition-colors group"
+            >
+              <div className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-400 group-hover:bg-amber-500 group-hover:text-white flex items-center justify-center transition-colors">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <span>Referrals / Earnings</span>
             </button>
 
             {/* PROFILE SETTING (Available for all) */}

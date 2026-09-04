@@ -36,26 +36,31 @@ export function AdminPlansTab({ plans, onRefresh }: AdminPlansTabProps) {
   const defaultNewPlan: SubscriptionPlan = {
     id: '',
     name: '',
+    tier: 'PRO',
     description: '',
     monthlyPriceTzs: 25000,
     annualPriceTzs: 250000,
     monthlyPriceUsd: 10,
     annualPriceUsd: 100,
-    maxStations: 1,
-    maxBitrateKbps: 128,
-    maxMonthlyBandwidthGb: 100,
-    streamMonitoringIntervalMinutes: 5,
-    analyticsTier: 'BASIC',
-    customDomainSupported: false,
-    whiteLabelPlayer: false,
-    priorityDirectoryListing: false,
-    donationButtonEnabled: true,
-    podcastUploadLimitMb: 500,
-    features: [
-      '24/7 Stream Uptime Health Checks',
-      'Direct Listener Donation Integration',
-      'HLS & MP3 Universal Stream Support',
-      'Mobile App & Web Directory Listing',
+    currency: 'TZS',
+    maxStations: 10,
+    featuredMonthlyQuota: 3,
+    maxActiveFeatured: 2,
+    donationCampaignLimit: 10,
+    givingEnabled: true,
+    withdrawalsEnabled: true,
+    analyticsRetentionDays: 90,
+    advancedAnalyticsEnabled: true,
+    multiStationAnalyticsEnabled: true,
+    exportsEnabled: true,
+    advancedBrandingEnabled: true,
+    prioritySupport: true,
+    featuredPlacementPriority: 'HIGH',
+    featuresList: [
+      'Up to 10 Radio Stations',
+      '3 Featured Campaigns per month',
+      'Giving & Donation system',
+      '90 days advanced analytics',
     ],
     isActive: true,
   };
@@ -149,17 +154,18 @@ export function AdminPlansTab({ plans, onRefresh }: AdminPlansTabProps) {
 
   const addFeature = () => {
     if (!newFeatureText.trim()) return;
+    const current = formData.featuresList || formData.features || [];
     setFormData({
       ...formData,
-      features: [...(formData.features || []), newFeatureText.trim()],
+      featuresList: [...current, newFeatureText.trim()],
     });
     setNewFeatureText('');
   };
 
   const removeFeature = (index: number) => {
-    const updated = [...(formData.features || [])];
-    updated.splice(index, 1);
-    setFormData({ ...formData, features: updated });
+    const current = [...(formData.featuresList || formData.features || [])];
+    current.splice(index, 1);
+    setFormData({ ...formData, featuresList: current });
   };
 
   return (
@@ -275,15 +281,15 @@ export function AdminPlansTab({ plans, onRefresh }: AdminPlansTabProps) {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-blue-400" /> Stream Check Interval:
+                    <Clock className="w-3.5 h-3.5 text-blue-400" /> Analytics Retention:
                   </span>
-                  <span className="font-semibold text-white">Every {plan.streamMonitoringIntervalMinutes}m</span>
+                  <span className="font-semibold text-white">{plan.analyticsRetentionDays || 7} Days</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-purple-400" /> Analytics Tier:
+                    <Sparkles className="w-3.5 h-3.5 text-purple-400" /> Featured Quota:
                   </span>
-                  <span className="font-semibold text-white">{plan.analyticsTier}</span>
+                  <span className="font-semibold text-white">{plan.featuredMonthlyQuota || 0} / Mo</span>
                 </div>
               </div>
 
@@ -292,7 +298,7 @@ export function AdminPlansTab({ plans, onRefresh }: AdminPlansTabProps) {
                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-2">
                   Included Capabilities:
                 </span>
-                {(plan.features || []).map((feat, idx) => (
+                {(plan.featuresList || plan.features || []).map((feat, idx) => (
                   <div key={idx} className="flex items-start gap-2 text-xs text-slate-300">
                     <Check className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
                     <span>{feat}</span>
@@ -303,7 +309,7 @@ export function AdminPlansTab({ plans, onRefresh }: AdminPlansTabProps) {
 
             <div className="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-500">
               <span>ID: {plan.id}</span>
-              <span>{plan.donationButtonEnabled ? '✓ Donations On' : '—'}</span>
+              <span>{plan.givingEnabled ? '✓ Giving On' : '—'}</span>
             </div>
           </div>
         ))}
@@ -424,10 +430,31 @@ export function AdminPlansTab({ plans, onRefresh }: AdminPlansTabProps) {
               </div>
 
               {/* Station Limits & Health Monitoring */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Max Radio Stations
+                    Plan Tier
+                  </label>
+                  <select
+                    value={formData.tier}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        tier: e.target.value as any,
+                      })
+                    }
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200"
+                  >
+                    <option value="FREE">FREE</option>
+                    <option value="BASIC">BASIC</option>
+                    <option value="PRO">PRO</option>
+                    <option value="VIP">VIP</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Max Stations
                   </label>
                   <input
                     type="number"
@@ -436,48 +463,46 @@ export function AdminPlansTab({ plans, onRefresh }: AdminPlansTabProps) {
                     onChange={(e) =>
                       setFormData({ ...formData, maxStations: parseInt(e.target.value, 10) || 1 })
                     }
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Health Check Frequency
+                    Featured Quota/Mo
                   </label>
-                  <select
-                    value={formData.streamMonitoringIntervalMinutes}
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.featuredMonthlyQuota}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        streamMonitoringIntervalMinutes: parseInt(e.target.value, 10) || 5,
+                        featuredMonthlyQuota: parseInt(e.target.value, 10) || 0,
                       })
                     }
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200"
-                  >
-                    <option value={1}>Every 1 Minute (Live)</option>
-                    <option value={3}>Every 3 Minutes</option>
-                    <option value={5}>Every 5 Minutes</option>
-                    <option value={15}>Every 15 Minutes</option>
-                  </select>
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200"
+                  />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Analytics Tier
+                    Analytics Retention
                   </label>
                   <select
-                    value={formData.analyticsTier}
+                    value={formData.analyticsRetentionDays}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        analyticsTier: e.target.value as 'BASIC' | 'ADVANCED' | 'ENTERPRISE',
+                        analyticsRetentionDays: parseInt(e.target.value, 10) || 7,
                       })
                     }
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200"
                   >
-                    <option value="BASIC">Basic Metrics</option>
-                    <option value="ADVANCED">Advanced Analytics</option>
-                    <option value="ENTERPRISE">Enterprise Real-Time</option>
+                    <option value={7}>7 Days (Free)</option>
+                    <option value={30}>30 Days (Basic)</option>
+                    <option value={90}>90 Days (Pro)</option>
+                    <option value={365}>365 Days (VIP)</option>
                   </select>
                 </div>
               </div>
@@ -511,7 +536,7 @@ export function AdminPlansTab({ plans, onRefresh }: AdminPlansTabProps) {
                 </div>
 
                 <div className="flex flex-wrap gap-2 pt-1">
-                  {(formData.features || []).map((f, i) => (
+                  {(formData.featuresList || formData.features || []).map((f, i) => (
                     <span
                       key={i}
                       className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300"

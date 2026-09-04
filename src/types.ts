@@ -1,10 +1,4 @@
-export type Role =
-  | 'SUPER_ADMIN'
-  | 'OPERATIONS_ADMIN'
-  | 'FINANCE_ADMIN'
-  | 'SUPPORT_AGENT'
-  | 'RADIO_OWNER'
-  | 'LISTENER';
+export type Role = 'SUPER_ADMIN' | 'RADIO_OWNER' | 'LISTENER';
 
 export type SourceType =
   | 'MANUAL'
@@ -97,7 +91,7 @@ export type StationStatus =
 export type StreamStatus = 'ONLINE' | 'OFFLINE' | 'DEGRADED' | 'UNKNOWN';
 export type VerificationStatus = 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
 export type StreamType = 'MP3' | 'AAC' | 'HLS' | 'ICECAST' | 'SHOUTCAST';
-export type PlanTier = 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'BUSINESS';
+export type PlanTier = 'FREE' | 'BASIC' | 'PRO' | 'VIP' | 'STARTER' | 'PROFESSIONAL' | 'BUSINESS';
 export type PaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
 export type PaymentMethod = 'MPESA' | 'TIGO_PESA' | 'AIRTEL_MONEY' | 'CARD' | 'BANK_TRANSFER';
 
@@ -106,11 +100,141 @@ export interface User {
   email: string;
   role: Role;
   name: string;
+  fullName?: string;
+  referralCode?: string;
   emailVerified: boolean;
   phone?: string;
   avatarUrl?: string;
   status: 'ACTIVE' | 'SUSPENDED';
   createdAt: string;
+}
+
+export type KYCOwnerType = 'INDIVIDUAL' | 'ORGANIZATION';
+
+export type KYCStatus =
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'UNDER_REVIEW'
+  | 'CHANGES_REQUIRED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'SUSPENDED';
+
+export type DocumentType =
+  | 'NATIONAL_ID'
+  | 'PASSPORT'
+  | 'DRIVERS_LICENSE'
+  | 'BUSINESS_REGISTRATION'
+  | 'TAX_CERTIFICATE'
+  | 'STATION_LICENSE'
+  | 'OTHER';
+
+export type DocumentStatus =
+  | 'PENDING'
+  | 'VERIFIED'
+  | 'INVALID'
+  | 'CHANGES_REQUESTED';
+
+export type StationApplicationStatus =
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'UNDER_REVIEW'
+  | 'CHANGES_REQUIRED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'SUSPENDED';
+
+export type LicenceVerificationStatus =
+  | 'UNVERIFIED'
+  | 'PENDING'
+  | 'VERIFIED'
+  | 'REJECTED'
+  | 'EXPIRED'
+  | 'REQUIRES_REVIEW';
+
+export interface KYCApplication {
+  id: string;
+  userId: string;
+  verificationType: KYCOwnerType;
+  fullName?: string;
+  organizationName?: string;
+  organizationType?: string;
+  country: string;
+  address?: string;
+  phone: string;
+  email: string;
+  idType?: string;
+  idNumber?: string;
+  registrationNumber?: string;
+  taxId?: string;
+  website?: string;
+  representativeName?: string;
+  representativeTitle?: string;
+  representativeIdNumber?: string;
+  status: KYCStatus;
+  submittedAt?: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  rejectionReason?: string;
+  changesRequestedReason?: string;
+  adminNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface KYCDocument {
+  id: string;
+  kycApplicationId: string;
+  userId: string;
+  documentType: DocumentType;
+  fileName: string;
+  fileReference: string;
+  fileSize?: number;
+  mimeType?: string;
+  status: DocumentStatus;
+  uploadedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  reviewNotes?: string;
+}
+
+export interface StationApplication {
+  id: string;
+  stationId: string;
+  ownerId: string;
+  licenceNumber?: string;
+  licenceType?: string;
+  issuingAuthority?: string;
+  issueDate?: string;
+  expiryDate?: string;
+  licenceDocumentRef?: string;
+  licenceVerificationStatus: LicenceVerificationStatus;
+  status: StationApplicationStatus;
+  submittedAt?: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  rejectionReason?: string;
+  changesRequestedReason?: string;
+  adminNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuditLog {
+  id: string;
+  actorId?: string;
+  actorName?: string;
+  actorEmail?: string;
+  actorRole?: Role | string;
+  action: string;
+  targetType?: string;
+  targetId?: string;
+  entityType?: string;
+  entityId?: string;
+  details?: any;
+  reason?: string;
+  ipAddress?: string;
+  timestamp: string;
 }
 
 export interface OwnerProfile {
@@ -121,6 +245,8 @@ export interface OwnerProfile {
   country: string;
   bio?: string;
   verified: boolean;
+  verificationStatus?: VerificationStatus;
+  kycApplicationId?: string;
   website?: string;
 }
 
@@ -168,6 +294,7 @@ export interface Station {
   language: string;
   genre: string;
   categoryId: string;
+  categoryIds?: string[];
   denomination?: string;
   website?: string;
   websiteUrl?: string;
@@ -204,6 +331,13 @@ export interface Station {
   importId?: string;
   claimStatus?: 'UNCLAIMED' | 'CLAIM_PENDING' | 'CLAIMED';
   lastSyncedAt?: string;
+
+  // Premium Radios Model
+  accessType?: 'FREE' | 'PREMIUM';
+  monthlyPriceTzs?: number;
+  annualPriceTzs?: number;
+  premiumDescription?: string;
+
   planId?: string;
   plan?: SubscriptionPlan;
   createdAt: string;
@@ -288,32 +422,142 @@ export interface RadioStationSyncLog {
   createdAt: string;
 }
 
+export interface PremiumRadioSubscription {
+  id: string;
+  listenerId: string;
+  stationId: string;
+  ownerId: string;
+  status: 'PENDING' | 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'REFUNDED';
+  billingInterval: 'MONTHLY' | 'ANNUAL';
+  amountTzs: number;
+  ownerShareTzs: number;
+  platformShareTzs: number;
+  currency: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  autoRenew: boolean;
+  paymentId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Referral {
+  id: string;
+  referrerId: string;
+  referrerRole: 'RADIO_OWNER' | 'LISTENER';
+  referredUserId: string;
+  referralCode: string;
+  status: 'PENDING' | 'QUALIFIED' | 'EXPIRED';
+  createdAt: string;
+}
+
+export interface ReferralCommission {
+  id: string;
+  referralId: string;
+  referrerId: string;
+  referredUserId: string;
+  sourcePaymentId: string;
+  paymentType: 'OWNER_SUBSCRIPTION' | 'PREMIUM_RADIO_SUBSCRIPTION';
+  grossAmountTzs: number;
+  commissionPercentage: number;
+  commissionAmountTzs: number;
+  status: 'PENDING' | 'SETTLED' | 'REVERSED';
+  settlesAt: string;
+  createdAt: string;
+}
+
+export interface FeaturedPackage {
+  id: string;
+  name: string;
+  description: string;
+  durationDays: number;
+  priceTzs: number;
+  priceUsd: number;
+  currency: string;
+  placementPriority: 'HOMEPAGE_HERO' | 'DIRECTORY_TOP' | 'CATEGORY_FEATURED';
+  isActive: boolean;
+}
+
+export interface FeaturedPurchase {
+  id: string;
+  stationId: string;
+  ownerId: string;
+  packageId: string;
+  packageName: string;
+  durationDays: number;
+  amountTzs: number;
+  currency: string;
+  status: 'PENDING_PAYMENT' | 'PAID' | 'SCHEDULED' | 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'REFUNDED' | 'FAILED';
+  paymentId?: string;
+  startDate?: string;
+  endDate?: string;
+  createdAt: string;
+}
+
+export type SubscriptionTier = PlanTier;
+
 export interface SubscriptionPlan {
   id: string;
   name: string;
-  tier?: PlanTier;
+  tier: PlanTier;
   description: string;
   monthlyPriceTzs: number;
   annualPriceTzs: number;
   monthlyPriceUsd: number;
   annualPriceUsd: number;
-  currency?: string;
+  currency: string;
   maxStations: number;
-  maxBitrateKbps?: number;
-  maxMonthlyBandwidthGb?: number;
-  analyticsAccessLevel?: 'BASIC' | 'ADVANCED' | 'FULL_ENTERPRISE';
-  analyticsTier?: 'BASIC' | 'ADVANCED' | 'ENTERPRISE';
-  featuredIncluded?: boolean;
-  streamMonitoringIntervalMinutes: number;
+  featuredMonthlyQuota: number;
+  maxActiveFeatured: number;
+  donationCampaignLimit: number;
+  givingEnabled: boolean;
+  withdrawalsEnabled: boolean;
+  analyticsRetentionDays: number;
+  advancedAnalyticsEnabled: boolean;
+  multiStationAnalyticsEnabled: boolean;
+  exportsEnabled: boolean;
+  advancedBrandingEnabled: boolean;
+  prioritySupport: boolean;
+  featuredPlacementPriority: 'NONE' | 'BASIC' | 'HIGH' | 'HIGHEST';
+  streamMonitoringIntervalMinutes?: number;
   customBranding?: boolean;
-  prioritySupport?: boolean;
-  customDomainSupported?: boolean;
-  whiteLabelPlayer?: boolean;
-  priorityDirectoryListing?: boolean;
-  donationButtonEnabled?: boolean;
-  podcastUploadLimitMb?: number;
-  features?: string[];
+  analyticsAccessLevel?: 'BASIC' | 'ADVANCED' | 'FULL_ENTERPRISE';
+  featuredIncluded?: boolean;
   isActive: boolean;
+  isPopular?: boolean;
+  featuresList?: string[];
+  features?: string[];
+}
+
+export interface PlanEntitlements {
+  plan: SubscriptionPlan;
+  usage: {
+    stationsCount: number;
+    featuredMonthlyCount: number;
+    activeFeaturedCount: number;
+    donationCampaignsCount: number;
+  };
+  limits: {
+    maxStations: number;
+    featuredMonthlyQuota: number;
+    maxActiveFeatured: number;
+    donationCampaignLimit: number;
+    analyticsRetentionDays: number;
+  };
+  capabilities: {
+    canAddStation: boolean;
+    canCreateFeaturedCampaign: boolean;
+    canActivateFeaturedCampaign: boolean;
+    canCreateDonationCampaign: boolean;
+    canUseGiving: boolean;
+    canWithdraw: boolean;
+    canUseAdvancedAnalytics: boolean;
+    canUseMultiStationAnalytics: boolean;
+    canExportReports: boolean;
+    canUseAdvancedBranding: boolean;
+    prioritySupport: boolean;
+    featuredPlacementPriority: 'NONE' | 'BASIC' | 'HIGH' | 'HIGHEST';
+  };
 }
 
 export interface Subscription {
@@ -480,19 +724,6 @@ export interface NotificationItem {
   createdAt: string;
 }
 
-export interface AuditLog {
-  id: string;
-  actorId: string;
-  actorEmail?: string;
-  actorRole?: string;
-  action: string;
-  entityType: string;
-  entityId: string;
-  details?: string;
-  ipAddress?: string;
-  timestamp: string;
-}
-
 export interface PrayerRequest {
   id: string;
   authorName: string;
@@ -603,6 +834,9 @@ export interface Donation {
 
 export type LedgerEntryType =
   | 'DONATION_CREDIT'
+  | 'DONATION_PAYOUT'
+  | 'PREMIUM_SHARE_CREDIT'
+  | 'REFERRAL_CREDIT'
   | 'PLATFORM_FEE_DEBIT'
   | 'WITHDRAWAL_DEBIT'
   | 'REFUND_DEBIT'
@@ -619,16 +853,19 @@ export interface LedgerEntry {
   type: LedgerEntryType;
   amount: number;
   currency: string;
+  status?: 'SETTLED' | 'PENDING' | 'REVERSED';
   balanceAfter: number;
   description: string;
   createdAt: string;
 }
 
 export type WithdrawalStatus =
+  | 'PENDING'
   | 'REQUESTED'
   | 'UNDER_REVIEW'
   | 'APPROVED'
   | 'PROCESSING'
+  | 'PAID'
   | 'COMPLETED'
   | 'FAILED'
   | 'REJECTED'
@@ -642,18 +879,20 @@ export interface WithdrawalRequest {
   stationId?: string;
   amount: number;
   currency: string;
-  fee: number;
-  netAmount: number;
-  payoutMethod: 'MPESA' | 'TIGO_PESA' | 'AIRTEL_MONEY' | 'BANK_TRANSFER';
-  payoutAccountName: string;
-  payoutAccountNumber: string;
-  payoutBankOrProvider: string;
+  fee?: number;
+  netAmount?: number;
+  payoutMethod: string;
+  payoutAccountName?: string;
+  payoutAccountNumber?: string;
+  payoutBankOrProvider?: string;
+  accountDetails?: string;
   status: WithdrawalStatus;
   notes?: string;
   adminNotes?: string;
   processedBy?: string;
   failureReason?: string;
   requestedAt: string;
+  updatedAt?: string;
   processedAt?: string;
   completedAt?: string;
 }
@@ -726,6 +965,14 @@ export interface PlatformSettings {
   minWithdrawalAmount?: number;
   withdrawalFeePercentage?: number;
   givingAllowedPlans?: string[];
+
+  // AI Platform Configuration
+  aiEnabled?: boolean;
+  aiProvider?: string;
+  aiModel?: string;
+  aiRateLimitAnon?: number;
+  aiRateLimitAuth?: number;
+  systemPromptOverride?: string;
 
   // Payment Gateways
   pesapalEnabled: boolean;

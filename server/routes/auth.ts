@@ -229,6 +229,67 @@ authRouter.post('/update-profile', requireAuth, (req: AuthenticatedRequest, res)
   });
 });
 
+// Become Radio Owner Onboarding / Role Upgrade
+authRouter.post('/become-owner', requireAuth, (req: AuthenticatedRequest, res) => {
+  const user = req.user!;
+  const { organizationName, phone, country } = req.body;
+
+  const orgName = organizationName?.trim() || `${user.name}'s Ministry Radio`;
+
+  const updatedUser = db.users.update(user.id, { role: 'RADIO_OWNER' });
+
+  let ownerProfile = db.ownerProfiles.findByUserId(user.id);
+  if (!ownerProfile) {
+    ownerProfile = db.ownerProfiles.create({
+      id: `prof_${Date.now()}`,
+      userId: user.id,
+      organizationName: orgName,
+      phone: phone || user.phone || '',
+      country: country || 'Tanzania',
+      bio: 'Broadcasting live on Christian Radios.',
+      verified: false,
+    });
+  } else {
+    ownerProfile = db.ownerProfiles.update(user.id, {
+      organizationName: orgName,
+    })!;
+  }
+
+  // Ensure an active subscription exists for this new owner
+  let sub = db.subscriptions.findByOwnerId(user.id);
+  if (!sub) {
+    db.subscriptions.create({
+      id: `sub_${Date.now()}`,
+      ownerId: user.id,
+      planId: 'plan_free',
+      status: 'ACTIVE',
+      billingInterval: 'MONTHLY',
+      currentPeriodStart: new Date().toISOString(),
+      currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      cancelAtPeriodEnd: false,
+      autoRenew: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  db.auditLogs.log({
+    actorId: user.id,
+    actorEmail: user.email,
+    actorRole: 'RADIO_OWNER',
+    action: 'UPGRADED_TO_RADIO_OWNER',
+    entityType: 'User',
+    entityId: user.id,
+    details: `User completed onboarding and upgraded role from LISTENER to RADIO_OWNER (${orgName}).`,
+  });
+
+  res.json({
+    success: true,
+    user: sanitizeUser(updatedUser!),
+    ownerProfile,
+  });
+});
+
 authRouter.post('/change-password', requireAuth, (req: AuthenticatedRequest, res) => {
   const user = req.user!;
   const { currentPassword, newPassword } = req.body;
@@ -268,3 +329,137 @@ authRouter.post('/forgot-password', (req, res) => {
     message: 'If an account exists with this email, password reset instructions have been sent.',
   });
 });
+
+// Google Social OAuth Authentication Endpoint
+authRouter.get('/google-config', (req, res) => {
+  const settings = db.settings.get();
+  res.json({
+    googleAuthEnabled: settings.googleAuthEnabled ?? true,
+    googleClientId: settings.googleClientId || '891028371900-cradiosoauth.apps.googleusercontent.com',
+  });
+});
+
+authRouter.post('/google', async (req, res) => {
+  try {
+    const { email, name, avatarUrl, googleId, credential, role = 'LISTENER' } = req.body;
+
+    // Handle credential payload or decoded user object
+    let targetEmail = email;
+    let targetName = name;
+    let targetAvatar = avatarUrl;
+    let targetGoogleId = googleId;
+
+    if (credential) {
+      try {
+        // Parse Google JWT ID Token payload (base64 part 2)
+        const parts = credential.split('.');
+        if (parts.length === 3) {
+          const payloadJson = Buffer.from(parts[1], 'base64').toString('utf-8');
+          const payload = JSON.parse(payloadJson);
+          targetEmail = payload.email || targetEmail;
+          targetName = payload.name || targetName;
+          targetAvatar = payload.picture || targetAvatar;
+          targetGoogleId = payload.sub || targetGoogleId;
+        }
+      } catch (err) {
+        console.warn('Failed to parse Google JWT credential payload:', err);
+      }
+    }
+
+    if (!targetEmail) {
+      res.status(400).json({ error: 'Google email address is required.' });
+      return;
+    }
+
+    const cleanEmail = targetEmail.toLowerCase().trim();
+    let user = db.users.findByEmail(cleanEmail);
+
+    if (!user) {
+      // Create new user account registered via Google OAuth
+      const newUser: User = {
+        id: `usr_g_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        email: cleanEmail,
+        passwordHash: hashPassword(`google_oauth_${Date.now()}_${Math.random().toString(36)}`),
+        role: (role === 'RADIO_OWNER' ? 'RADIO_OWNER' : 'LISTENER') as Role,
+        name: targetName || cleanEmail.split('@')[0] || 'Gospel Listener',
+        avatarUrl: targetAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(targetName || cleanEmail)}&background=0284c7&color=fff`,
+        emailVerified: true,
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      db.users.create(newUser);
+      user = newUser;
+
+      if (newUser.role === 'RADIO_OWNER') {
+        db.ownerProfiles.create({
+          id: `prof_${Date.now()}`,
+          userId: newUser.id,
+          organizationName: `${newUser.name}'s Radio Network`,
+          country: 'Tanzania',
+          verified: false,
+        });
+
+        const freePlan = db.plans.getAll().find((p) => p.tier === 'FREE');
+        if (freePlan) {
+          db.subscriptions.create({
+            id: `sub_${Date.now()}`,
+            ownerId: newUser.id,
+            planId: freePlan.id,
+            status: 'ACTIVE',
+            billingInterval: 'MONTHLY',
+            currentPeriodStart: new Date().toISOString(),
+            currentPeriodEnd: new Date(Date.now() + 365 * 86400000).toISOString(),
+            cancelAtPeriodEnd: false,
+            autoRenew: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        }
+      }
+    } else {
+      // Update avatar or name if newly provided from Google
+      if (targetAvatar && !user.avatarUrl) {
+        user = db.users.update(user.id, { avatarUrl: targetAvatar }) || user;
+      }
+    }
+
+    if (user.status === 'SUSPENDED') {
+      res.status(403).json({ error: 'Your account has been suspended. Please contact support.' });
+      return;
+    }
+
+    const token = signSessionToken(user);
+    res.cookie('cr_session', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    db.auditLogs.log({
+      actorId: user.id,
+      actorEmail: user.email,
+      actorRole: user.role,
+      action: 'USER_GOOGLE_LOGIN',
+      entityType: 'User',
+      entityId: user.id,
+      details: 'User authenticated via Google Social Login.',
+      ipAddress: req.ip || '127.0.0.1',
+    });
+
+    const ownerProfile =
+      user.role === 'RADIO_OWNER' ? db.ownerProfiles.findByUserId(user.id) : undefined;
+
+    res.json({
+      token,
+      user: sanitizeUser(user),
+      ownerProfile,
+    });
+  } catch (err: unknown) {
+    console.error('Google Auth Error:', err);
+    res.status(500).json({ error: 'Google authentication failed. Please try again.' });
+  }
+});
+

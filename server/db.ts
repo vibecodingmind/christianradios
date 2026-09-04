@@ -37,11 +37,22 @@ import type {
   RadioStationClaim,
   RadioStationSource,
   RadioStationSyncLog,
+  PremiumRadioSubscription,
+  Referral,
+  ReferralCommission,
+  FeaturedPackage,
+  FeaturedPurchase,
+  KYCApplication,
+  KYCDocument,
+  StationApplication,
 } from './types.js';
 
 interface DatabaseSchema {
   users: User[];
   ownerProfiles: RadioOwnerProfile[];
+  kycApplications?: KYCApplication[];
+  kycDocuments?: KYCDocument[];
+  stationApplications?: StationApplication[];
   categories: Category[];
   countries: Country[];
   stations: Station[];
@@ -75,6 +86,11 @@ interface DatabaseSchema {
   withdrawalRequests: WithdrawalRequest[];
   dailyVerses: DailyVerse[];
   streamOutages: StreamOutageAlert[];
+  premiumSubscriptions: PremiumRadioSubscription[];
+  referrals: Referral[];
+  referralCommissions: ReferralCommission[];
+  featuredPackages: FeaturedPackage[];
+  featuredPurchases: FeaturedPurchase[];
   settings: PlatformSettings;
 }
 
@@ -93,6 +109,9 @@ class DatabaseEngine {
     return {
       users: [],
       ownerProfiles: [],
+      kycApplications: [],
+      kycDocuments: [],
+      stationApplications: [],
       categories: [],
       countries: [],
       stations: [],
@@ -126,6 +145,11 @@ class DatabaseEngine {
       withdrawalRequests: [],
       dailyVerses: [],
       streamOutages: [],
+      premiumSubscriptions: [],
+      referrals: [],
+      referralCommissions: [],
+      featuredPackages: [],
+      featuredPurchases: [],
       settings: {
         platformName: 'Christian Radios',
         tagline: 'Listen. Discover. Connect.',
@@ -157,7 +181,16 @@ class DatabaseEngine {
         donationMaxAmount: 10000000,
         minWithdrawalAmount: 20000,
         withdrawalFeePercentage: 1.0,
-        givingAllowedPlans: ['FREE', 'STARTER', 'PROFESSIONAL', 'BUSINESS'],
+        givingAllowedPlans: ['FREE', 'BASIC', 'PRO', 'VIP'],
+
+        // Premium Radios & Referral System Settings
+        premiumRadiosEnabled: true,
+        minPremiumPriceTzs: 2000,
+        maxPremiumPriceTzs: 500000,
+        premiumRevenueShareOwnerPercentage: 80,
+        referralCommissionOwnerPercentage: 10,
+        referralCommissionListenerPercentage: 10,
+        referralAttributionWindowDays: 30,
 
         // Payment Gateways
         pesapalEnabled: true,
@@ -214,6 +247,20 @@ class DatabaseEngine {
             ...(parsed.settings || {}),
           },
         };
+
+        const realJsonPath = path.resolve(process.cwd(), 'data/real_stations.json');
+        if ((!this.data.stations || this.data.stations.length < 50) && fs.existsSync(realJsonPath)) {
+          try {
+            const rawReal = fs.readFileSync(realJsonPath, 'utf-8');
+            const realStations = JSON.parse(rawReal);
+            if (Array.isArray(realStations) && realStations.length > 0) {
+              this.data.stations = realStations;
+              this.save();
+            }
+          } catch (e) {
+            console.error('Failed auto-loading real stations:', e);
+          }
+        }
       }
       this.isLoaded = true;
     } catch (e) {
@@ -294,6 +341,101 @@ class DatabaseEngine {
       };
       this.save();
       return this.data.ownerProfiles[index];
+    },
+  };
+
+  // --- KYC Applications ---
+  public kycApplications = {
+    getAll: () => this.data.kycApplications || [],
+    findById: (id: string) => (this.data.kycApplications || []).find((a) => a.id === id),
+    findByUserId: (userId: string) => (this.data.kycApplications || []).find((a) => a.userId === userId),
+    create: (app: KYCApplication) => {
+      if (!this.data.kycApplications) this.data.kycApplications = [];
+      this.data.kycApplications.push(app);
+      this.save();
+      return app;
+    },
+    update: (id: string, updates: Partial<KYCApplication>) => {
+      if (!this.data.kycApplications) this.data.kycApplications = [];
+      const index = this.data.kycApplications.findIndex((a) => a.id === id);
+      if (index === -1) return null;
+      this.data.kycApplications[index] = {
+        ...this.data.kycApplications[index],
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      };
+      this.save();
+      return this.data.kycApplications[index];
+    },
+    delete: (id: string) => {
+      if (!this.data.kycApplications) return;
+      this.data.kycApplications = this.data.kycApplications.filter((a) => a.id !== id);
+      this.save();
+    },
+  };
+
+  // --- KYC Documents ---
+  public kycDocuments = {
+    getAll: () => this.data.kycDocuments || [],
+    findById: (id: string) => (this.data.kycDocuments || []).find((d) => d.id === id),
+    findByApplicationId: (kycApplicationId: string) =>
+      (this.data.kycDocuments || []).filter((d) => d.kycApplicationId === kycApplicationId),
+    findByUserId: (userId: string) =>
+      (this.data.kycDocuments || []).filter((d) => d.userId === userId),
+    create: (doc: KYCDocument) => {
+      if (!this.data.kycDocuments) this.data.kycDocuments = [];
+      this.data.kycDocuments.push(doc);
+      this.save();
+      return doc;
+    },
+    update: (id: string, updates: Partial<KYCDocument>) => {
+      if (!this.data.kycDocuments) this.data.kycDocuments = [];
+      const index = this.data.kycDocuments.findIndex((d) => d.id === id);
+      if (index === -1) return null;
+      this.data.kycDocuments[index] = {
+        ...this.data.kycDocuments[index],
+        ...updates,
+      };
+      this.save();
+      return this.data.kycDocuments[index];
+    },
+    delete: (id: string) => {
+      if (!this.data.kycDocuments) return;
+      this.data.kycDocuments = this.data.kycDocuments.filter((d) => d.id !== id);
+      this.save();
+    },
+  };
+
+  // --- Station Applications ---
+  public stationApplications = {
+    getAll: () => this.data.stationApplications || [],
+    findById: (id: string) => (this.data.stationApplications || []).find((a) => a.id === id),
+    findByStationId: (stationId: string) =>
+      (this.data.stationApplications || []).find((a) => a.stationId === stationId),
+    findByOwnerId: (ownerId: string) =>
+      (this.data.stationApplications || []).filter((a) => a.ownerId === ownerId),
+    create: (app: StationApplication) => {
+      if (!this.data.stationApplications) this.data.stationApplications = [];
+      this.data.stationApplications.push(app);
+      this.save();
+      return app;
+    },
+    update: (id: string, updates: Partial<StationApplication>) => {
+      if (!this.data.stationApplications) this.data.stationApplications = [];
+      const index = this.data.stationApplications.findIndex((a) => a.id === id);
+      if (index === -1) return null;
+      this.data.stationApplications[index] = {
+        ...this.data.stationApplications[index],
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      };
+      this.save();
+      return this.data.stationApplications[index];
+    },
+    delete: (id: string) => {
+      if (!this.data.stationApplications) return;
+      this.data.stationApplications = this.data.stationApplications.filter((a) => a.id !== id);
+      this.save();
     },
   };
 
@@ -1277,6 +1419,172 @@ class DatabaseEngine {
     },
   };
 
+  // --- Premium Radio Subscriptions ---
+  public premiumSubscriptions = {
+    getAll: () => this.data.premiumSubscriptions || [],
+    findById: (id: string) => (this.data.premiumSubscriptions || []).find((s) => s.id === id),
+    findByListenerId: (listenerId: string) =>
+      (this.data.premiumSubscriptions || []).filter((s) => s.listenerId === listenerId),
+    findByStationId: (stationId: string) =>
+      (this.data.premiumSubscriptions || []).filter((s) => s.stationId === stationId),
+    findByOwnerId: (ownerId: string) =>
+      (this.data.premiumSubscriptions || []).filter((s) => s.ownerId === ownerId),
+    hasActiveAccess: (listenerId: string, stationId: string) => {
+      const now = new Date().toISOString();
+      return (this.data.premiumSubscriptions || []).some(
+        (s) =>
+          s.listenerId === listenerId &&
+          s.stationId === stationId &&
+          s.status === 'ACTIVE' &&
+          s.currentPeriodEnd > now
+      );
+    },
+    create: (sub: PremiumRadioSubscription) => {
+      if (!this.data.premiumSubscriptions) this.data.premiumSubscriptions = [];
+      this.data.premiumSubscriptions.unshift(sub);
+      this.save();
+      return sub;
+    },
+    update: (id: string, updates: Partial<PremiumRadioSubscription>) => {
+      const idx = (this.data.premiumSubscriptions || []).findIndex((s) => s.id === id);
+      if (idx === -1) return null;
+      this.data.premiumSubscriptions[idx] = {
+        ...this.data.premiumSubscriptions[idx],
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      };
+      this.save();
+      return this.data.premiumSubscriptions[idx];
+    },
+  };
+
+  // --- Referrals & Commissions ---
+  public referrals = {
+    getAll: () => this.data.referrals || [],
+    findById: (id: string) => (this.data.referrals || []).find((r) => r.id === id),
+    findByReferrerId: (referrerId: string) =>
+      (this.data.referrals || []).filter((r) => r.referrerId === referrerId),
+    findByReferredUserId: (referredUserId: string) =>
+      (this.data.referrals || []).find((r) => r.referredUserId === referredUserId),
+    create: (referral: Referral) => {
+      if (!this.data.referrals) this.data.referrals = [];
+      // Prevent duplicate referral for same referred user
+      const existing = this.data.referrals.find((r) => r.referredUserId === referral.referredUserId);
+      if (existing) return existing;
+
+      // Anti-fraud: Block self-referral
+      if (referral.referrerId === referral.referredUserId) {
+        throw new Error('Self-referral is strictly prohibited by anti-fraud policy.');
+      }
+
+      this.data.referrals.unshift(referral);
+      this.save();
+      return referral;
+    },
+  };
+
+  public referralCommissions = {
+    getAll: () => this.data.referralCommissions || [],
+    findById: (id: string) => (this.data.referralCommissions || []).find((c) => c.id === id),
+    findByReferrerId: (referrerId: string) =>
+      (this.data.referralCommissions || []).filter((c) => c.referrerId === referrerId),
+    create: (commission: ReferralCommission) => {
+      if (!this.data.referralCommissions) this.data.referralCommissions = [];
+      // Prevent duplicate commission for same payment
+      const existing = this.data.referralCommissions.find((c) => c.sourcePaymentId === commission.sourcePaymentId);
+      if (existing) return existing;
+
+      this.data.referralCommissions.unshift(commission);
+      this.save();
+      return commission;
+    },
+    update: (id: string, updates: Partial<ReferralCommission>) => {
+      const idx = (this.data.referralCommissions || []).findIndex((c) => c.id === id);
+      if (idx === -1) return null;
+      this.data.referralCommissions[idx] = {
+        ...this.data.referralCommissions[idx],
+        ...updates,
+      };
+      this.save();
+      return this.data.referralCommissions[idx];
+    },
+  };
+
+  // --- Featured Packages & Purchases ---
+  public featuredPackages = {
+    getAll: () => this.data.featuredPackages || [],
+    findById: (id: string) => (this.data.featuredPackages || []).find((p) => p.id === id),
+    create: (pkg: FeaturedPackage) => {
+      if (!this.data.featuredPackages) this.data.featuredPackages = [];
+      this.data.featuredPackages.push(pkg);
+      this.save();
+      return pkg;
+    },
+    update: (id: string, updates: Partial<FeaturedPackage>) => {
+      const idx = (this.data.featuredPackages || []).findIndex((p) => p.id === id);
+      if (idx === -1) return null;
+      this.data.featuredPackages[idx] = { ...this.data.featuredPackages[idx], ...updates };
+      this.save();
+      return this.data.featuredPackages[idx];
+    },
+  };
+
+  public featuredPurchases = {
+    getAll: () => this.data.featuredPurchases || [],
+    findById: (id: string) => (this.data.featuredPurchases || []).find((p) => p.id === id),
+    findByOwnerId: (ownerId: string) =>
+      (this.data.featuredPurchases || []).filter((p) => p.ownerId === ownerId),
+    findByStationId: (stationId: string) =>
+      (this.data.featuredPurchases || []).filter((p) => p.stationId === stationId),
+    create: (purchase: FeaturedPurchase) => {
+      if (!this.data.featuredPurchases) this.data.featuredPurchases = [];
+      this.data.featuredPurchases.unshift(purchase);
+      this.save();
+      return purchase;
+    },
+    update: (id: string, updates: Partial<FeaturedPurchase>) => {
+      const idx = (this.data.featuredPurchases || []).findIndex((p) => p.id === id);
+      if (idx === -1) return null;
+      this.data.featuredPurchases[idx] = { ...this.data.featuredPurchases[idx], ...updates };
+      this.save();
+      return this.data.featuredPurchases[idx];
+    },
+  };
+
+  // --- Financial Ledger Summary Calculator ---
+  public getUserFinancialSummary(userId: string) {
+    const userLedger = (this.data.ledgerEntries || []).filter((e) => e.ownerId === userId);
+
+    const totalDonations = userLedger
+      .filter((e) => e.type === 'DONATION_PAYOUT' && e.status === 'SETTLED')
+      .reduce((sum, e) => sum + e.amount, 0);
+
+    const totalPremiumShare = (this.data.premiumSubscriptions || [])
+      .filter((s) => s.ownerId === userId && (s.status === 'ACTIVE' || s.status === 'EXPIRED'))
+      .reduce((sum, s) => sum + s.ownerShareTzs, 0);
+
+    const totalCommissions = (this.data.referralCommissions || [])
+      .filter((c) => c.referrerId === userId && c.status === 'SETTLED')
+      .reduce((sum, c) => sum + c.commissionAmountTzs, 0);
+
+    const grossEarnings = totalDonations + totalPremiumShare + totalCommissions;
+
+    const totalWithdrawn = (this.data.withdrawalRequests || [])
+      .filter((w) => w.ownerId === userId && (w.status === 'PAID' || w.status === 'APPROVED' || w.status === 'PROCESSING' || w.status === 'PENDING'))
+      .reduce((sum, w) => sum + w.amount, 0);
+
+    const availableBalance = Math.max(0, grossEarnings - totalWithdrawn);
+
+    return {
+      grossEarnings,
+      totalDonations,
+      totalPremiumShare,
+      totalCommissions,
+      totalWithdrawn,
+      availableBalance,
+    };
+  }
+
   // --- Settings ---
   public settings = {
     get: () => this.data.settings,
@@ -1288,7 +1596,16 @@ class DatabaseEngine {
   };
 
   public seedInitialData(seedFn: (data: DatabaseSchema) => void) {
-    if (this.data.users.length === 0 || this.data.stations.length === 0) {
+    if (
+      this.data.users.length === 0 ||
+      this.data.stations.length === 0 ||
+      !this.data.plans ||
+      this.data.plans.length === 0 ||
+      !this.data.stationReviews ||
+      this.data.stationReviews.length === 0 ||
+      !this.data.prayerRequests ||
+      this.data.prayerRequests.length === 0
+    ) {
       seedFn(this.data);
       this.save();
     }

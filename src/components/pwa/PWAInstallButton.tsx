@@ -62,10 +62,13 @@ export function PWAInstallButton() {
       <button
         onClick={handleInstallClick}
         title="Install Christian Radios App"
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 to-sky-500/20 border border-amber-500/30 text-amber-300 hover:text-amber-200 hover:border-amber-400/50 text-xs font-semibold shadow-sm transition-all duration-200"
+        aria-label="Install Christian Radios App"
+        className="fixed bottom-24 left-6 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border border-amber-500/50 text-amber-300 hover:text-amber-200 hover:border-amber-400 text-xs font-extrabold shadow-2xl shadow-amber-500/20 backdrop-blur-xl transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer animate-float-slow group"
       >
-        <Download className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-        <span>Install App</span>
+        <div className="w-6 h-6 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 group-hover:bg-amber-500 group-hover:text-slate-950 transition-colors">
+          <Download className="w-3.5 h-3.5 animate-bounce" />
+        </div>
+        <span className="tracking-wide">Install App</span>
       </button>
 
       {/* Instructions Modal for browsers without direct prompt or iOS */}

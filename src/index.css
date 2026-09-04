@@ -1,1 +1,229 @@
 @import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  
+  /* Light Mode Semantic Design Tokens */
+  --bg-page: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --bg-elevated: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.85);
+  
+  --border-subtle: #e2e8f0;
+  --border-hover: #cbd5e1;
+  --border-strong: #94a3b8;
+  
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  
+  --player-bg: rgba(255, 255, 255, 0.95);
+  --player-border: #cbd5e1;
+  --player-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.08);
+  
+  --input-bg: #ffffff;
+  --input-border: #cbd5e1;
+  --input-focus: #0284c7;
+}
+
+html.dark {
+  color-scheme: dark;
+  
+  /* Dark Mode Semantic Design Tokens */
+  --bg-page: #020617;
+  --bg-card: #0f172a;
+  --bg-card-hover: #1e293b;
+  --bg-elevated: #0f172a;
+  --bg-glass: rgba(15, 23, 42, 0.85);
+  
+  --border-subtle: #1e293b;
+  --border-hover: #334155;
+  --border-strong: #475569;
+  
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  
+  --player-bg: rgba(9, 13, 22, 0.95);
+  --player-border: #1e293b;
+  --player-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.5);
+  
+  --input-bg: #0f172a;
+  --input-border: #334155;
+  --input-focus: #38bdf8;
+}
+
+html {
+  transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+}
+
+body {
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+
+/* Light mode card surface helper */
+html.light .bg-slate-900\/90,
+html.light .bg-slate-900\/80,
+html.light .bg-slate-900\/70,
+html.light .bg-slate-900\/60,
+html.light .bg-slate-900\/50,
+html.light .bg-slate-900 {
+  background-color: var(--bg-card);
+}
+
+html.light .bg-slate-950 {
+  background-color: var(--bg-page);
+}
+
+html.light .bg-slate-950\/50,
+html.light .bg-slate-950\/80,
+html.light .bg-slate-950\/90 {
+  background-color: var(--bg-card-hover);
+}
+
+html.light .border-slate-800,
+html.light .border-slate-800\/90,
+html.light .border-slate-800\/80,
+html.light .border-slate-800\/60 {
+  border-color: var(--border-subtle);
+}
+
+html.light .text-white {
+  color: var(--text-primary);
+}
+
+html.light .text-slate-300 {
+  color: var(--text-secondary);
+}
+
+html.light .text-slate-400 {
+  color: var(--text-muted);
+}
+
+img {
+  max-width: 100%;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 9999px;
+}
+
+/* ANIMATIONS & MICRO-INTERACTION UTILITIES */
+@keyframes float-slow {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes float-delayed {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(99, 102, 241, 0.6);
+  }
+}
+
+@keyframes shimmer-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes aura-spin {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.08);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes page-fade-up {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ping-slow {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  75%, 100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+.animate-float-slow {
+  animation: float-slow 4s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float-delayed 5s ease-in-out infinite 1s;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+.animate-[#ff5e3a] {
+  animation: float-slow 3s ease-in-out infinite;
+}
+
+.animate-aura-spin {
+  animation: aura-spin 20s linear infinite;
+}
+
+.animate-page-fade-up {
+  animation: page-fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-ping-slow {
+  animation: ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.shimmer-flare {
+  animation: shimmer-sweep 2.5s infinite;
+}

@@ -15,6 +15,7 @@ import {
   Sliders,
   Check,
   Zap,
+  Sparkles,
 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import type { PlatformSettings } from '../../types';
@@ -25,7 +26,7 @@ export function AdminSettingsTab() {
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [activeSubSection, setActiveSubSection] = useState<'gateways' | 'security' | 'social' | 'general'>('gateways');
+  const [activeSubSection, setActiveSubSection] = useState<'gateways' | 'security' | 'social' | 'general' | 'ai'>('gateways');
   const [gatewayTesting, setGatewayTesting] = useState<'pesapal' | 'stripe' | null>(null);
   const [gatewayTestResult, setGatewayTestResult] = useState<{
     gateway: string;
@@ -239,6 +240,19 @@ export function AdminSettingsTab() {
         >
           <Globe className="w-4 h-4" />
           General, Branding & Notice Banner
+        </button>
+
+        <button
+          id="nav-sub-ai"
+          onClick={() => setActiveSubSection('ai')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+            activeSubSection === 'ai'
+              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <Sparkles className="w-4 h-4 text-cyan-400" />
+          AI Radio Guide & Engine Controls
         </button>
       </div>
 
@@ -957,6 +971,71 @@ export function AdminSettingsTab() {
                 placeholder="e.g. Join the 24/7 Global Praise & Fasting stream starting this Friday! 🕊️"
                 className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200"
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SECTION 5: AI DISCOVERY ENGINE */}
+      {activeSubSection === 'ai' && (
+        <div id="section-ai" className="space-y-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-cyan-400" />
+                  AI Discovery Guide & Engine Configuration
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Manage AI feature toggles, model parameters, rate limiting, and system prompt constraints.
+                </p>
+              </div>
+
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={typeof settings.aiEnabled === 'boolean' ? settings.aiEnabled : true}
+                  onChange={(e) => updateSetting('aiEnabled', e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">AI Provider Engine</label>
+                <input
+                  type="text"
+                  disabled
+                  value="Google Gemini (@google/genai)"
+                  className="w-full bg-slate-950/60 border border-slate-800/80 rounded-xl px-4 py-2.5 text-sm text-cyan-400 font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Model Selection</label>
+                <select
+                  value={settings.aiModel || 'gemini-2.5-flash'}
+                  onChange={(e) => updateSetting('aiModel', e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200"
+                >
+                  <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recommended: Fast & High Throughput)</option>
+                  <option value="gemini-2.5-pro">Gemini 2.5 Pro (Deep Reasoning & Research)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Anon Rate Limit (Req/Min)</label>
+                <input
+                  type="number"
+                  min="5"
+                  max="120"
+                  value={settings.aiRateLimitAnon || 30}
+                  onChange={(e) => updateSetting('aiRateLimitAnon', parseInt(e.target.value, 10) || 30)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200"
+                />
+              </div>
             </div>
           </div>
         </div>

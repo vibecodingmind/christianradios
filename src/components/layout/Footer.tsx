@@ -1,18 +1,21 @@
 import React from 'react';
 import { Radio, Heart, ShieldCheck, Mail, Globe, Sparkles, PlusCircle } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface FooterProps {
   onNavigate: (view: string, param?: string) => void;
   onOpenAuth: (tab?: 'login' | 'register') => void;
+  onPublicAction?: (intent: 'ADD_RADIO' | 'CLAIM_STATION', options?: { stationId?: string }) => void;
 }
 
-export function Footer({ onNavigate, onOpenAuth }: FooterProps) {
+export function Footer({ onNavigate, onOpenAuth, onPublicAction }: FooterProps) {
+  const { user } = useAuth();
   return (
     <footer className="bg-slate-950 border-t border-slate-800/80 text-slate-400 text-sm pb-24 md:pb-16 pt-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-12">
           {/* Brand Col */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-1 space-y-4">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 via-indigo-500 to-amber-400 p-0.5 shadow-md">
                 <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
@@ -21,25 +24,25 @@ export function Footer({ onNavigate, onOpenAuth }: FooterProps) {
               </div>
               <span className="font-bold text-lg text-white">Christian Radios</span>
             </div>
-            <p className="text-xs text-slate-400 leading-relaxed max-w-sm">
+            <p className="text-xs text-slate-400 leading-relaxed">
               The global SaaS directory dedicated exclusively to discovering, broadcasting, and
               streaming online Christian radio stations 24/7. Connecting believers with uplifting
               gospel melodies, prayer, and life-changing biblical teachings.
             </p>
-            <div className="flex items-center gap-4 text-xs text-slate-400 pt-2">
+            <div className="flex items-center gap-2 text-xs text-slate-400 pt-1">
               <span className="flex items-center gap-1.5 text-emerald-400">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                Live Broadcast Feeds
+                Live Feeds
               </span>
               <span>•</span>
               <span className="flex items-center gap-1.5 text-sky-400">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                Verified Broadcasters
+                Verified
               </span>
             </div>
           </div>
 
-          {/* Quick Browse */}
+          {/* Column 2: Explore & Listen */}
           <div className="space-y-3">
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-200">
               Explore & Listen
@@ -58,7 +61,7 @@ export function Footer({ onNavigate, onOpenAuth }: FooterProps) {
                   onClick={() => onNavigate('directory')}
                   className="hover:text-sky-400 transition-colors"
                 >
-                  Live Stations Directory
+                  Live Radio Directory
                 </button>
               </li>
               <li>
@@ -66,7 +69,7 @@ export function Footer({ onNavigate, onOpenAuth }: FooterProps) {
                   onClick={() => onNavigate('categories')}
                   className="hover:text-sky-400 transition-colors"
                 >
-                  Categories & Genres
+                  Genres & Formats
                 </button>
               </li>
               <li>
@@ -80,95 +83,167 @@ export function Footer({ onNavigate, onOpenAuth }: FooterProps) {
               <li>
                 <button
                   onClick={() => onNavigate('prayer-wall')}
-                  className="hover:text-purple-400 text-purple-300 font-medium transition-colors flex items-center gap-1.5"
+                  className="hover:text-purple-400 text-purple-300 font-medium transition-colors flex items-center gap-1"
                 >
-                  <span>🙏 Community Prayer Wall</span>
+                  <span>🙏 Prayer Altar Wall</span>
                 </button>
               </li>
               <li>
                 <button
                   onClick={() => onNavigate('giving')}
-                  className="hover:text-rose-400 text-rose-300 font-medium transition-colors flex items-center gap-1.5"
+                  className="hover:text-rose-400 text-rose-300 font-medium transition-colors flex items-center gap-1"
                 >
                   <span>❤️ Giving & Station Support</span>
                 </button>
               </li>
-              <li>
-                <button
-                  onClick={() => onNavigate('country', 'TZ')}
-                  className="hover:text-sky-400 transition-colors flex items-center gap-1.5"
-                >
-                  <span>🇹🇿 Tanzania Gospel Radios</span>
-                </button>
-              </li>
             </ul>
           </div>
 
-          {/* Popular Categories */}
+          {/* Column 3: For Radio Owners */}
           <div className="space-y-3">
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-200">
-              Genres & Formats
+              Radio Broadcasters
             </div>
             <ul className="space-y-2 text-xs">
               <li>
                 <button
-                  onClick={() => onNavigate('category', 'gospel-music')}
-                  className="hover:text-sky-400 transition-colors"
+                  onClick={() => onPublicAction ? onPublicAction('ADD_RADIO') : onNavigate('list-your-radio')}
+                  className="hover:text-amber-400 text-amber-300 font-semibold transition-colors flex items-center gap-1"
                 >
-                  African & Global Gospel
+                  <span>✨ List Your Radio</span>
                 </button>
               </li>
               <li>
                 <button
-                  onClick={() => onNavigate('category', 'praise-worship')}
+                  onClick={() => onPublicAction ? onPublicAction('ADD_RADIO') : onNavigate('owner')}
                   className="hover:text-sky-400 transition-colors"
                 >
-                  24/7 Praise & Worship
+                  Add / Import Station
                 </button>
               </li>
               <li>
                 <button
-                  onClick={() => onNavigate('category', 'bible-teaching')}
+                  onClick={() => onNavigate('directory')}
                   className="hover:text-sky-400 transition-colors"
                 >
-                  Bible Teaching & Ministry
+                  Claim Existing Listing
                 </button>
               </li>
               <li>
                 <button
-                  onClick={() => onNavigate('category', 'prayer-intercession')}
-                  className="hover:text-sky-400 transition-colors"
+                  onClick={() => onNavigate('pricing')}
+                  className="hover:text-sky-400 transition-colors font-medium text-slate-300"
                 >
-                  Prayer & Intercession Altars
+                  Broadcaster Pricing Plans
                 </button>
               </li>
               <li>
                 <button
-                  onClick={() => onNavigate('category', 'christian-talk')}
+                  onClick={() => onNavigate('help')}
                   className="hover:text-sky-400 transition-colors"
                 >
-                  Christian Talk & News
+                  Broadcaster Uptime FAQ
                 </button>
               </li>
             </ul>
           </div>
 
-          {/* For Broadcasters SaaS CTA */}
+          {/* Column 4: About & Support */}
           <div className="space-y-3">
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-200">
-              For Radio Owners
+              About & Help
             </div>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Broadcasting a Christian radio station? Reach global listeners with reliable stream
-              monitoring, listener telemetry, and verified directory listing.
-            </p>
-            <button
-              onClick={() => onOpenAuth('register')}
-              className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold bg-sky-600 hover:bg-sky-500 text-white py-2 px-3 rounded-xl transition-colors shadow-sm"
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              Publish Your Radio
-            </button>
+            <ul className="space-y-2 text-xs">
+              <li>
+                <button
+                  onClick={() => onNavigate('about')}
+                  className="hover:text-sky-400 transition-colors"
+                >
+                  About Christian Radios
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onNavigate('how-it-works')}
+                  className="hover:text-sky-400 transition-colors"
+                >
+                  How Platform Works
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onNavigate('help')}
+                  className="hover:text-sky-400 transition-colors"
+                >
+                  Help Center & Contact Us
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onNavigate('help')}
+                  className="hover:text-rose-400 transition-colors"
+                >
+                  Report Stream Issue
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          {/* Column 5: Legal & Policies */}
+          <div className="space-y-3">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-200">
+              Legal & Policies
+            </div>
+            <ul className="space-y-2 text-xs">
+              <li>
+                <button
+                  onClick={() => onNavigate('legal', 'terms')}
+                  className="hover:text-sky-400 transition-colors"
+                >
+                  Terms of Service
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onNavigate('legal', 'privacy')}
+                  className="hover:text-sky-400 transition-colors"
+                >
+                  Privacy Policy
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onNavigate('legal', 'cookies')}
+                  className="hover:text-sky-400 transition-colors"
+                >
+                  Cookie Policy
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onNavigate('legal', 'copyright')}
+                  className="hover:text-sky-400 transition-colors"
+                >
+                  Copyright & DMCA
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onNavigate('legal', 'giving')}
+                  className="hover:text-sky-400 transition-colors"
+                >
+                  Giving Terms
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onNavigate('legal', 'refund')}
+                  className="hover:text-sky-400 transition-colors"
+                >
+                  Refund & Cancellation Policy
+                </button>
+              </li>
+            </ul>
           </div>
         </div>
 

@@ -531,9 +531,9 @@ export function AdminStationsTab({
         </div>
       ) : (
         /* Dense Table View */
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+          <div className="overflow-x-auto custom-scrollbar">
+            <table className="w-full text-left text-xs text-slate-300 min-w-[950px]">
               <thead className="bg-slate-950 text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-800 text-[11px]">
                 <tr>
                   <th className="py-3.5 px-4">Station & Stream</th>

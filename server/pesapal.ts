@@ -244,7 +244,57 @@ export async function finalizePaymentTransaction(
           createdAt: new Date().toISOString(),
         });
 
-        // 4. Record audit log
+        // 4. Trigger Owner Referral Commission if referred by another owner
+        try {
+          const referral = db.referrals.findByReferredUserId(updatedPayment.ownerId);
+          if (referral && referral.referrerId !== updatedPayment.ownerId) {
+            const settings = db.settings.get();
+            const commRate = settings.referralCommissionOwnerPercentage ?? 10;
+            const commAmount = Math.round(updatedPayment.amount * (commRate / 100));
+
+            db.referralCommissions.create({
+              id: `refc_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              referralId: referral.id,
+              referrerId: referral.referrerId,
+              referredUserId: updatedPayment.ownerId,
+              sourcePaymentId: updatedPayment.id,
+              paymentType: 'OWNER_SUBSCRIPTION',
+              grossAmountTzs: updatedPayment.amount,
+              commissionPercentage: commRate,
+              commissionAmountTzs: commAmount,
+              status: 'SETTLED',
+              settlesAt: new Date().toISOString(),
+              createdAt: new Date().toISOString(),
+            });
+
+            // Record ledger credit for referrer
+            const currentBal = db.getUserFinancialSummary(referral.referrerId);
+            db.ledgerEntries.create({
+              id: `ldg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              ownerId: referral.referrerId,
+              type: 'REFERRAL_CREDIT',
+              amount: commAmount,
+              currency: 'TZS',
+              balanceAfter: currentBal.availableBalance + commAmount,
+              description: `Referral commission for Broadcaster Subscription (${commRate}% of TZS ${updatedPayment.amount.toLocaleString()})`,
+              createdAt: new Date().toISOString(),
+            });
+
+            db.notifications.create({
+              id: `notif_${Date.now()}`,
+              userId: referral.referrerId,
+              title: 'Referral Commission Earned! 💰',
+              message: `You earned TZS ${commAmount.toLocaleString()} in referral commission from a broadcaster subscription!`,
+              type: 'PAYMENT_SUCCESS',
+              read: false,
+              createdAt: new Date().toISOString(),
+            });
+          }
+        } catch (e) {
+          console.error('[Referral Engine Error]', e);
+        }
+
+        // 5. Record audit log
         db.auditLogs.log({
           actorId: updatedPayment.ownerId,
           actorRole: 'RADIO_OWNER',

@@ -66,6 +66,7 @@ export const RadioImportModal: React.FC<RadioImportModalProps> = ({
   const [language, setLanguage] = useState('');
   const [genre, setGenre] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [bitrateKbps, setBitrateKbps] = useState<number>(128);
 
   // Audio Testing
@@ -111,7 +112,9 @@ export const RadioImportModal: React.FC<RadioImportModalProps> = ({
       setCity(meta.city || 'Dar es Salaam');
       setLanguage(meta.language || 'Swahili');
       setGenre(meta.genre || 'Gospel & Praise');
-      setCategoryId(meta.categoryId || (categories[0]?.id || 'cat_gospel_music'));
+      const initCat = meta.categoryId || (categories[0]?.id || 'cat_gospel');
+      setCategoryId(initCat);
+      setCategoryIds(meta.categoryIds && meta.categoryIds.length > 0 ? meta.categoryIds : [initCat]);
       setBitrateKbps(meta.bitrateKbps || 128);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Discovery failed';

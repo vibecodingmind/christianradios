@@ -99,9 +99,15 @@ export function ExpandedPlayerModal() {
         <div className="flex flex-col items-center text-center">
           <div className="relative w-56 h-56 sm:w-72 sm:h-72 rounded-3xl overflow-hidden shadow-2xl border-2 border-slate-700/80 group">
             <img
-              src={currentStation.logoUrl}
+              src={currentStation.logoUrl || currentStation.coverUrl || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=400&auto=format&fit=crop&q=80'}
               alt={currentStation.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              onError={(e) => {
+                const img = e.currentTarget as HTMLImageElement;
+                if (img.src !== 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=400&auto=format&fit=crop&q=80') {
+                  img.src = 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=400&auto=format&fit=crop&q=80';
+                }
+              }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-4">
               <span className="text-xs font-semibold text-slate-300 bg-slate-900/80 px-3 py-1 rounded-full border border-slate-700">
