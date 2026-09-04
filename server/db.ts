@@ -229,6 +229,8 @@ class DatabaseEngine {
     };
   }
 
+  private saveTimeout: NodeJS.Timeout | null = null;
+
   private init() {
     try {
       const dir = path.dirname(DB_FILE);
@@ -236,21 +238,32 @@ class DatabaseEngine {
         fs.mkdirSync(dir, { recursive: true });
       }
 
+      const defaults = this.getDefaultSchema();
+
       if (fs.existsSync(DB_FILE)) {
-        const fileContent = fs.readFileSync(DB_FILE, 'utf-8');
-        const parsed = JSON.parse(fileContent);
-        const defaults = this.getDefaultSchema();
-        this.data = {
-          ...defaults,
-          ...parsed,
-          settings: {
-            ...defaults.settings,
-            ...(parsed.settings || {}),
-          },
-        };
+        try {
+          const fileContent = fs.readFileSync(DB_FILE, 'utf-8');
+          const parsed = JSON.parse(fileContent);
+          this.data = {
+            ...defaults,
+            ...parsed,
+            settings: {
+              ...defaults.settings,
+              ...(parsed.settings || {}),
+            },
+          };
+        } catch (err) {
+          console.error('Failed reading existing db.json, falling back to schema:', err);
+          this.data = defaults;
+        }
+      } else {
+        this.data = defaults;
+      }
 
-        this.data.countries = ALL_WORLD_COUNTRIES;
+      this.data.countries = ALL_WORLD_COUNTRIES;
 
+      // Always load real_stations.json if stations array is empty or less than 100
+      if (!Array.isArray(this.data.stations) || this.data.stations.length < 100) {
         const realJsonPath = path.resolve(process.cwd(), 'data/real_stations.json');
         if (fs.existsSync(realJsonPath)) {
           try {
@@ -258,28 +271,30 @@ class DatabaseEngine {
             const realStations = JSON.parse(rawReal);
             if (Array.isArray(realStations) && realStations.length > 0) {
               this.data.stations = realStations;
+              console.log(`[DatabaseEngine] Loaded ${realStations.length} real stations from real_stations.json`);
             }
           } catch (e) {
             console.error('Failed auto-loading real stations:', e);
           }
         }
-
-        const catAwr = {
-          id: 'cat_awr',
-          name: 'Adventist World Radios',
-          slug: 'adventist-world-radios',
-          iconName: 'Globe',
-          description: 'Official Adventist World Radio (AWR) multi-lingual international broadcasts and stations.',
-          displayOrder: 0,
-          isActive: true,
-        };
-        if (!Array.isArray(this.data.categories)) {
-          this.data.categories = [catAwr];
-        } else if (!this.data.categories.some(c => c.id === 'cat_awr')) {
-          this.data.categories.unshift(catAwr);
-        }
-        this.save();
       }
+
+      const catAwr = {
+        id: 'cat_awr',
+        name: 'Adventist World Radios',
+        slug: 'adventist-world-radios',
+        iconName: 'Globe',
+        description: 'Official Adventist World Radio (AWR) multi-lingual international broadcasts and stations.',
+        displayOrder: 0,
+        isActive: true,
+      };
+      if (!Array.isArray(this.data.categories)) {
+        this.data.categories = [catAwr];
+      } else if (!this.data.categories.some(c => c.id === 'cat_awr')) {
+        this.data.categories.unshift(catAwr);
+      }
+
+      this.saveImmediately();
       this.isLoaded = true;
     } catch (e) {
       console.error('Error initializing database file:', e);
@@ -289,18 +304,33 @@ class DatabaseEngine {
   }
 
   private save() {
+    this.scheduleSave();
+  }
+
+  public saveImmediately() {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+      this.saveTimeout = null;
+    }
     try {
       const dir = path.dirname(DB_FILE);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
-      // Atomic write using temp file
       const tempFile = `${DB_FILE}.tmp.${Date.now()}`;
-      fs.writeFileSync(tempFile, JSON.stringify(this.data, null, 2), 'utf-8');
+      fs.writeFileSync(tempFile, JSON.stringify(this.data), 'utf-8');
       fs.renameSync(tempFile, DB_FILE);
     } catch (e) {
       console.error('Error persisting database:', e);
     }
+  }
+
+  public scheduleSave(delayMs = 500) {
+    if (this.saveTimeout) return;
+    this.saveTimeout = setTimeout(() => {
+      this.saveTimeout = null;
+      this.saveImmediately();
+    }, delayMs);
   }
 
   public getRaw(): DatabaseSchema {

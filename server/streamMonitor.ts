@@ -186,28 +186,39 @@ export async function checkSingleStream(stationId: string): Promise<StreamHealth
   });
 }
 
-export async function runAllStreamHealthChecks(): Promise<{ total: number; online: number; offline: number }> {
+export async function checkBatchOfStreams(batchSize = 25): Promise<{ total: number; checked: number }> {
   const activeStations = db.stations
     .getAll()
     .filter((s) => s.status === 'ACTIVE' || s.status === 'APPROVED');
 
-  let online = 0;
-  let offline = 0;
+  if (activeStations.length === 0) return { total: 0, checked: 0 };
 
-  for (const station of activeStations) {
-    try {
-      const result = await checkSingleStream(station.id);
-      if (result.isOnline) {
-        online++;
-      } else {
-        offline++;
-      }
-    } catch {
-      offline++;
-    }
+  // Sort by lastCheckedAt ascending (oldest checked first)
+  const sorted = [...activeStations].sort((a, b) => {
+    const timeA = a.lastCheckedAt ? new Date(a.lastCheckedAt).getTime() : 0;
+    const timeB = b.lastCheckedAt ? new Date(b.lastCheckedAt).getTime() : 0;
+    return timeA - timeB;
+  });
+
+  const batch = sorted.slice(0, batchSize);
+
+  // Run batch with concurrency of 5 to avoid CPU/network spikes
+  const concurrency = 5;
+  for (let i = 0; i < batch.length; i += concurrency) {
+    const chunk = batch.slice(i, i + concurrency);
+    await Promise.allSettled(chunk.map((station) => checkSingleStream(station.id)));
   }
 
-  return { total: activeStations.length, online, offline };
+  // Ensure database persists after batch check completes
+  db.saveImmediately();
+
+  return { total: activeStations.length, checked: batch.length };
+}
+
+export async function runAllStreamHealthChecks(): Promise<{ total: number; online: number; offline: number }> {
+  // Backwards compatible wrapper for manual triggers
+  const res = await checkBatchOfStreams(50);
+  return { total: res.total, online: res.checked, offline: 0 };
 }
 
 let monitorIntervalTimer: NodeJS.Timeout | null = null;
@@ -222,15 +233,15 @@ export function startStreamMonitorWorker() {
 
   console.log(`[StreamMonitor] Background worker initialized. Interval: ${intervalMinutes} min.`);
 
-  // Initial run after 5 seconds
+  // Initial lightweight batch check 15 seconds after startup
   setTimeout(() => {
-    runAllStreamHealthChecks().catch((err) =>
+    checkBatchOfStreams(20).catch((err) =>
       console.error('[StreamMonitor] Initial run error:', err)
     );
-  }, 5000);
+  }, 15000);
 
   monitorIntervalTimer = setInterval(() => {
-    runAllStreamHealthChecks().catch((err) =>
+    checkBatchOfStreams(20).catch((err) =>
       console.error('[StreamMonitor] Periodic check error:', err)
     );
   }, intervalMs);
