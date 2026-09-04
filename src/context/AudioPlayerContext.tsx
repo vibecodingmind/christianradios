@@ -58,6 +58,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [sleepTimerRemainingSeconds, setSleepTimerRemainingSeconds] = useState<number | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isUsingBackupStream, setIsUsingBackupStream] = useState(false);
+  const [subscribingStation, setSubscribingStation] = useState<Station | null>(null);
+
+  const { user } = useAuth();
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -304,9 +307,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       setErrorMessage('Unable to connect to live audio broadcast. The stream may be temporarily offline.');
     }
   };
-
-  const [subscribingStation, setSubscribingStation] = useState<Station | null>(null);
-  const { user } = useAuth();
 
   const startPlayingStation = (station: Station) => {
     setCurrentStation(station);
