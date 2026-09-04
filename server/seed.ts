@@ -246,6 +246,15 @@ export function runSeed() {
         displayOrder: 20,
         isActive: true,
       },
+      {
+        id: 'cat_awr',
+        name: 'Adventist World Radios',
+        slug: 'adventist-world-radios',
+        iconName: 'Globe',
+        description: 'Official Adventist World Radio (AWR) multi-lingual international broadcasts and stations.',
+        displayOrder: 0,
+        isActive: true,
+      },
     ];
     data.categories = categories;
 

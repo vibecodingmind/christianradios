@@ -253,14 +253,29 @@ class DatabaseEngine {
           try {
             const rawReal = fs.readFileSync(realJsonPath, 'utf-8');
             const realStations = JSON.parse(rawReal);
-            if (Array.isArray(realStations) && realStations.length > (this.data.stations?.length || 0)) {
+            if (Array.isArray(realStations) && realStations.length > 0) {
               this.data.stations = realStations;
-              this.save();
             }
           } catch (e) {
             console.error('Failed auto-loading real stations:', e);
           }
         }
+
+        const catAwr = {
+          id: 'cat_awr',
+          name: 'Adventist World Radios',
+          slug: 'adventist-world-radios',
+          iconName: 'Globe',
+          description: 'Official Adventist World Radio (AWR) multi-lingual international broadcasts and stations.',
+          displayOrder: 0,
+          isActive: true,
+        };
+        if (!Array.isArray(this.data.categories)) {
+          this.data.categories = [catAwr];
+        } else if (!this.data.categories.some(c => c.id === 'cat_awr')) {
+          this.data.categories.unshift(catAwr);
+        }
+        this.save();
       }
       this.isLoaded = true;
     } catch (e) {
