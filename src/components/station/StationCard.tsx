@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, CheckCircle2, Gem, Heart, Star, Calendar, ShieldCheck, HandHeart, Radio } from 'lucide-react';
+import { Play, Pause, Heart, Star } from 'lucide-react';
 import { useAudioPlayer } from '../../context/AudioPlayerContext';
 import type { Station } from '../../types';
 
@@ -42,12 +42,7 @@ export function StationCard({ station, onNavigate, layout = 'grid', variant = 'd
 
   const isCurrent = currentStation?.id === station.id;
   const isThisPlaying = isCurrent && isPlaying;
-  const isPremium = station.accessType === 'PREMIUM' || variant === 'premium';
-  const isLive = station.streamStatus === 'ONLINE' || variant === 'live';
   const isFeatured = station.isFeatured || variant === 'featured';
-  const isVerified = station.verificationStatus === 'VERIFIED';
-  const hasDonation = Boolean(station.donationEnabled);
-  const hasSchedule = Boolean(station.schedule && station.schedule.length > 0);
 
   const handlePlayClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -58,18 +53,14 @@ export function StationCard({ station, onNavigate, layout = 'grid', variant = 'd
     }
   };
 
-  const handleGiveClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onNavigate) {
-      onNavigate('giving', station.id);
-    }
-  };
-
   const handleCardClick = () => {
     if (onNavigate) {
       onNavigate('station', station.slug || station.id);
     }
   };
+
+  const countryDisplayName = station.country?.name || (station.countryCode ? station.countryCode.toUpperCase() : station.city || 'Global');
+  const flagEmoji = station.country?.flagEmoji || '🌍';
 
   if (layout === 'horizontal') {
     return (
@@ -81,7 +72,7 @@ export function StationCard({ station, onNavigate, layout = 'grid', variant = 'd
             : 'bg-slate-900/60 hover:bg-slate-900 border-slate-800 hover:border-slate-700'
         }`}
       >
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-slate-950 shrink-0 border border-slate-700/80 shadow-md">
             <img
               src={station.logoUrl || station.coverUrl || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=400&auto=format&fit=crop&q=80'}
@@ -103,49 +94,34 @@ export function StationCard({ station, onNavigate, layout = 'grid', variant = 'd
             )}
           </div>
 
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
               <span className="text-xs font-bold text-white truncate group-hover:text-sky-300 transition-colors">
                 {station.name}
               </span>
-              {isVerified && (
-                <CheckCircle2 className="w-3.5 h-3.5 text-sky-400 shrink-0" title="Admin Verified Broadcaster" />
-              )}
               {isFeatured && (
-                <span className="text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full">
-                  Featured
-                </span>
-              )}
-              {isPremium && (
-                <span className="text-[9px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded-full">
-                  Premium
-                </span>
+                <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" title="Featured" />
               )}
             </div>
-            <div className="text-[11px] text-slate-400 truncate mt-0.5 flex items-center gap-2">
-              <span>{station.country?.flagEmoji || '🌍'} {station.city ? `${station.city}` : station.country?.name}</span>
-              {hasDonation && (
-                <span className="text-[10px] text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded-full border border-rose-500/20">
-                  Giving Active
-                </span>
-              )}
+            <div className="text-[11px] text-slate-400 truncate mt-0.5 flex items-center gap-1">
+              <span>{flagEmoji}</span>
+              <span className="truncate">{countryDisplayName}</span>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {hasDonation && (
-            <button
-              onClick={handleGiveClick}
-              title="Support Ministry"
-              className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:text-rose-200 transition-all"
-            >
-              <HandHeart className="w-4 h-4" />
-            </button>
-          )}
+          <button
+            onClick={toggleFavorite}
+            aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-400 hover:text-rose-400 transition-all"
+          >
+            <Heart className={`w-4 h-4 ${isFavorite ? 'fill-rose-500 text-rose-500' : ''}`} />
+          </button>
 
           <button
             onClick={handlePlayClick}
+            aria-label={`Play ${station.name}`}
             className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shrink-0 ${
               isThisPlaying
                 ? 'bg-sky-400 text-slate-950 shadow-md shadow-sky-400/30 scale-105'
@@ -183,7 +159,7 @@ export function StationCard({ station, onNavigate, layout = 'grid', variant = 'd
           aria-hidden="true"
         />
 
-        {/* Primary Whole Station Logo Artwork */}
+        {/* Primary Station Logo Artwork */}
         <img
           src={station.logoUrl || station.coverUrl || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=400&auto=format&fit=crop&q=80'}
           alt={station.name}
@@ -207,25 +183,14 @@ export function StationCard({ station, onNavigate, layout = 'grid', variant = 'd
           </div>
         )}
 
-        {/* Feature Badges Container */}
-        <div className="absolute top-3 left-3 flex items-center gap-1.5 z-20 flex-wrap max-w-[80%]">
-          {isPremium && (
-            <span className="text-[9px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-2.5 py-1 rounded-full shadow-lg border border-indigo-400/30 flex items-center gap-1">
-              <Gem className="w-3 h-3 text-amber-300 fill-amber-300" /> PREMIUM
-            </span>
-          )}
-          {isFeatured && (
-            <span className="text-[9px] font-extrabold uppercase tracking-wider bg-amber-500/90 text-slate-950 px-2.5 py-1 rounded-full shadow-lg flex items-center gap-1">
-              <Star className="w-3 h-3 fill-slate-950" /> FEATURED
-            </span>
-          )}
-          {isLive && !isFeatured && !isPremium && (
-            <span className="text-[9px] font-extrabold uppercase tracking-wider bg-slate-950/85 backdrop-blur-md border border-emerald-500/40 text-emerald-400 px-2 py-1 rounded-full shadow-lg flex items-center gap-1 animate-pulse">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping-slow" /> LIVE
-            </span>
-          )}
-        </div>
+        {/* Featured Star Icon Only */}
+        {isFeatured && (
+          <div className="absolute top-3 left-3 w-7 h-7 rounded-full bg-slate-950/80 backdrop-blur-md border border-amber-500/40 text-amber-400 flex items-center justify-center shadow-lg z-20">
+            <Star className="w-3.5 h-3.5 fill-amber-400" />
+          </div>
+        )}
 
+        {/* Favorite Heart Icon Button */}
         <button
           onClick={toggleFavorite}
           aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
@@ -234,6 +199,7 @@ export function StationCard({ station, onNavigate, layout = 'grid', variant = 'd
           <Heart className={`w-4 h-4 ${isFavorite ? 'fill-rose-500 text-rose-500' : ''}`} />
         </button>
 
+        {/* Play Button as it is */}
         <button
           onClick={handlePlayClick}
           aria-label={`Play ${station.name}`}
@@ -253,64 +219,15 @@ export function StationCard({ station, onNavigate, layout = 'grid', variant = 'd
         </button>
       </div>
 
-      <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2">
-        <div>
-          <div className="flex items-center gap-1.5">
-            <h3 className="font-bold text-xs sm:text-sm text-white truncate group-hover:text-sky-300 transition-colors">
-              {station.name}
-            </h3>
-            {isVerified && (
-              <CheckCircle2 className="w-3.5 h-3.5 text-sky-400 shrink-0" title="Admin Verified Broadcaster" />
-            )}
-          </div>
+      {/* Radio Name and Country ONLY (No thin line, no extra badges) */}
+      <div className="p-3.5 flex-1 flex flex-col justify-center space-y-1">
+        <h3 className="font-bold text-xs sm:text-sm text-white truncate group-hover:text-sky-300 transition-colors">
+          {station.name}
+        </h3>
 
-          <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1 font-medium">
-            <span className="truncate flex items-center gap-1">
-              <span>{station.country?.flagEmoji || '🌍'}</span>
-              <span className="truncate">{station.city ? `${station.city}` : station.country?.name || 'Global'}</span>
-            </span>
-
-            {station.genre && (
-              <span className="text-[10px] text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-full truncate max-w-[80px]">
-                {station.genre.split(',')[0]}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Admin & Owner Feature Control Badges Bar */}
-        <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-1 text-[10px]">
-          <div className="flex items-center gap-1 flex-wrap">
-            {hasDonation && (
-              <button
-                onClick={handleGiveClick}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 transition-colors"
-                title="Radio Owner enabled direct ministry donations"
-              >
-                <HandHeart className="w-3 h-3 text-rose-400" />
-                <span>Giving Active</span>
-              </button>
-            )}
-
-            {hasSchedule && (
-              <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-300 border border-sky-500/20"
-                title="Radio Owner configured active broadcast schedule"
-              >
-                <Calendar className="w-3 h-3 text-sky-400" />
-                <span>Schedule</span>
-              </span>
-            )}
-
-            {station.claimStatus === 'UNCLAIMED' && (
-              <span
-                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700"
-                title="Station unclaimed by owner"
-              >
-                <span>Unclaimed</span>
-              </span>
-            )}
-          </div>
+        <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium truncate">
+          <span>{flagEmoji}</span>
+          <span className="truncate">{countryDisplayName}</span>
         </div>
       </div>
     </div>
