@@ -205,8 +205,8 @@ export function StationCard({ station, onNavigate, layout = 'grid', variant = 'd
           aria-label={`Play ${station.name}`}
           className={`absolute bottom-3 right-3 w-10 h-10 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 transform group-hover:scale-110 active:scale-90 z-20 ${
             isThisPlaying
-              ? 'bg-sky-400 text-slate-950 shadow-sky-400/50 ring-4 ring-sky-400/30 animate-glow-pulse'
-              : 'bg-gradient-to-tr from-sky-500 via-sky-600 to-indigo-600 text-white hover:from-sky-400 hover:to-indigo-500 shadow-slate-950/80'
+              ? 'bg-emerald-400 text-slate-950 shadow-emerald-400/50 ring-4 ring-emerald-400/30 animate-glow-pulse'
+              : 'bg-gradient-to-tr from-emerald-500 via-emerald-600 to-teal-600 text-white hover:from-emerald-400 hover:to-teal-500 shadow-slate-950/80'
           }`}
         >
           {isCurrent && isLoading ? (

@@ -620,7 +620,7 @@ export function HomePage({ onNavigate, onOpenAuth, onPublicAction }: HomePagePro
           <div className="pt-6 relative z-10 border-t border-slate-800/80">
             <button
               onClick={() => onNavigate('directory')}
-              className="w-full bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-extrabold text-xs sm:text-sm py-3.5 px-6 rounded-2xl shadow-xl shadow-sky-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-xs sm:text-sm py-3.5 px-6 rounded-2xl shadow-xl shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
             >
               <Compass className="w-4 h-4" />
               <span>Start Exploring Live Radios</span>

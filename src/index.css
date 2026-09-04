@@ -3,7 +3,7 @@
 :root {
   color-scheme: light;
   
-  /* Light Mode Semantic Design Tokens */
+  /* Light Mode Semantic Design Tokens - Green/Emerald Brand Palette */
   --bg-page: #f8fafc;
   --bg-card: #ffffff;
   --bg-card-hover: #f1f5f9;
@@ -20,17 +20,17 @@
   
   --player-bg: rgba(255, 255, 255, 0.95);
   --player-border: #cbd5e1;
-  --player-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.08);
+  --player-shadow: 0 -10px 25px -5px rgba(16, 185, 129, 0.12);
   
   --input-bg: #ffffff;
   --input-border: #cbd5e1;
-  --input-focus: #0284c7;
+  --input-focus: #10b981;
 }
 
 html.dark {
   color-scheme: dark;
   
-  /* Dark Mode Semantic Design Tokens */
+  /* Dark Mode Semantic Design Tokens - Green/Emerald Brand Palette */
   --bg-page: #020617;
   --bg-card: #0f172a;
   --bg-card-hover: #1e293b;
@@ -51,7 +51,7 @@ html.dark {
   
   --input-bg: #0f172a;
   --input-border: #334155;
-  --input-focus: #38bdf8;
+  --input-focus: #34d399;
 }
 
 html {
@@ -146,10 +146,10 @@ img {
 
 @keyframes glow-pulse {
   0%, 100% {
-    box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
   }
   50% {
-    box-shadow: 0 0 25px rgba(99, 102, 241, 0.6);
+    box-shadow: 0 0 25px rgba(5, 150, 105, 0.6);
   }
 }
 

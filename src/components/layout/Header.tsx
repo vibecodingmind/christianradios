@@ -98,7 +98,7 @@ export function Header({ currentView, onNavigate, onOpenAuth }: HeaderProps) {
                 </button>
                 <button
                   onClick={() => onOpenAuth('register')}
-                  className="text-xs font-semibold bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white shadow-sm border border-sky-400/30 px-3.5 py-2 rounded-xl transition-all"
+                  className="text-xs font-semibold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-sm border border-emerald-400/30 px-3.5 py-2 rounded-xl transition-all"
                 >
                   Sign Up
                 </button>

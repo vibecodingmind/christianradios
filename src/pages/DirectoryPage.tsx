@@ -98,7 +98,7 @@ export function DirectoryPage({
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950/90 border border-sky-500/20 p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
         <div className="absolute top-0 right-0 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-sky-400 via-indigo-400 to-amber-400 opacity-90" />
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 via-teal-400 to-amber-400 opacity-90" />
 
         <div className="relative z-10 space-y-2">
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">

@@ -123,8 +123,8 @@ export function PersistentPlayer() {
                 onClick={togglePlay}
                 disabled={isLoading}
                 aria-label={isPlaying ? 'Pause broadcast' : 'Play broadcast'}
-                className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white flex items-center justify-center shadow-lg shadow-sky-500/25 active:scale-95 transition-all disabled:opacity-75 focus:outline-none ${
-                  isPlaying ? 'ring-4 ring-sky-500/30 animate-glow-pulse' : ''
+                className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/25 active:scale-95 transition-all disabled:opacity-75 focus:outline-none ${
+                  isPlaying ? 'ring-4 ring-emerald-500/30 animate-glow-pulse' : ''
                 }`}
               >
                 {isLoading || isBuffering ? (
@@ -145,7 +145,7 @@ export function PersistentPlayer() {
                     height: isPlaying ? `${height}%` : '20%',
                     animationDuration: isPlaying ? `${0.35 + (i % 5) * 0.15}s` : '0s',
                   }}
-                  className={`w-0.5 rounded-full bg-gradient-to-t from-sky-500 to-indigo-400 transition-all ${
+                  className={`w-0.5 rounded-full bg-gradient-to-t from-emerald-500 to-teal-400 transition-all ${
                     isPlaying ? 'animate-bounce' : 'opacity-40'
                   }`}
                 />
