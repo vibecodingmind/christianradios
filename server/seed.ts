@@ -67,6 +67,15 @@ export function runSeed() {
     // 2. Categories
     const categories: Category[] = [
       {
+        id: 'cat_awr',
+        name: 'Adventist World Radios',
+        slug: 'adventist-world-radios',
+        iconName: 'Globe',
+        description: 'Official Adventist World Radio (AWR) multi-lingual international broadcasts and stations.',
+        displayOrder: 0,
+        isActive: true,
+      },
+      {
         id: 'cat_gospel',
         name: 'Gospel Music',
         slug: 'gospel-music',
