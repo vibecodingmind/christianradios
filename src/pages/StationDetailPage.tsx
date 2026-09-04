@@ -38,6 +38,7 @@ import {
   ChevronRight,
   Music,
   Target,
+  RotateCw,
 } from 'lucide-react';
 import { useAudioPlayer } from '../context/AudioPlayerContext';
 import { useAuth } from '../context/AuthContext';
