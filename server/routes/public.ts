@@ -37,19 +37,19 @@ publicRouter.get('/stations', (req, res) => {
 
   if (country) {
     stations = stations.filter(
-      (s) => s.countryCode.toUpperCase() === country.toUpperCase()
+      (s) => (s.countryCode || '').toUpperCase() === country.toUpperCase()
     );
   }
 
   if (language) {
     stations = stations.filter((s) =>
-      s.language.toLowerCase().includes(language.toLowerCase())
+      (s.language || '').toLowerCase().includes(language.toLowerCase())
     );
   }
 
   if (genre) {
     stations = stations.filter((s) =>
-      s.genre.toLowerCase().includes(genre.toLowerCase())
+      (s.genre || '').toLowerCase().includes(genre.toLowerCase())
     );
   }
 
