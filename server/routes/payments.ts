@@ -179,3 +179,95 @@ paymentsRouter.post('/simulate-instant-mobile-money', requireAuth, async (req: A
     invoice: result.invoice,
   });
 });
+
+// 5. Listener Premium Radio Station Subscription Endpoint
+paymentsRouter.post('/subscribe-station', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const user = req.user!;
+    const { stationId, billingInterval = 'MONTHLY', paymentMethod = 'PESAPAL' } = req.body;
+
+    if (!stationId) {
+      res.status(400).json({ error: 'stationId is required.' });
+      return;
+    }
+
+    const station = db.stations.findById(stationId);
+    if (!station) {
+      res.status(404).json({ error: 'Radio station not found.' });
+      return;
+    }
+
+    const price = billingInterval === 'ANNUAL' ? (station.annualPriceTzs || 50000) : (station.monthlyPriceTzs || 5000);
+    const durationDays = billingInterval === 'ANNUAL' ? 365 : 30;
+
+    const ownerShare = Math.floor(price * 0.8);
+    const platformShare = price - ownerShare;
+
+    const sub = db.premiumSubscriptions.create({
+      id: `pr_sub_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      listenerId: user.id,
+      stationId: station.id,
+      ownerId: station.ownerId,
+      status: 'ACTIVE',
+      billingInterval,
+      amountTzs: price,
+      ownerShareTzs: ownerShare,
+      platformShareTzs: platformShare,
+      currency: 'TZS',
+      currentPeriodStart: new Date().toISOString(),
+      currentPeriodEnd: new Date(Date.now() + durationDays * 86400000).toISOString(),
+      autoRenew: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    // Credit Owner Ledger
+    db.ledger.addEntry({
+      id: `led_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      ownerId: station.ownerId,
+      stationId: station.id,
+      type: 'PREMIUM_SHARE_CREDIT',
+      amount: ownerShare,
+      currency: 'TZS',
+      status: 'SETTLED',
+      balanceAfter: (db.ledger.getOwnerBalance(station.ownerId) || 0) + ownerShare,
+      description: `Listener Premium Radio Subscription Share (${station.name})`,
+      createdAt: new Date().toISOString(),
+    });
+
+    // Trigger Referral Commission if listener was referred
+    const referral = db.referrals.findByReferredUserId(user.id);
+    if (referral && referral.referrerId !== user.id) {
+      const settings = db.settings.get();
+      const commRate = settings.referralCommissionListenerPercentage || 10;
+      const commAmount = Math.floor(price * (commRate / 100));
+
+      if (commAmount > 0) {
+        db.referralCommissions.create({
+          id: `comm_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          referralId: referral.id,
+          referrerId: referral.referrerId,
+          referredUserId: user.id,
+          sourcePaymentId: sub.id,
+          paymentType: 'PREMIUM_RADIO_SUBSCRIPTION',
+          grossAmountTzs: price,
+          commissionPercentage: commRate,
+          commissionAmountTzs: commAmount,
+          status: 'SETTLED',
+          settlesAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+        });
+        console.log(`[Referral System] Commission TZS ${commAmount} awarded to referrer ${referral.referrerId} for listener ${user.id} subscription to ${station.name}`);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully subscribed to ${station.name}!`,
+      subscription: sub,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Subscription failed';
+    res.status(500).json({ error: message });
+  }
+});

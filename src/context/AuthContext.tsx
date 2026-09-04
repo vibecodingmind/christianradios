@@ -119,17 +119,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     organizationName?: string;
     phone?: string;
     country?: string;
+    referralCode?: string;
   }) => {
     try {
+      const storedRef = localStorage.getItem('cr_referral_code') || undefined;
+      const payload = {
+        ...formData,
+        referralCode: formData.referralCode || storedRef,
+      };
+
       const res = await apiFetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) {
         return { success: false, error: data.error || 'Registration failed' };
       }
+
+      localStorage.removeItem('cr_referral_code');
 
       if (data.token) {
         setAuthToken(data.token);

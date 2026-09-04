@@ -269,6 +269,12 @@ function MainAppContent() {
   };
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const refParam = searchParams.get('ref');
+    if (refParam) {
+      localStorage.setItem('cr_referral_code', refParam.trim());
+    }
+
     parseUrlRoute();
     window.addEventListener('popstate', parseUrlRoute);
     return () => window.removeEventListener('popstate', parseUrlRoute);

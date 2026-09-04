@@ -24,6 +24,7 @@ const RegisterSchema = z.object({
   organizationName: z.string().optional(),
   phone: z.string().optional(),
   country: z.string().optional(),
+  referralCode: z.string().optional(),
 });
 
 authRouter.post('/register', async (req, res) => {
@@ -35,20 +36,50 @@ authRouter.post('/register', async (req, res) => {
       return;
     }
 
+    const userId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const genReferralCode = `REF_${userId.substring(4, 10).toUpperCase()}`;
+
     const newUser: User = {
-      id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: userId,
       email: data.email.toLowerCase().trim(),
       passwordHash: hashPassword(data.password),
       role: data.role as Role,
       name: data.name.trim(),
       emailVerified: true, // Auto-verified for seamless start
       phone: data.phone,
+      referralCode: genReferralCode,
       status: 'ACTIVE',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
     db.users.create(newUser);
+
+    // Referral System Attribution
+    if (data.referralCode) {
+      const cleanRef = data.referralCode.trim().toUpperCase();
+      const referrer = db.users.getAll().find(
+        (u) =>
+          (u.referralCode && u.referralCode.toUpperCase() === cleanRef) ||
+          `REF_${u.id.substring(4, 10).toUpperCase()}` === cleanRef
+      );
+      if (referrer && referrer.id !== newUser.id) {
+        try {
+          db.referrals.create({
+            id: `ref_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            referrerId: referrer.id,
+            referrerRole: referrer.role === 'RADIO_OWNER' ? 'RADIO_OWNER' : 'LISTENER',
+            referredUserId: newUser.id,
+            referralCode: cleanRef,
+            status: 'QUALIFIED',
+            createdAt: new Date().toISOString(),
+          });
+          console.log(`[Referrals Engine] User ${newUser.id} registered via code ${cleanRef} from referrer ${referrer.id}`);
+        } catch (refErr: any) {
+          console.warn('[Referrals Engine] Skip duplicate referral creation:', refErr.message);
+        }
+      }
+    }
 
     if (data.role === 'RADIO_OWNER') {
       db.ownerProfiles.create({

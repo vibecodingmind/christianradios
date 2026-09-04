@@ -48,6 +48,7 @@ import { DonationModal } from '../components/modals/DonationModal';
 import { EmbedCodeModal } from '../components/modals/EmbedCodeModal';
 import { PrayerRequestModal } from '../components/modals/PrayerRequestModal';
 import { WriteReviewModal } from '../components/modals/WriteReviewModal';
+import { PremiumStationSubscriptionModal } from '../components/modals/PremiumStationSubscriptionModal';
 import { apiFetch } from '../lib/api';
 import type { Station, StationReview, NowPlayingInfo, DonationCampaign } from '../types';
 
@@ -98,6 +99,7 @@ export function StationDetailPage({ slug, onNavigate, onPublicAction }: StationD
   const [showEmbed, setShowEmbed] = useState(false);
   const [showPrayerModal, setShowPrayerModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showPremiumSubModal, setShowPremiumSubModal] = useState(false);
 
   const { currentStation, isPlaying, isLoading, playStation, togglePlay } = useAudioPlayer();
   const { user } = useAuth();
@@ -420,6 +422,11 @@ export function StationDetailPage({ slug, onNavigate, onPublicAction }: StationD
             {/* Primary Listen Live Button */}
             <button
               onClick={() => {
+                if (station.accessType === 'PREMIUM') {
+                  // Check if user needs to subscribe first
+                  setShowPremiumSubModal(true);
+                  return;
+                }
                 if (isCurrent) {
                   togglePlay();
                 } else {
@@ -442,15 +449,42 @@ export function StationDetailPage({ slug, onNavigate, onPublicAction }: StationD
               ) : (
                 <>
                   <Play className="w-5 h-5 fill-current ml-0.5" />
-                  <span>Listen Live</span>
+                  <span>{station.accessType === 'PREMIUM' ? 'Unlock PRO Stream' : 'Listen Live'}</span>
                 </>
               )}
+            </button>
+
+            {/* Subscribe to Radio Button (Free or PRO) */}
+            <button
+              onClick={() => {
+                if (station.accessType === 'PREMIUM') {
+                  setShowPremiumSubModal(true);
+                } else {
+                  handleToggleFollow();
+                }
+              }}
+              className={`flex-1 sm:flex-initial px-5 py-3.5 rounded-2xl font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition hover:scale-105 active:scale-95 ${
+                station.accessType === 'PREMIUM'
+                  ? 'bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 hover:from-amber-400 hover:to-rose-400 text-slate-950 shadow-amber-500/20'
+                  : isFollowing
+                  ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+              }`}
+            >
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span>
+                {station.accessType === 'PREMIUM'
+                  ? `SUBSCRIBE PRO (TZS ${(station.monthlyPriceTzs || 5000).toLocaleString()}/mo)`
+                  : isFollowing
+                  ? 'SUBSCRIBED (FREE)'
+                  : 'SUBSCRIBE (FREE)'}
+              </span>
             </button>
 
             {/* Prominent DONATE / BLESS MINISTRY Button */}
             <button
               onClick={() => setShowDonation(true)}
-              className="flex-1 sm:flex-initial px-5 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 hover:from-amber-400 hover:to-rose-400 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20 transition hover:scale-105 active:scale-95"
+              className="flex-1 sm:flex-initial px-5 py-3.5 rounded-2xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20 transition hover:scale-105 active:scale-95"
             >
               <Heart className="w-4 h-4 fill-slate-950 text-slate-950 animate-pulse" />
               <span>DONATE & BLESS</span>
@@ -1221,6 +1255,16 @@ export function StationDetailPage({ slug, onNavigate, onPublicAction }: StationD
           station={station}
           onClose={() => setShowReviewModal(false)}
           onSuccess={() => {
+            loadAllStationData();
+          }}
+        />
+      )}
+      {showPremiumSubModal && (
+        <PremiumStationSubscriptionModal
+          isOpen={showPremiumSubModal}
+          station={station}
+          onClose={() => setShowPremiumSubModal(false)}
+          onSubscriptionSuccess={() => {
             loadAllStationData();
           }}
         />

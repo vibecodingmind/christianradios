@@ -8,6 +8,9 @@ import React, {
 } from 'react';
 import Hls from 'hls.js';
 import type { Station, NowPlayingInfo } from '../types';
+import { useAuth } from './AuthContext';
+import { apiFetch } from '../lib/api';
+import { PremiumStationSubscriptionModal } from '../components/modals/PremiumStationSubscriptionModal';
 
 interface AudioPlayerContextType {
   currentStation: Station | null;
@@ -302,10 +305,33 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   };
 
-  const playStation = (station: Station) => {
+  const [subscribingStation, setSubscribingStation] = useState<Station | null>(null);
+  const { user } = useAuth();
+
+  const startPlayingStation = (station: Station) => {
     setCurrentStation(station);
     setIsUsingBackupStream(false);
     attachAndPlayStream(station.streamUrl, false);
+  };
+
+  const playStation = async (station: Station) => {
+    if (station.accessType === 'PREMIUM') {
+      try {
+        const query = user?.id ? `?listenerId=${encodeURIComponent(user.id)}` : '';
+        const res = await apiFetch(`/api/public/stations/${station.id}/access${query}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.isPremium && !data.hasAccess) {
+            setSubscribingStation(station);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Failed checking premium station access:', e);
+      }
+    }
+
+    startPlayingStation(station);
   };
 
   const playStream = (station: Station) => {
@@ -403,6 +429,18 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       }}
     >
       {children}
+      {subscribingStation && (
+        <PremiumStationSubscriptionModal
+          isOpen={!!subscribingStation}
+          onClose={() => setSubscribingStation(null)}
+          station={subscribingStation}
+          onSubscriptionSuccess={() => {
+            const st = subscribingStation;
+            setSubscribingStation(null);
+            if (st) startPlayingStation(st);
+          }}
+        />
+      )}
     </AudioPlayerContext.Provider>
   );
 }

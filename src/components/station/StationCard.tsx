@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, Heart, Star } from 'lucide-react';
+import { Play, Pause, Heart, Star, Sparkles } from 'lucide-react';
 import { useAudioPlayer } from '../../context/AudioPlayerContext';
 import type { Station } from '../../types';
 
@@ -183,12 +183,17 @@ export function StationCard({ station, onNavigate, layout = 'grid', variant = 'd
           </div>
         )}
 
-        {/* Featured Star Icon Only */}
-        {isFeatured && (
+        {/* Featured Star or PRO Badge */}
+        {station.accessType === 'PREMIUM' ? (
+          <div className="absolute top-3 left-3 px-2 py-0.5 rounded-lg bg-gradient-to-r from-amber-500 to-rose-500 text-slate-950 font-black text-[10px] uppercase shadow-lg z-20 flex items-center gap-1">
+            <Sparkles className="w-3 h-3 text-slate-950" />
+            <span>PRO</span>
+          </div>
+        ) : isFeatured ? (
           <div className="absolute top-3 left-3 w-7 h-7 rounded-full bg-slate-950/80 backdrop-blur-md border border-amber-500/40 text-amber-400 flex items-center justify-center shadow-lg z-20">
             <Star className="w-3.5 h-3.5 fill-amber-400" />
           </div>
-        )}
+        ) : null}
 
         {/* Favorite Heart Icon Button */}
         <button
@@ -219,15 +224,27 @@ export function StationCard({ station, onNavigate, layout = 'grid', variant = 'd
         </button>
       </div>
 
-      {/* Radio Name and Country ONLY (No thin line, no extra badges) */}
+      {/* Radio Name, Country and Subscribe Tier */}
       <div className="p-3.5 flex-1 flex flex-col justify-center space-y-1">
-        <h3 className="font-bold text-xs sm:text-sm text-white truncate group-hover:text-sky-300 transition-colors">
-          {station.name}
-        </h3>
+        <div className="flex items-center justify-between gap-1.5">
+          <h3 className="font-bold text-xs sm:text-sm text-white truncate group-hover:text-sky-300 transition-colors">
+            {station.name}
+          </h3>
+          {station.accessType === 'PREMIUM' && (
+            <span className="text-[10px] font-bold text-amber-400 shrink-0">
+              TZS {(station.monthlyPriceTzs || 5000).toLocaleString()}/mo
+            </span>
+          )}
+        </div>
 
-        <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium truncate">
-          <span>{flagEmoji}</span>
-          <span className="truncate">{countryDisplayName}</span>
+        <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium truncate">
+          <div className="flex items-center gap-1.5 truncate">
+            <span>{flagEmoji}</span>
+            <span className="truncate">{countryDisplayName}</span>
+          </div>
+          <span className="text-[10px] font-semibold text-emerald-400 flex items-center gap-1">
+            {station.accessType === 'PREMIUM' ? 'PRO Radio' : 'Free Radio'}
+          </span>
         </div>
       </div>
     </div>
