@@ -125,6 +125,23 @@ listenerRouter.post('/following/toggle', requireAuth, (req: AuthenticatedRequest
   }
 
   const isFollowing = db.follows.toggle(userId, stationId);
+
+  if (isFollowing) {
+    const station = db.stations.findById(stationId);
+    const follower = db.users.findById(userId);
+    if (station && station.ownerId) {
+      db.notifications.create({
+        id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        userId: station.ownerId,
+        title: 'New Channel Subscriber!',
+        message: `${follower?.fullName || follower?.name || follower?.email || 'A listener'} subscribed to your channel "${station.name}".`,
+        type: 'SYSTEM_ALERT',
+        read: false,
+        createdAt: new Date().toISOString(),
+      });
+    }
+  }
+
   res.json({ isFollowing });
 });
 

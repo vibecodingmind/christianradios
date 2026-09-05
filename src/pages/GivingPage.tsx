@@ -233,10 +233,10 @@ export function GivingPage({ onNavigate }: GivingPageProps) {
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-center text-xs font-bold">
                         <span className="text-emerald-400">
-                          {camp.currency || 'TZS'} {Number(camp.amountRaised || 0).toLocaleString()}
+                          {camp.currency || 'USD'} {Number(camp.amountRaised || 0).toLocaleString()}
                         </span>
                         <span className="text-slate-400">
-                          Goal: {camp.currency || 'TZS'} {Number(camp.goalAmount || 0).toLocaleString()}
+                          Goal: {camp.currency || 'USD'} {Number(camp.goalAmount || 0).toLocaleString()}
                         </span>
                       </div>
                       <div className="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800">

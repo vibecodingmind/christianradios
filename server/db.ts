@@ -47,9 +47,10 @@ import type {
   KYCApplication,
   KYCDocument,
   StationApplication,
+  StationFeedPost,
 } from './types.js';
 
-interface DatabaseSchema {
+export interface DatabaseSchema {
   users: User[];
   ownerProfiles: RadioOwnerProfile[];
   kycApplications?: KYCApplication[];
@@ -93,6 +94,7 @@ interface DatabaseSchema {
   referralCommissions: ReferralCommission[];
   featuredPackages: FeaturedPackage[];
   featuredPurchases: FeaturedPurchase[];
+  feedPosts?: StationFeedPost[];
   settings: PlatformSettings;
 }
 
@@ -152,12 +154,47 @@ class DatabaseEngine {
       referralCommissions: [],
       featuredPackages: [],
       featuredPurchases: [],
+      feedPosts: [
+        {
+          id: 'feed_post_1',
+          stationId: 'stn_praise_fm',
+          authorName: 'Station Management',
+          authorCity: 'Dar es Salaam',
+          content: 'Welcome all listeners to Praise FM! Tune in every morning at 6:00 AM for Morning Worship & Devotion. God bless you!',
+          postType: 'ANNOUNCEMENT',
+          isPinned: true,
+          likesCount: 24,
+          createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
+        },
+        {
+          id: 'feed_post_2',
+          stationId: 'stn_praise_fm',
+          authorName: 'Brother Emmanuel',
+          authorCity: 'Arusha',
+          content: 'Listening live from Arusha! The worship songs today are such a huge blessing to my spirit.',
+          postType: 'SHOUTOUT',
+          isPinned: false,
+          likesCount: 12,
+          createdAt: new Date(Date.now() - 3600000 * 5).toISOString(),
+        },
+        {
+          id: 'feed_post_3',
+          stationId: 'stn_praise_fm',
+          authorName: 'Sister Grace',
+          authorCity: 'Mwanza',
+          content: 'Checking in from Mwanza town! Blessed by the message on Faith and Grace.',
+          postType: 'CHECK_IN',
+          isPinned: false,
+          likesCount: 8,
+          createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+        },
+      ],
       settings: {
         platformName: 'Christian Radios',
         tagline: 'Listen. Discover. Connect.',
         contactEmail: 'contact@christianradios.org',
         supportEmail: 'support@christianradios.org',
-        defaultCurrency: 'TZS',
+        defaultCurrency: 'USD',
         requireStationApproval: true,
         streamCheckIntervalMinutes: 5,
         streamTimeoutSeconds: 8,
@@ -1103,6 +1140,16 @@ class DatabaseEngine {
       (this.data.prayerRequests || [])
         .filter((p) => p.status === 'APPROVED' || p.status === 'ANSWERED')
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    getByStationId: (stationId: string) => {
+      const station = (this.data.stations || []).find((s) => s.id === stationId || s.slug === stationId);
+      const approved = (this.data.prayerRequests || []).filter(
+        (p) => p.status === 'APPROVED' || p.status === 'ANSWERED'
+      );
+      const filtered = approved.filter(
+        (p) => p.stationId === stationId || (station && (p.stationId === station.id || (p.stationName && p.stationName.toLowerCase() === station.name.toLowerCase())))
+      );
+      return filtered.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    },
     findById: (id: string) =>
       (this.data.prayerRequests || []).find((p) => p.id === id),
     create: (prayer: PrayerRequest) => {
@@ -1243,6 +1290,49 @@ class DatabaseEngine {
         (ep) => ep.id !== id
       );
       this.save();
+    },
+  };
+
+  // --- Station Live Feed Posts ---
+  public feedPosts = {
+    getAll: () => [...(this.data.feedPosts || [])],
+    getByStationId: (stationId: string) => {
+      const posts = (this.data.feedPosts || []).filter((p) => p.stationId === stationId);
+      return posts.sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return b.createdAt.localeCompare(a.createdAt);
+      });
+    },
+    create: (post: StationFeedPost) => {
+      if (!this.data.feedPosts) this.data.feedPosts = [];
+      this.data.feedPosts.unshift(post);
+      this.save();
+      return post;
+    },
+    delete: (id: string) => {
+      if (!this.data.feedPosts) return false;
+      const initialLen = this.data.feedPosts.length;
+      this.data.feedPosts = this.data.feedPosts.filter((p) => p.id !== id);
+      const deleted = this.data.feedPosts.length < initialLen;
+      if (deleted) this.save();
+      return deleted;
+    },
+    togglePin: (id: string) => {
+      if (!this.data.feedPosts) return null;
+      const post = this.data.feedPosts.find((p) => p.id === id);
+      if (!post) return null;
+      post.isPinned = !post.isPinned;
+      this.save();
+      return post;
+    },
+    like: (id: string) => {
+      if (!this.data.feedPosts) return null;
+      const post = this.data.feedPosts.find((p) => p.id === id);
+      if (!post) return null;
+      post.likesCount = (post.likesCount || 0) + 1;
+      this.save();
+      return post;
     },
   };
 
@@ -1390,7 +1480,7 @@ class DatabaseEngine {
         completedWithdrawn,
         pendingWithdrawn,
         availableBalance,
-        currency: 'TZS',
+        currency: 'USD',
       };
     },
   };
@@ -1648,7 +1738,7 @@ class DatabaseEngine {
       this.data.users.length === 0 ||
       this.data.stations.length === 0 ||
       !this.data.plans ||
-      this.data.plans.length === 0 ||
+      this.data.plans.length !== 3 ||
       !this.data.stationReviews ||
       this.data.stationReviews.length === 0 ||
       !this.data.prayerRequests ||

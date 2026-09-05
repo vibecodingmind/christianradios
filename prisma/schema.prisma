@@ -397,7 +397,7 @@ model DonationCampaign {
   description     String
   goalAmount      Float
   amountRaised    Float      @default(0)
-  currency        String     @default("TZS")
+  currency        String     @default("USD")
   supportersCount Int        @default(0)
   status          String     @default("ACTIVE")
   coverImageUrl   String?
@@ -426,7 +426,7 @@ model Donation {
   platformFeePercentage Float             @default(5.0)
   platformFeeAmount     Float             @default(0)
   netAmountToStation    Float
-  currency              String            @default("TZS")
+  currency              String            @default("USD")
   paymentMethod         String
   paymentGateway        String
   trackingId            String?
@@ -455,7 +455,7 @@ model SubscriptionPlan {
   tier          SubscriptionTier @default(FREE)
   monthlyPrice  Float
   annualPrice   Float
-  currency      String           @default("TZS")
+  currency      String           @default("USD")
   maxStations   Int              @default(1)
   hasAnalytics  Boolean          @default(false)
   hasGiving     Boolean          @default(true)

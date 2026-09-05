@@ -56,7 +56,7 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
     totalWithdrawn: 0,
     pendingWithdrawals: 0,
     availableBalance: 0,
-    currency: 'TZS',
+    currency: 'USD',
   });
 
   const [donations, setDonations] = useState<Donation[]>([]);
@@ -69,7 +69,7 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
   const [showCampaignModal, setShowCampaignModal] = useState(false);
 
   // Withdrawal Form State
-  const [withdrawAmount, setWithdrawAmount] = useState<number>(50000);
+  const [withdrawAmount, setWithdrawAmount] = useState<number>(50);
   const [payoutMethod, setPayoutMethod] = useState<'MPESA' | 'TIGO_PESA' | 'AIRTEL_MONEY' | 'BANK_TRANSFER'>('MPESA');
   const [payoutAccountName, setPayoutAccountName] = useState('');
   const [payoutAccountNumber, setPayoutAccountNumber] = useState('');
@@ -83,8 +83,8 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
   const [campaignStationId, setCampaignStationId] = useState(stations[0]?.id || '');
   const [campaignTitle, setCampaignTitle] = useState('');
   const [campaignDescription, setCampaignDescription] = useState('');
-  const [campaignGoal, setCampaignGoal] = useState<number>(1500000);
-  const [campaignCurrency, setCampaignCurrency] = useState('TZS');
+  const [campaignGoal, setCampaignGoal] = useState<number>(1000);
+  const [campaignCurrency, setCampaignCurrency] = useState('USD');
   const [campaignImageUrl, setCampaignImageUrl] = useState('');
   const [campaignEndDate, setCampaignEndDate] = useState(
     new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -260,7 +260,7 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
               Available for Payout
             </span>
             <div className="text-2xl font-black text-emerald-400 mt-1">
-              {balance.currency || 'TZS'} {Number(balance.availableBalance || 0).toLocaleString()}
+              {balance.currency || 'USD'} {Number(balance.availableBalance || 0).toLocaleString()}
             </div>
             <span className="text-[10px] text-slate-500 block mt-1">Ready for immediate disbursement</span>
           </div>
@@ -270,10 +270,10 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
               Total Net Ministry Earned
             </span>
             <div className="text-2xl font-black text-white mt-1">
-              {balance.currency || 'TZS'} {Number(balance.totalNetEarnings || 0).toLocaleString()}
+              {balance.currency || 'USD'} {Number(balance.totalNetEarnings || 0).toLocaleString()}
             </div>
             <span className="text-[10px] text-slate-500 block mt-1">
-              From {donations.length} listener gifts (Gross: {balance.currency || 'TZS'} {Number(balance.totalGrossDonations || 0).toLocaleString()})
+              From {donations.length} listener gifts (Gross: {balance.currency || 'USD'} {Number(balance.totalGrossDonations || 0).toLocaleString()})
             </span>
           </div>
 
@@ -282,7 +282,7 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
               Disbursed Payouts
             </span>
             <div className="text-2xl font-black text-sky-400 mt-1">
-              {balance.currency || 'TZS'} {Number(balance.totalWithdrawn || 0).toLocaleString()}
+              {balance.currency || 'USD'} {Number(balance.totalWithdrawn || 0).toLocaleString()}
             </div>
             <span className="text-[10px] text-slate-500 block mt-1">Transferred to Mobile Money / Bank</span>
           </div>
@@ -292,7 +292,7 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
               Pending Payout Queue
             </span>
             <div className="text-2xl font-black text-amber-300 mt-1">
-              {balance.currency || 'TZS'} {Number(balance.pendingWithdrawals || 0).toLocaleString()}
+              {balance.currency || 'USD'} {Number(balance.pendingWithdrawals || 0).toLocaleString()}
             </div>
             <span className="text-[10px] text-slate-500 block mt-1">Under finance review & processing</span>
           </div>
@@ -365,8 +365,8 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
                           </div>
                           <div className="space-y-1">
                             <div className="flex justify-between text-[11px] font-bold">
-                              <span className="text-emerald-400">{c.currency || 'TZS'} {Number(c.amountRaised || 0).toLocaleString()}</span>
-                              <span className="text-slate-400">Goal: {c.currency || 'TZS'} {Number(c.goalAmount || 0).toLocaleString()}</span>
+                              <span className="text-emerald-400">{c.currency || 'USD'} {Number(c.amountRaised || 0).toLocaleString()}</span>
+                              <span className="text-slate-400">Goal: {c.currency || 'USD'} {Number(c.goalAmount || 0).toLocaleString()}</span>
                             </div>
                             <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden">
                               <div className="h-full bg-gradient-to-r from-rose-500 to-emerald-400" style={{ width: `${pct}%` }} />
@@ -413,7 +413,7 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
                         </div>
 
                         <div className="text-right shrink-0">
-                          <span className="font-bold text-emerald-400 text-sm">{d.currency || 'TZS'} {Number(d.netOwnerAmount || d.amount || 0).toLocaleString()}</span>
+                          <span className="font-bold text-emerald-400 text-sm">{d.currency || 'USD'} {Number(d.netOwnerAmount || d.amount || 0).toLocaleString()}</span>
                           <span className="block text-[10px] text-slate-500">{new Date(d.createdAt).toLocaleDateString()}</span>
                         </div>
                       </div>
@@ -467,8 +467,8 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
 
                         <div className="space-y-1.5 pt-2 border-t border-slate-800">
                           <div className="flex justify-between text-xs font-bold">
-                            <span className="text-emerald-400">{camp.currency || 'TZS'} {Number(camp.amountRaised || 0).toLocaleString()}</span>
-                            <span className="text-slate-400">Target: {camp.currency || 'TZS'} {Number(camp.goalAmount || 0).toLocaleString()}</span>
+                            <span className="text-emerald-400">{camp.currency || 'USD'} {Number(camp.amountRaised || 0).toLocaleString()}</span>
+                            <span className="text-slate-400">Target: {camp.currency || 'USD'} {Number(camp.goalAmount || 0).toLocaleString()}</span>
                           </div>
                           <div className="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800">
                             <div className="h-full bg-gradient-to-r from-rose-500 to-emerald-400 rounded-full" style={{ width: `${pct}%` }} />
@@ -542,13 +542,13 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
                             <td className="py-3 px-4">{d.fundType.replace('_', ' ')}</td>
                             <td className="py-3 px-4 font-semibold">{d.paymentMethod}</td>
                             <td className="py-3 px-4 text-right font-medium text-slate-300">
-                              {d.currency || 'TZS'} {Number(d.grossAmount || d.amount || 0).toLocaleString()}
+                              {d.currency || 'USD'} {Number(d.grossAmount || d.amount || 0).toLocaleString()}
                             </td>
                             <td className="py-3 px-4 text-right text-rose-400">
-                              -{d.currency || 'TZS'} {Number(d.platformFeeAmount || Math.round((d.grossAmount || d.amount || 0) * 0.05)).toLocaleString()}
+                              -{d.currency || 'USD'} {Number(d.platformFeeAmount || Math.round((d.grossAmount || d.amount || 0) * 0.05)).toLocaleString()}
                             </td>
                             <td className="py-3 px-4 text-right font-bold text-emerald-400">
-                              {d.currency || 'TZS'} {Number(d.netOwnerAmount || Math.round((d.grossAmount || d.amount || 0) * 0.95)).toLocaleString()}
+                              {d.currency || 'USD'} {Number(d.netOwnerAmount || Math.round((d.grossAmount || d.amount || 0) * 0.95)).toLocaleString()}
                             </td>
                           </tr>
                         ))}
@@ -615,10 +615,10 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
 
                         <div className="text-right shrink-0">
                           <div className="text-xl font-black text-white">
-                            {w.currency || 'TZS'} {Number(w.amount || 0).toLocaleString()}
+                            {w.currency || 'USD'} {Number(w.amount || 0).toLocaleString()}
                           </div>
                           <span className="text-[10px] text-slate-500 block">
-                            Net Disbursed: {w.currency || 'TZS'} {Number(w.netAmount || w.amount || 0).toLocaleString()}
+                            Net Disbursed: {w.currency || 'USD'} {Number(w.netAmount || w.amount || 0).toLocaleString()}
                           </span>
                         </div>
                       </div>
@@ -671,10 +671,10 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
                               </td>
                               <td className="py-3 px-4 max-w-xs truncate text-slate-300">{l.description}</td>
                               <td className={`py-3 px-4 text-right font-bold ${isCredit ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {isCredit ? '+' : '-'}{l.currency || 'TZS'} {Number(l.amount || 0).toLocaleString()}
+                                {isCredit ? '+' : '-'}{l.currency || 'USD'} {Number(l.amount || 0).toLocaleString()}
                               </td>
                               <td className="py-3 px-4 text-right font-mono font-semibold text-white">
-                                {l.currency || 'TZS'} {Number(l.balanceAfter || 0).toLocaleString()}
+                                {l.currency || 'USD'} {Number(l.balanceAfter || 0).toLocaleString()}
                               </td>
                             </tr>
                           );
@@ -701,7 +701,7 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 sm:p-8 relative shadow-2xl">
             <h3 className="text-xl font-bold text-white mb-1">Request Broadcaster Payout</h3>
             <p className="text-xs text-slate-400 mb-5">
-              Available Balance: <strong className="text-emerald-400">{balance.currency || 'TZS'} {Number(balance.availableBalance || 0).toLocaleString()}</strong>
+              Available Balance: <strong className="text-emerald-400">{balance.currency || 'USD'} {Number(balance.availableBalance || 0).toLocaleString()}</strong>
             </p>
 
             {withdrawError && (
@@ -717,14 +717,14 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
                 </label>
                 <input
                   type="number"
-                  min="20000"
+                  min="10"
                   max={balance.availableBalance}
                   required
                   value={withdrawAmount}
                   onChange={(e) => setWithdrawAmount(Number(e.target.value))}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-bold text-sm focus:outline-none focus:border-emerald-500"
                 />
-                <span className="text-[10px] text-slate-500 mt-1 block">Minimum payout threshold: 20,000 TZS</span>
+                <span className="text-[10px] text-slate-500 mt-1 block">Minimum payout threshold: $10 USD</span>
               </div>
 
               <div>
@@ -838,10 +838,10 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Goal Amount (TZS)</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Goal Amount (USD $)</label>
                   <input
                     type="number"
-                    min="100000"
+                    min="10"
                     required
                     value={campaignGoal}
                     onChange={(e) => setCampaignGoal(Number(e.target.value))}

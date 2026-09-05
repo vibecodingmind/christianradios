@@ -19,6 +19,68 @@ import {
 import { apiFetch } from '../../lib/api';
 import type { SubscriptionPlan } from '../../types';
 
+const PRESET_PACKAGE_FEATURES = [
+  {
+    category: '📻 Station Capacity',
+    items: [
+      '1 Radio Station listing',
+      'Up to 3 Radio Stations',
+      'Up to 10 Radio Stations',
+      'Unlimited Radio Stations',
+    ],
+  },
+  {
+    category: '🎵 Audio & Stream Failover',
+    items: [
+      '24/7 Live Stream Player (up to 128kbps)',
+      'HD Audio Stream & Backup Stream URL',
+      'Multi-Region Backup Stream Failover',
+    ],
+  },
+  {
+    category: '🤲 Giving & Monetization',
+    items: [
+      'Sow a Seed & Donation System',
+      'Listener Premium Subscriptions Gating',
+      'Unlimited Giving & Crowdfunding (0% fee)',
+    ],
+  },
+  {
+    category: '⭐ Badges & Directory Spotlight',
+    items: [
+      'Verified Broadcaster Badge',
+      '1 Free Featured Directory Badge (3 days/mo)',
+      '3 Free Featured Directory Badges (7 days/mo)',
+      'Highest Priority Directory & Homepage Spotlight',
+    ],
+  },
+  {
+    category: '📣 Community & Live Feed',
+    items: [
+      'Up to 3 Pinned Announcements in Live Feed',
+      'Unlimited Pinned Announcements in Live Feed',
+    ],
+  },
+  {
+    category: '📊 Analytics & Export',
+    items: [
+      '7 days analytics history',
+      '90 days analytics & CSV report exports',
+      '365 days full enterprise analytics & telemetry',
+    ],
+  },
+  {
+    category: '⏱️ Health SLA & Support',
+    items: [
+      'Basic 60-Min Stream Uptime Monitoring',
+      '15-min stream health checks',
+      '5-min stream health checks & instant alerts',
+      'Priority email support (24h turnaround)',
+      'Dedicated Account Manager & 24/7 Priority Support',
+    ],
+  },
+];
+
 interface AdminPlansTabProps {
   plans: SubscriptionPlan[];
   onRefresh: () => void;
@@ -162,6 +224,19 @@ export function AdminPlansTab({ plans, onRefresh }: AdminPlansTabProps) {
     setNewFeatureText('');
   };
 
+  const togglePresetFeature = (featureItem: string) => {
+    const current = [...(formData.featuresList || formData.features || [])];
+    const existsIndex = current.findIndex(
+      (f) => f.toLowerCase().trim() === featureItem.toLowerCase().trim()
+    );
+    if (existsIndex >= 0) {
+      current.splice(existsIndex, 1);
+    } else {
+      current.push(featureItem);
+    }
+    setFormData({ ...formData, featuresList: current });
+  };
+
   const removeFeature = (index: number) => {
     const current = [...(formData.featuresList || formData.features || [])];
     current.splice(index, 1);
@@ -178,7 +253,7 @@ export function AdminPlansTab({ plans, onRefresh }: AdminPlansTabProps) {
             Broadcaster Subscription Packages
           </h2>
           <p className="text-sm text-slate-400 mt-1">
-            Create, edit, and price membership tiers for station owners (TZS & USD dual-currency billing).
+            Create, edit, and price membership tiers for station owners (USD Currency Billing).
           </p>
         </div>
 
@@ -252,22 +327,16 @@ export function AdminPlansTab({ plans, onRefresh }: AdminPlansTabProps) {
               <div className="my-5 p-4 bg-slate-950 rounded-xl border border-slate-800/80 space-y-2">
                 <div className="flex items-baseline justify-between">
                   <span className="text-xs text-slate-400">Monthly:</span>
-                  <div className="text-right">
-                    <span className="text-base font-bold text-amber-400">
-                      TZS {Number(plan.monthlyPriceTzs || 0).toLocaleString()}
-                    </span>
-                    <span className="text-xs text-slate-500 ml-1.5">(${plan.monthlyPriceUsd || 0})</span>
-                  </div>
+                  <span className="text-base font-bold text-amber-400">
+                    ${Number(plan.monthlyPriceUsd || 0).toLocaleString()} / mo
+                  </span>
                 </div>
 
                 <div className="flex items-baseline justify-between border-t border-slate-800/60 pt-2">
                   <span className="text-xs text-slate-400">Annual:</span>
-                  <div className="text-right">
-                    <span className="text-sm font-semibold text-slate-200">
-                      TZS {Number(plan.annualPriceTzs || 0).toLocaleString()}
-                    </span>
-                    <span className="text-xs text-slate-500 ml-1.5">(${plan.annualPriceUsd || 0})</span>
-                  </div>
+                  <span className="text-sm font-semibold text-slate-200">
+                    ${Number(plan.annualPriceUsd || 0).toLocaleString()} / yr
+                  </span>
                 </div>
               </div>
 
@@ -376,36 +445,14 @@ export function AdminPlansTab({ plans, onRefresh }: AdminPlansTabProps) {
                 </div>
               </div>
 
-              {/* Dual-Currency Pricing */}
+              {/* USD Pricing */}
               <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-4">
                 <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">
-                  Pricing Matrix (TZS & USD)
+                  Package Pricing (USD $)
                 </span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-400 mb-1">Monthly (TZS)</label>
-                    <input
-                      type="number"
-                      value={formData.monthlyPriceTzs}
-                      onChange={(e) =>
-                        setFormData({ ...formData, monthlyPriceTzs: parseFloat(e.target.value) || 0 })
-                      }
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 font-semibold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-medium text-slate-400 mb-1">Annual (TZS)</label>
-                    <input
-                      type="number"
-                      value={formData.annualPriceTzs}
-                      onChange={(e) =>
-                        setFormData({ ...formData, annualPriceTzs: parseFloat(e.target.value) || 0 })
-                      }
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 font-semibold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-medium text-slate-400 mb-1">Monthly (USD)</label>
+                    <label className="block text-[11px] font-medium text-slate-400 mb-1">Monthly Rate (USD $)</label>
                     <input
                       type="number"
                       value={formData.monthlyPriceUsd}
@@ -416,7 +463,7 @@ export function AdminPlansTab({ plans, onRefresh }: AdminPlansTabProps) {
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-400 mb-1">Annual (USD)</label>
+                    <label className="block text-[11px] font-medium text-slate-400 mb-1">Annual Rate (USD $)</label>
                     <input
                       type="number"
                       value={formData.annualPriceUsd}
@@ -445,10 +492,9 @@ export function AdminPlansTab({ plans, onRefresh }: AdminPlansTabProps) {
                     }
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200"
                   >
-                    <option value="FREE">FREE</option>
-                    <option value="BASIC">BASIC</option>
-                    <option value="PRO">PRO</option>
-                    <option value="VIP">VIP</option>
+                    <option value="FREE">FREE STARTER</option>
+                    <option value="PRO">PRO MINISTRY</option>
+                    <option value="VIP">KINGDOM NETWORK</option>
                   </select>
                 </div>
 
@@ -504,6 +550,55 @@ export function AdminPlansTab({ plans, onRefresh }: AdminPlansTabProps) {
                     <option value={90}>90 Days (Pro)</option>
                     <option value={365}>365 Days (VIP)</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Preset Capabilities Selector Checkboxes */}
+              <div className="space-y-3 p-4 bg-slate-950 border border-slate-800 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Select Platform Features (Preset Checklist)
+                  </span>
+                  <span className="text-[11px] text-slate-400">Click checkboxes to include/exclude features</span>
+                </div>
+
+                <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
+                  {PRESET_PACKAGE_FEATURES.map((group) => (
+                    <div key={group.category} className="space-y-1.5">
+                      <h5 className="text-[11px] font-bold text-sky-400">{group.category}</h5>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        {group.items.map((item) => {
+                          const currentList = formData.featuresList || formData.features || [];
+                          const isSelected = currentList.some(
+                            (f) => f.toLowerCase().trim() === item.toLowerCase().trim()
+                          );
+                          return (
+                            <label
+                              key={item}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                togglePresetFeature(item);
+                              }}
+                              className={`flex items-center gap-2 p-2 rounded-lg text-xs cursor-pointer transition-all border ${
+                                isSelected
+                                  ? 'bg-sky-500/15 border-sky-500/40 text-sky-200 font-semibold shadow-sm'
+                                  : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                readOnly
+                                className="w-3.5 h-3.5 rounded text-sky-500 focus:ring-0"
+                              />
+                              <span className="truncate">{item}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 

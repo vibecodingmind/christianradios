@@ -59,24 +59,38 @@ export function ShareModal({ station, onClose }: ShareModalProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 mb-4">
+        <div className="grid grid-cols-4 gap-2 mb-4">
+          <button
+            onClick={() => {
+              if (navigator.share) {
+                navigator.share({ title: station.name, text: shareText, url: shareUrl }).catch(() => {});
+              } else {
+                shareWhatsApp();
+              }
+            }}
+            className="flex flex-col items-center gap-1.5 p-2.5 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-300 rounded-2xl transition-colors text-xs font-semibold"
+            title="Open all device apps"
+          >
+            <Share2 className="w-5 h-5 text-purple-400" />
+            More Apps
+          </button>
           <button
             onClick={shareWhatsApp}
-            className="flex flex-col items-center gap-1.5 p-3 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-2xl transition-colors text-xs font-semibold"
+            className="flex flex-col items-center gap-1.5 p-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-2xl transition-colors text-xs font-semibold"
           >
             <MessageCircle className="w-5 h-5" />
             WhatsApp
           </button>
           <button
             onClick={shareTwitter}
-            className="flex flex-col items-center gap-1.5 p-3 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 rounded-2xl transition-colors text-xs font-semibold"
+            className="flex flex-col items-center gap-1.5 p-2.5 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 rounded-2xl transition-colors text-xs font-semibold"
           >
             <span className="font-bold text-sm">𝕏</span>
             X / Twitter
           </button>
           <button
             onClick={shareFacebook}
-            className="flex flex-col items-center gap-1.5 p-3 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 rounded-2xl transition-colors text-xs font-semibold"
+            className="flex flex-col items-center gap-1.5 p-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 rounded-2xl transition-colors text-xs font-semibold"
           >
             <span className="font-bold text-sm">f</span>
             Facebook

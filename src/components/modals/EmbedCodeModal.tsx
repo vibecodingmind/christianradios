@@ -51,7 +51,7 @@ export function EmbedCodeModal({ isOpen, onClose, station }: EmbedCodeModalProps
         <div className="grid grid-cols-2 gap-3 mb-4 bg-slate-950 p-3 rounded-xl border border-slate-800">
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
-              <Layout className="w-3.5 h-3.5 text-sky-400" /> Widget Size
+              <Layout className="w-3.5 h-3.5 text-sky-400" /> Widget Format
             </label>
             <div className="grid grid-cols-2 gap-1.5">
               <button
@@ -63,7 +63,7 @@ export function EmbedCodeModal({ isOpen, onClose, station }: EmbedCodeModalProps
                     : 'bg-slate-900 border-slate-800 text-slate-400'
                 }`}
               >
-                Standard (180px)
+                Standard
               </button>
               <button
                 type="button"
@@ -74,7 +74,7 @@ export function EmbedCodeModal({ isOpen, onClose, station }: EmbedCodeModalProps
                     : 'bg-slate-900 border-slate-800 text-slate-400'
                 }`}
               >
-                Compact (90px)
+                Compact
               </button>
             </div>
           </div>

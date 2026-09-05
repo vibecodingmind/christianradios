@@ -360,6 +360,8 @@ export interface Station {
     instagram?: string;
     youtube?: string;
     whatsapp?: string;
+    tiktok?: string;
+    linkedin?: string;
   };
   streamUrl: string;
   backupStreamUrl?: string;
@@ -806,6 +808,22 @@ export interface PodcastEpisode {
   category: string;
   playCount: number;
   artworkUrl?: string;
+}
+
+export type FeedPostType = 'SHOUTOUT' | 'CHECK_IN' | 'ANNOUNCEMENT';
+
+export interface StationFeedPost {
+  id: string;
+  stationId: string;
+  userId?: string;
+  authorName: string;
+  authorCity?: string;
+  authorAvatar?: string;
+  content: string;
+  postType: FeedPostType;
+  isPinned?: boolean;
+  likesCount?: number;
+  createdAt: string;
 }
 
 export type DonationFundType =

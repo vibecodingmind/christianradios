@@ -275,7 +275,7 @@ export function AdminTenantsTab({ tenants, plans, onRefresh }: AdminTenantsTabPr
                 >
                   {plans.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} — TZS {Number(p.monthlyPriceTzs || 0).toLocaleString()}/mo (${p.monthlyPriceUsd}/mo)
+                      {p.name} — ${p.monthlyPriceUsd}/mo
                     </option>
                   ))}
                 </select>

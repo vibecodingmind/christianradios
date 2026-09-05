@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { TOP_5_CURRENCIES, formatPrice, type SupportedCurrency } from '../data/currencies';
+import { formatPrice } from '../data/currencies';
 import type { SubscriptionPlan } from '../types';
 
 interface PricingPageProps {
@@ -28,7 +28,6 @@ export function PricingPage({ onNavigate, onOpenAuth, onPublicAction }: PricingP
   const { user } = useAuth();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [billingInterval, setBillingInterval] = useState<'MONTHLY' | 'ANNUAL'>('MONTHLY');
-  const [currency, setCurrency] = useState<SupportedCurrency>('TZS');
   const [loading, setLoading] = useState(true);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
@@ -62,14 +61,14 @@ export function PricingPage({ onNavigate, onOpenAuth, onPublicAction }: PricingP
   const defaultPlans: SubscriptionPlan[] = [
     {
       id: 'plan_free',
-      name: 'Free',
+      name: 'Free Starter',
       tier: 'FREE',
       description: 'Basic single-station directory listing for Christian radio stations.',
       monthlyPriceTzs: 0,
       annualPriceTzs: 0,
       monthlyPriceUsd: 0,
       annualPriceUsd: 0,
-      currency: 'TZS',
+      currency: 'USD',
       maxStations: 1,
       featuredMonthlyQuota: 0,
       maxActiveFeatured: 0,
@@ -86,63 +85,27 @@ export function PricingPage({ onNavigate, onOpenAuth, onPublicAction }: PricingP
       isActive: true,
       featuresList: [
         '1 Radio Station listing',
+        '24/7 Live Stream Player (up to 128kbps)',
         'Normal directory placement',
-        'Custom logo & cover image',
-        'Location, genre & language tag',
-        '24/7 Live stream player',
-        'Basic stream monitoring',
+        'Basic station profile (Logo & Tagline)',
         '7 days analytics history',
-      ],
-    },
-    {
-      id: 'plan_basic',
-      name: 'Basic',
-      tier: 'BASIC',
-      description: 'Ideal for local Christian radio stations seeking growth and donations.',
-      monthlyPriceTzs: 10000,
-      annualPriceTzs: 100000,
-      monthlyPriceUsd: 4,
-      annualPriceUsd: 40,
-      currency: 'TZS',
-      maxStations: 3,
-      featuredMonthlyQuota: 1,
-      maxActiveFeatured: 1,
-      donationCampaignLimit: 2,
-      givingEnabled: true,
-      withdrawalsEnabled: true,
-      analyticsRetentionDays: 30,
-      advancedAnalyticsEnabled: false,
-      multiStationAnalyticsEnabled: false,
-      exportsEnabled: true,
-      advancedBrandingEnabled: false,
-      prioritySupport: false,
-      featuredPlacementPriority: 'BASIC',
-      isActive: true,
-      featuresList: [
-        'Up to 3 Radio Stations',
-        '1 Featured Campaign per month',
-        '1 Active Featured placement',
-        'Giving & Donation system (2 campaigns)',
-        'Earnings dashboard & PesaPal withdrawals',
-        '30 days analytics history',
-        'Basic data export',
-        'Standard verification',
+        'Community support',
       ],
     },
     {
       id: 'plan_pro',
-      name: 'Pro',
+      name: 'Pro Ministry',
       tier: 'PRO',
-      description: 'Comprehensive package for growing radio networks & ministries.',
-      monthlyPriceTzs: 25000,
-      annualPriceTzs: 250000,
-      monthlyPriceUsd: 10,
-      annualPriceUsd: 100,
-      currency: 'TZS',
-      maxStations: 10,
-      featuredMonthlyQuota: 3,
-      maxActiveFeatured: 2,
-      donationCampaignLimit: 10,
+      description: 'Ideal for growing Christian radio stations, ministries & dioceses.',
+      monthlyPriceTzs: 47500,
+      annualPriceTzs: 475000,
+      monthlyPriceUsd: 19,
+      annualPriceUsd: 190,
+      currency: 'USD',
+      maxStations: 3,
+      featuredMonthlyQuota: 1,
+      maxActiveFeatured: 1,
+      donationCampaignLimit: 3,
       givingEnabled: true,
       withdrawalsEnabled: true,
       analyticsRetentionDays: 90,
@@ -152,34 +115,33 @@ export function PricingPage({ onNavigate, onOpenAuth, onPublicAction }: PricingP
       advancedBrandingEnabled: true,
       prioritySupport: true,
       featuredPlacementPriority: 'HIGH',
+      isPopular: true,
       isActive: true,
       featuresList: [
-        'Up to 10 Radio Stations',
-        '3 Featured Campaigns per month',
-        '2 Active Featured placements',
-        'Giving & Donation system (10 campaigns)',
-        'Earnings & instant withdrawal requests',
-        '90 days advanced analytics',
-        'Multi-station analytics comparison',
-        'Advanced custom branding',
-        'Full CSV/Excel report exports',
-        'Priority verification & support',
+        'Up to 3 Radio Stations',
+        'HD Audio Stream & Backup Stream URL',
+        'Sow a Seed & Donation System (3 Campaigns)',
+        'Listener Premium Subscriptions Gating',
+        '1 Free Featured Directory Badge (3 days/mo)',
+        '90 days analytics & CSV report exports',
+        'Up to 3 Pinned Announcements in Live Feed',
+        'Priority email support (24h turnaround)',
       ],
     },
     {
       id: 'plan_vip',
-      name: 'VIP',
+      name: 'Kingdom Network',
       tier: 'VIP',
-      description: 'Ultimate enterprise broadcast suite for large Christian networks.',
-      monthlyPriceTzs: 50000,
-      annualPriceTzs: 500000,
-      monthlyPriceUsd: 20,
-      annualPriceUsd: 200,
-      currency: 'TZS',
-      maxStations: 25,
-      featuredMonthlyQuota: 10,
-      maxActiveFeatured: 5,
-      donationCampaignLimit: 25,
+      description: 'Ultimate enterprise broadcast suite for multi-station Christian networks.',
+      monthlyPriceTzs: 122500,
+      annualPriceTzs: 1225000,
+      monthlyPriceUsd: 49,
+      annualPriceUsd: 490,
+      currency: 'USD',
+      maxStations: 10,
+      featuredMonthlyQuota: 3,
+      maxActiveFeatured: 3,
+      donationCampaignLimit: 100,
       givingEnabled: true,
       withdrawalsEnabled: true,
       analyticsRetentionDays: 365,
@@ -191,16 +153,15 @@ export function PricingPage({ onNavigate, onOpenAuth, onPublicAction }: PricingP
       featuredPlacementPriority: 'HIGHEST',
       isActive: true,
       featuresList: [
-        'Up to 25 Radio Stations',
-        '10 Featured Campaigns per month',
-        '5 Active Featured placements',
-        'Giving & Donation system (25 campaigns)',
-        'Earnings & priority payout processing',
-        '12 Months full analytics history',
-        'Multi-station network analytics',
-        'Custom branding & white-label player',
-        'Advanced automated financial reports',
-        'VIP Priority support & expedited verification',
+        'Up to 10 Radio Stations',
+        'Multi-Region Backup Stream Failover',
+        'Unlimited Giving & Crowdfunding (0% fee)',
+        'Full Multi-Station Premium Access Gating',
+        '3 Free Featured Directory Badges (7 days/mo)',
+        '365 days full enterprise analytics & telemetry',
+        'Unlimited Pinned Announcements in Live Feed',
+        '5-min stream health checks & instant alerts',
+        'Dedicated Account Manager & 24/7 Priority Support',
       ],
     },
   ];
@@ -271,23 +232,6 @@ export function PricingPage({ onNavigate, onOpenAuth, onPublicAction }: PricingP
               </span>
             </button>
           </div>
-
-          {/* Currency Toggle (Top 5 International Currencies) */}
-          <div className="bg-slate-900 border border-slate-800 p-1 rounded-2xl flex flex-wrap items-center gap-1 shadow-lg">
-            {TOP_5_CURRENCIES.map((c) => (
-              <button
-                key={c.code}
-                onClick={() => setCurrency(c.code)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-                  currency === c.code
-                    ? 'bg-amber-500 text-slate-950 shadow-md'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <span>{c.flag}</span> <span className="ml-1">{c.code}</span>
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
@@ -298,15 +242,11 @@ export function PricingPage({ onNavigate, onOpenAuth, onPublicAction }: PricingP
           <span>Loading broadcaster packages...</span>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
           {plans.map((p) => {
             const isPopular = p.tier === 'PROFESSIONAL' || (p.tier as string) === 'PRO';
-            const baseTzsPrice =
-              billingInterval === 'MONTHLY'
-                ? p.monthlyPriceTzs || p.monthlyPriceUsd * 2600
-                : p.annualPriceTzs || p.annualPriceUsd * 2600;
-
-            const formattedPrice = formatPrice(baseTzsPrice, currency);
+            const priceUsd = billingInterval === 'MONTHLY' ? p.monthlyPriceUsd : p.annualPriceUsd;
+            const formattedPrice = formatPrice(priceUsd, 'USD');
 
             return (
               <div
@@ -335,7 +275,7 @@ export function PricingPage({ onNavigate, onOpenAuth, onPublicAction }: PricingP
                       <span className="text-3xl sm:text-4xl font-black text-white tracking-tight">
                         {formattedPrice}
                       </span>
-                      {baseTzsPrice > 0 && (
+                      {priceUsd > 0 && (
                         <span className="text-xs text-slate-400 font-medium">
                           / {billingInterval === 'MONTHLY' ? 'month' : 'year'}
                         </span>
@@ -371,7 +311,7 @@ export function PricingPage({ onNavigate, onOpenAuth, onPublicAction }: PricingP
                         : 'bg-slate-800 hover:bg-slate-700 text-white'
                     }`}
                   >
-                    <span>{baseTzsPrice === 0 ? 'Start Free Broadcast' : 'Choose Plan'}</span>
+                    <span>{priceUsd === 0 ? 'Start Free Broadcast' : 'Choose Plan'}</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>

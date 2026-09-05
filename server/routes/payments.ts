@@ -13,7 +13,7 @@ paymentsRouter.post('/create-checkout', requireAuth, async (req: AuthenticatedRe
     const { planId, featuredCampaignId, paymentMethod = 'MPESA', billingInterval = 'MONTHLY' } = req.body;
 
     let amount = 0;
-    let currency = 'TZS';
+    let currency = 'USD';
     let description = 'Christian Radios Broadcaster Service';
 
     if (planId) {
@@ -22,8 +22,8 @@ paymentsRouter.post('/create-checkout', requireAuth, async (req: AuthenticatedRe
         res.status(404).json({ error: 'Subscription plan not found.' });
         return;
       }
-      amount = billingInterval === 'ANNUAL' ? plan.annualPriceTzs : plan.monthlyPriceTzs;
-      currency = plan.currency || 'TZS';
+      amount = billingInterval === 'ANNUAL' ? plan.annualPriceUsd : plan.monthlyPriceUsd;
+      currency = plan.currency || 'USD';
       description = `${plan.name} (${billingInterval === 'ANNUAL' ? '1 Year' : '1 Month'})`;
     } else if (featuredCampaignId) {
       const campaign = db.featuredCampaigns.getAll().find((c) => c.id === featuredCampaignId);
@@ -32,7 +32,7 @@ paymentsRouter.post('/create-checkout', requireAuth, async (req: AuthenticatedRe
         return;
       }
       amount = campaign.price;
-      currency = campaign.currency || 'TZS';
+      currency = campaign.currency || 'USD';
       description = `Featured Station Placement (${campaign.placement})`;
     } else {
       res.status(400).json({ error: 'Either planId or featuredCampaignId must be provided.' });
@@ -222,7 +222,7 @@ paymentsRouter.post('/subscribe-station', requireAuth, async (req: Authenticated
     });
 
     // Credit Owner Ledger
-    db.ledger.addEntry({
+    db.ledgerEntries.create({
       id: `led_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       ownerId: station.ownerId,
       stationId: station.id,
@@ -230,7 +230,7 @@ paymentsRouter.post('/subscribe-station', requireAuth, async (req: Authenticated
       amount: ownerShare,
       currency: 'TZS',
       status: 'SETTLED',
-      balanceAfter: (db.ledger.getOwnerBalance(station.ownerId) || 0) + ownerShare,
+      balanceAfter: (db.ledgerEntries.getOwnerBalance(station.ownerId)?.availableBalance || 0) + ownerShare,
       description: `Listener Premium Radio Subscription Share (${station.name})`,
       createdAt: new Date().toISOString(),
     });
@@ -259,6 +259,18 @@ paymentsRouter.post('/subscribe-station', requireAuth, async (req: Authenticated
         });
         console.log(`[Referral System] Commission TZS ${commAmount} awarded to referrer ${referral.referrerId} for listener ${user.id} subscription to ${station.name}`);
       }
+    }
+
+    if (station.ownerId) {
+      db.notifications.create({
+        id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        userId: station.ownerId,
+        title: 'New Premium Station Subscriber!',
+        message: `${user.fullName || user.name || user.email} subscribed to your premium station "${station.name}" (${billingInterval}).`,
+        type: 'PAYMENT_SUCCESS',
+        read: false,
+        createdAt: new Date().toISOString(),
+      });
     }
 
     res.json({

@@ -145,6 +145,8 @@ publicRouter.get('/stations', (req, res) => {
       total,
       totalPages,
     },
+    total,
+    totalPages,
   });
 });
 
@@ -180,20 +182,42 @@ publicRouter.get('/stations/:slug', (req, res) => {
   const category = db.categories.findById(station.categoryId);
   const country = db.countries.findByCode(station.countryCode);
   const healthChecks = db.healthChecks.getForStation(station.id, 10);
-  const related = db.stations
-    .getAll()
-    .filter(
-      (s) =>
-        s.id !== station.id &&
-        (s.status === 'ACTIVE' || s.status === 'APPROVED') &&
-        (s.categoryId === station.categoryId || s.countryCode === station.countryCode)
-    )
-    .slice(0, 6)
-    .map((s) => ({
-      ...s,
-      category: db.categories.findById(s.categoryId),
-      country: db.countries.findByCode(s.countryCode),
-    }));
+  // Calculate related & reference stations using multi-attribute relevance matching
+  const allActive = db.stations.getAll().filter(
+    (s) => s.id !== station.id && (s.status === 'ACTIVE' || s.status === 'APPROVED')
+  );
+
+  const scored = allActive.map((s) => {
+    let score = 0;
+    let matchReason = 'Reference Broadcast';
+
+    if (s.categoryId && s.categoryId === station.categoryId) {
+      score += 4;
+      matchReason = 'Same Category';
+    }
+    if (s.countryCode && s.countryCode === station.countryCode) {
+      score += 3;
+      matchReason = 'Same Country';
+    }
+    if (s.language && station.language && s.language.toLowerCase() === station.language.toLowerCase()) {
+      score += 2;
+      if (score < 4) matchReason = 'Same Language';
+    }
+    if (s.denomination && station.denomination && s.denomination.toLowerCase() === station.denomination.toLowerCase()) {
+      score += 2;
+    }
+
+    return { station: s, score, matchReason };
+  });
+
+  scored.sort((a, b) => b.score - a.score || (b.station.playCount || 0) - (a.station.playCount || 0));
+
+  const related = scored.slice(0, 8).map((item) => ({
+    ...item.station,
+    referenceTag: item.matchReason,
+    category: db.categories.findById(item.station.categoryId),
+    country: db.countries.findByCode(item.station.countryCode),
+  }));
 
   res.json({
     station: {
@@ -203,6 +227,7 @@ publicRouter.get('/stations/:slug', (req, res) => {
     },
     healthChecks,
     related,
+    relatedStations: related,
   });
 });
 
@@ -534,9 +559,13 @@ publicRouter.post('/prayers', (req, res) => {
   }
 
   let stationName = undefined;
+  let stOwnerId: string | undefined = undefined;
   if (stationId) {
     const st = db.stations.findById(stationId);
-    if (st) stationName = st.name;
+    if (st) {
+      stationName = st.name;
+      stOwnerId = st.ownerId;
+    }
   }
 
   const prayer = db.prayerRequests.create({
@@ -554,6 +583,18 @@ publicRouter.post('/prayers', (req, res) => {
     createdAt: new Date().toISOString(),
   });
 
+  if (stOwnerId) {
+    db.notifications.create({
+      id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userId: stOwnerId,
+      title: 'New Prayer Request Submitted!',
+      message: `${prayer.authorName} submitted a prayer request "${title}" for ${stationName || 'your station'}.`,
+      type: 'SYSTEM_ALERT',
+      read: false,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
   res.status(201).json({ success: true, prayer });
 });
 
@@ -561,6 +602,22 @@ publicRouter.post('/prayers/:id/pray', (req, res) => {
   const { id } = req.params;
   const count = db.prayerRequests.incrementPrayed(id);
   res.json({ success: true, count });
+});
+
+publicRouter.get('/stations/:slug/prayers', (req, res) => {
+  const { slug } = req.params;
+  const st = db.stations.findBySlug(slug) || db.stations.findById(slug);
+  if (!st) {
+    res.status(404).json({ error: 'Station not found.' });
+    return;
+  }
+
+  let prayers = db.prayerRequests.getByStationId(st.id);
+  if (prayers.length === 0) {
+    prayers = db.prayerRequests.getApproved().slice(0, 10);
+  }
+
+  res.json({ prayers, total: prayers.length });
 });
 
 // 13. Station Reviews & Testimonies
@@ -626,10 +683,78 @@ publicRouter.post('/stations/:slug/reviews', (req, res) => {
     createdAt: new Date().toISOString(),
   });
 
+  if (st.ownerId) {
+    db.notifications.create({
+      id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userId: st.ownerId,
+      title: 'New Listener Testimony Received!',
+      message: `${authorName} shared a ${review.rating}-star review/testimony for ${st.name}: "${review.title}".`,
+      type: 'SYSTEM_ALERT',
+      read: false,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
   res.status(201).json({ success: true, review });
 });
 
-// 14. Daily Verse & Scripture Reflection
+// 14. Station Live Feed & Engagement
+publicRouter.get('/stations/:slug/feed', (req, res) => {
+  const { slug } = req.params;
+  const st = db.stations.findBySlug(slug) || db.stations.findById(slug);
+  if (!st) {
+    res.status(404).json({ error: 'Station not found.' });
+    return;
+  }
+
+  const posts = db.feedPosts.getByStationId(st.id);
+  res.json({ posts, total: posts.length });
+});
+
+publicRouter.post('/stations/:stationId/feed', (req, res) => {
+  const { stationId } = req.params;
+  const st = db.stations.findBySlug(stationId) || db.stations.findById(stationId);
+  if (!st) {
+    res.status(404).json({ error: 'Station not found.' });
+    return;
+  }
+
+  const { authorName, authorCity, content, postType } = req.body;
+  if (!authorName || !content || !content.trim()) {
+    res.status(400).json({ error: 'Author name and message content are required.' });
+    return;
+  }
+
+  const cleanContent = content.trim().slice(0, 500);
+  const type: 'SHOUTOUT' | 'CHECK_IN' | 'ANNOUNCEMENT' =
+    postType === 'CHECK_IN' ? 'CHECK_IN' : postType === 'ANNOUNCEMENT' ? 'ANNOUNCEMENT' : 'SHOUTOUT';
+
+  const post = db.feedPosts.create({
+    id: `feed_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    stationId: st.id,
+    authorName: authorName.trim(),
+    authorCity: authorCity ? authorCity.trim() : undefined,
+    content: cleanContent,
+    postType: type,
+    isPinned: type === 'ANNOUNCEMENT',
+    likesCount: 0,
+    createdAt: new Date().toISOString(),
+  });
+
+  res.status(201).json({ success: true, post });
+});
+
+publicRouter.post('/stations/:stationId/feed/:postId/like', (req, res) => {
+  const { postId } = req.params;
+  const post = db.feedPosts.like(postId);
+  if (!post) {
+    res.status(404).json({ error: 'Feed post not found.' });
+    return;
+  }
+  res.json({ success: true, likesCount: post.likesCount });
+});
+
+// 15. Daily Verse & Scripture Reflection
 publicRouter.get('/verse-of-the-day', (req, res) => {
   const verse = db.dailyVerses.getToday();
   res.json({ verse });
@@ -637,8 +762,18 @@ publicRouter.get('/verse-of-the-day', (req, res) => {
 
 // 16. Live Now Playing Song & Preacher Metadata (ICY Metadata Engine)
 publicRouter.get('/stations/:slug/now-playing', async (req, res) => {
-  const { slug } = req.params;
-  const st = db.stations.findBySlug(slug) || db.stations.findById(slug);
+  const rawParam = req.params.slug;
+  const decodedParam = decodeURIComponent(rawParam);
+  const st =
+    db.stations.findBySlug(rawParam) ||
+    db.stations.findBySlug(decodedParam) ||
+    db.stations.findById(rawParam) ||
+    db.stations.getAll().find(
+      (s) =>
+        s.slug?.toLowerCase() === rawParam.toLowerCase() ||
+        s.slug?.toLowerCase() === decodedParam.toLowerCase() ||
+        s.id === rawParam
+    );
   if (!st) {
     res.status(404).json({ error: 'Station not found.' });
     return;
@@ -806,7 +941,7 @@ publicRouter.get('/stations/:slug/donations', (req, res) => {
 
   const donations = db.donations.getByStationId(st.id);
   const completed = donations.filter((d) => d.status === 'COMPLETED');
-  const totalAmount = completed.reduce((sum, d) => sum + (d.currency === 'USD' ? d.amount * 2500 : d.amount), 0);
+  const totalAmount = completed.reduce((sum, d) => sum + d.amount, 0);
 
   res.json({
     donations: completed.slice(0, 15).map((d) => ({
@@ -821,7 +956,7 @@ publicRouter.get('/stations/:slug/donations', (req, res) => {
       createdAt: d.createdAt,
     })),
     totalDonationsCount: completed.length,
-    estimatedTotalTzs: totalAmount,
+    estimatedTotalUsd: totalAmount,
   });
 });
 
@@ -859,7 +994,7 @@ publicRouter.post(['/donations', '/donations/checkout'], (req, res) => {
     donorEmail,
     donorPhone,
     amount,
-    currency = 'TZS',
+    currency = 'USD',
     fundType = 'GENERAL',
     campaignId,
     paymentMethod = 'MPESA',
@@ -945,15 +1080,17 @@ publicRouter.post(['/donations', '/donations/checkout'], (req, res) => {
   }
 
   // Also create a notification for station owner
-  db.notifications.create({
-    id: `notif_${Date.now()}`,
-    userId: st.ownerId,
-    title: `New Donation Received! (${donation.currency} ${donation.amount.toLocaleString()})`,
-    message: `${isAnonymous ? 'An anonymous supporter' : donorName} contributed ${donation.currency} ${donation.amount.toLocaleString()} to ${st.name} ${campaignTitle ? `for "${campaignTitle}"` : `for ${donation.fundType.replace('_', ' ')}`}. Net credited: ${donation.currency} ${netAmount.toLocaleString()}.`,
-    type: 'PAYMENT_SUCCESS',
-    read: false,
-    createdAt: new Date().toISOString(),
-  });
+  if (st.ownerId) {
+    db.notifications.create({
+      id: `notif_${Date.now()}`,
+      userId: st.ownerId,
+      title: `New Donation Received! (${donation.currency} ${donation.amount.toLocaleString()})`,
+      message: `${isAnonymous ? 'An anonymous supporter' : donorName} contributed ${donation.currency} ${donation.amount.toLocaleString()} to ${st.name} ${campaignTitle ? `for "${campaignTitle}"` : `for ${donation.fundType.replace('_', ' ')}`}. Net credited: ${donation.currency} ${netAmount.toLocaleString()}.`,
+      type: 'PAYMENT_SUCCESS',
+      read: false,
+      createdAt: new Date().toISOString(),
+    });
+  }
 
   // Audit log
   db.auditLogs.log({

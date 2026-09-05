@@ -89,6 +89,25 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
       setShowStationModal(true);
     } else if (initialParam?.startsWith('claim-station')) {
       setActiveTab('claims');
+      const stId = initialParam.split(':')[1];
+      if (stId) {
+        fetch(`/api/public/stations/${stId}`)
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.station) {
+              setClaimingStationInfo({ id: data.station.id, name: data.station.name });
+            } else {
+              setClaimingStationInfo({ id: stId, name: 'Target Radio Station' });
+            }
+            setShowClaimModal(true);
+          })
+          .catch(() => {
+            setClaimingStationInfo({ id: stId, name: 'Target Radio Station' });
+            setShowClaimModal(true);
+          });
+      } else {
+        setShowClaimModal(true);
+      }
     }
   }, [initialParam]);
 
@@ -141,6 +160,15 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
     websiteUrl: '',
     email: '',
     phone: '',
+    socialLinks: {
+      facebook: '',
+      twitter: '',
+      instagram: '',
+      youtube: '',
+      whatsapp: '',
+      tiktok: '',
+      linkedin: '',
+    },
     streamUrl: '',
     backupStreamUrl: '',
     streamType: 'MP3',
@@ -1349,6 +1377,15 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
                           websiteUrl: st.websiteUrl || '',
                           email: st.email || '',
                           phone: st.phone || '',
+                          socialLinks: {
+                            facebook: st.socialLinks?.facebook || '',
+                            twitter: st.socialLinks?.twitter || '',
+                            instagram: st.socialLinks?.instagram || '',
+                            youtube: st.socialLinks?.youtube || '',
+                            whatsapp: st.socialLinks?.whatsapp || '',
+                            tiktok: st.socialLinks?.tiktok || '',
+                            linkedin: st.socialLinks?.linkedin || '',
+                          },
                           streamUrl: st.streamUrl,
                           backupStreamUrl: st.backupStreamUrl || '',
                           streamType: st.streamType,
@@ -1497,7 +1534,7 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
           </div>
 
           {/* Pricing Tier Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {plans.map((p) => {
               const isCurrent = plan?.id === p.id;
               return (
@@ -1521,11 +1558,8 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
 
                     <div>
                       <div className="text-2xl font-extrabold text-white">
-                        TZS {Number(p.monthlyPriceTzs || 0).toLocaleString()}
+                        ${Number(p.monthlyPriceUsd || 0).toLocaleString()} USD
                         <span className="text-xs text-slate-400 font-normal"> / month</span>
-                      </div>
-                      <div className="text-[11px] text-slate-400">
-                        (~${p.monthlyPriceUsd} USD)
                       </div>
                     </div>
 
@@ -1587,7 +1621,7 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
                     </div>
                     <div className="flex items-center gap-4">
                       <span className="font-mono font-bold text-white">
-                        {inv.currency || 'TZS'} {Number(inv.amount || 0).toLocaleString()}
+                        {inv.currency || 'USD'} ${Number(inv.amount || 0).toLocaleString()}
                       </span>
                       <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full">
                         {inv.status}
@@ -1852,6 +1886,111 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
                     onChange={(e) => setFormData({ ...formData, language: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200"
                   />
+                </div>
+              </div>
+
+              {/* Station Contacts & Social Media Links */}
+              <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-sky-400">
+                  Official Station Contact Details & Social Media Links
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <label className="block font-medium text-slate-300 mb-1">Website URL</label>
+                    <input
+                      type="url"
+                      placeholder="https://yourstation.com"
+                      value={formData.websiteUrl}
+                      onChange={(e) => setFormData({ ...formData, websiteUrl: e.target.value })}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-slate-300 mb-1">Station Email</label>
+                    <input
+                      type="email"
+                      placeholder="info@yourstation.com"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-slate-300 mb-1">Studio Phone / WhatsApp</label>
+                    <input
+                      type="text"
+                      placeholder="+255700000000"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-800/80">
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Social Media Page Links</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div>
+                      <label className="block text-slate-400 mb-1">Facebook URL</label>
+                      <input
+                        type="url"
+                        placeholder="https://facebook.com/yourpage"
+                        value={formData.socialLinks?.facebook || ''}
+                        onChange={(e) => setFormData({ ...formData, socialLinks: { ...formData.socialLinks, facebook: e.target.value } })}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1">Instagram URL</label>
+                      <input
+                        type="url"
+                        placeholder="https://instagram.com/yourhandle"
+                        value={formData.socialLinks?.instagram || ''}
+                        onChange={(e) => setFormData({ ...formData, socialLinks: { ...formData.socialLinks, instagram: e.target.value } })}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1">TikTok URL</label>
+                      <input
+                        type="url"
+                        placeholder="https://tiktok.com/@yourhandle"
+                        value={formData.socialLinks?.tiktok || ''}
+                        onChange={(e) => setFormData({ ...formData, socialLinks: { ...formData.socialLinks, tiktok: e.target.value } })}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1">X (Twitter) URL</label>
+                      <input
+                        type="url"
+                        placeholder="https://x.com/yourhandle"
+                        value={formData.socialLinks?.twitter || ''}
+                        onChange={(e) => setFormData({ ...formData, socialLinks: { ...formData.socialLinks, twitter: e.target.value } })}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1">LinkedIn URL</label>
+                      <input
+                        type="url"
+                        placeholder="https://linkedin.com/company/yourcompany"
+                        value={formData.socialLinks?.linkedin || ''}
+                        onChange={(e) => setFormData({ ...formData, socialLinks: { ...formData.socialLinks, linkedin: e.target.value } })}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1">WhatsApp Direct Link / Number</label>
+                      <input
+                        type="text"
+                        placeholder="https://wa.me/255..."
+                        value={formData.socialLinks?.whatsapp || ''}
+                        onChange={(e) => setFormData({ ...formData, socialLinks: { ...formData.socialLinks, whatsapp: e.target.value } })}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-200"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 

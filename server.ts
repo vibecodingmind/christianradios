@@ -19,7 +19,7 @@ import { authRateLimiter, sensitiveActionRateLimiter, apiRateLimiter } from './s
 
 async function bootstrap() {
   const app = express();
-  const PORT = process.env.PORT || 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   // 2. Production Security Headers & CORS Middleware
   app.use((req, res, next) => {

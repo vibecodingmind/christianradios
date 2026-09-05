@@ -138,7 +138,7 @@ export function DonationReceiptPage({ receiptId, onNavigate }: DonationReceiptPa
             Total Blessing Amount
           </span>
           <div className="text-3xl sm:text-4xl font-black text-rose-400 print:text-rose-600 font-mono">
-            {donation.currency} {(donation.amount || 0).toLocaleString()}
+            {donation.currency || 'USD'} ${(donation.amount || 0).toLocaleString()}
           </div>
           <p className="text-xs text-slate-300 print:text-slate-700">
             Designated for: <strong className="text-amber-300 print:text-amber-700">{donation.fundType.replace('_', ' ')}</strong>

@@ -29,7 +29,13 @@ export async function getLiveNowPlayingMetadata(station: Station): Promise<NowPl
 
   if (station.schedule && station.schedule.length > 0) {
     const todayShows = station.schedule.filter((s) => s.dayOfWeek === currentDay);
-    const activeShow = todayShows.find((s) => s.startTime <= currentTime && s.endTime > currentTime);
+    const activeShow = todayShows.find((s) => {
+      if (s.startTime <= s.endTime) {
+        return currentTime >= s.startTime && currentTime < s.endTime;
+      }
+      // Overnight show spanning across midnight (e.g. 22:00 to 02:00)
+      return currentTime >= s.startTime || currentTime < s.endTime;
+    });
     if (activeShow) {
       scheduledProgram = activeShow.programName;
       if (activeShow.presenter) scheduledPresenter = activeShow.presenter;

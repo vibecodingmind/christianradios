@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Radio, Music, BookOpen, HeartHandshake, Mic2, Flame, ArrowRight } from 'lucide-react';
+import { Sparkles, Radio, Music, BookOpen, HeartHandshake, Mic2, Flame, ArrowRight, Layers } from 'lucide-react';
 import type { Category } from '../types';
 
 interface CategoriesPageProps {
@@ -45,19 +45,21 @@ export function CategoriesPage({ onNavigate }: CategoriesPageProps) {
   };
 
   return (
-    <div className="space-y-8 pb-16">
+    <div className="space-y-8 pb-20 animate-page-fade-up">
       {/* Banner */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8">
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-sky-400 mb-1">
-          <Sparkles className="w-4 h-4" />
-          Broadcast Taxonomy
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950/90 border border-sky-500/20 p-6 sm:p-10 shadow-2xl backdrop-blur-xl space-y-3">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-sky-400 to-indigo-500 opacity-90" />
+
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-400 text-xs font-extrabold uppercase tracking-wider">
+          <Layers className="w-3.5 h-3.5" />
+          <span>Broadcast Taxonomy</span>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+        <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">
           Explore Radio Categories & Formats
         </h1>
-        <p className="text-xs text-slate-400 mt-1 max-w-xl">
-          Discover Christian radio stations categorized by ministry focus, musical styles, biblical
-          exposition, and prayer formats.
+        <p className="text-xs sm:text-sm text-slate-300 max-w-2xl font-medium leading-relaxed">
+          Discover Christian radio stations categorized by ministry focus, musical styles, biblical exposition, and prayer intercession formats.
         </p>
       </div>
 
@@ -72,26 +74,28 @@ export function CategoriesPage({ onNavigate }: CategoriesPageProps) {
             <div
               key={cat.id}
               onClick={() => onNavigate('category', cat.slug)}
-              className="group bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-3xl p-6 transition-all cursor-pointer flex flex-col justify-between"
+              className="group bg-gradient-to-b from-slate-900/90 to-slate-950 hover:bg-slate-900 border border-slate-800/90 hover:border-sky-500/50 rounded-3xl p-6 transition-all duration-300 hover:-translate-y-1.5 cursor-pointer flex flex-col justify-between shadow-xl hover:shadow-2xl hover:shadow-sky-500/10"
             >
-              <div>
-                <div className="w-12 h-12 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform shadow-inner">
+              <div className="space-y-4">
+                <div className="w-13 h-13 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner">
                   {getCategoryIcon(cat.slug)}
                 </div>
-                <h3 className="text-lg font-bold text-white group-hover:text-sky-400 transition-colors mb-2">
-                  {cat.name}
-                </h3>
-                <p className="text-xs text-slate-400 leading-relaxed line-clamp-2">
-                  {cat.description}
-                </p>
+                <div>
+                  <h3 className="text-lg font-extrabold text-white group-hover:text-sky-300 transition-colors mb-1.5">
+                    {cat.name}
+                  </h3>
+                  <p className="text-xs text-slate-400 leading-relaxed line-clamp-3 font-normal">
+                    {cat.description}
+                  </p>
+                </div>
               </div>
 
-              <div className="pt-6 mt-4 border-t border-slate-800/80 flex items-center justify-between text-xs">
+              <div className="pt-6 mt-6 border-t border-slate-800/80 flex items-center justify-between text-xs">
                 <span className="font-semibold text-slate-400">
-                  {cat.stationCount || 1} Stations Active
+                  {cat.stationCount || 1} Stations Live
                 </span>
-                <span className="text-sky-400 group-hover:translate-x-1 transition-transform flex items-center gap-1 font-semibold">
-                  Browse Stations <ArrowRight className="w-3.5 h-3.5" />
+                <span className="text-sky-400 group-hover:translate-x-1 transition-transform flex items-center gap-1.5 font-extrabold">
+                  Browse Stations <ArrowRight className="w-4 h-4" />
                 </span>
               </div>
             </div>

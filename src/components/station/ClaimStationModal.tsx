@@ -265,7 +265,7 @@ export const ClaimStationModal: React.FC<ClaimStationModalProps> = ({
                   <div className="relative">
                     <input
                       type="text"
-                      placeholder="Type station name, city, frequency (e.g. Radio Maria, Praise Power)..."
+                      placeholder="Type station name or city (e.g. Radio Maria, Praise Power)..."
                       value={searchQuery}
                       onChange={(e) => handleSearchStations(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-amber-500"

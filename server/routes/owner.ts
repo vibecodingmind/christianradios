@@ -239,6 +239,8 @@ const StationInputSchema = z.object({
       instagram: z.string().optional(),
       youtube: z.string().optional(),
       whatsapp: z.string().optional(),
+      tiktok: z.string().optional(),
+      linkedin: z.string().optional(),
     })
     .optional(),
   streamUrl: z.string().url('A valid streaming URL is required'),
@@ -881,7 +883,7 @@ ownerRouter.get(['/giving/campaigns', '/campaigns'], (req: AuthenticatedRequest,
 
 ownerRouter.post(['/giving/campaigns', '/campaigns'], (req: AuthenticatedRequest, res) => {
   const ownerId = req.user!.id;
-  const { stationId, title, description, goalAmount, currency = 'TZS', startDate, endDate, imageUrl } = req.body;
+  const { stationId, title, description, goalAmount, currency = 'USD', startDate, endDate, imageUrl } = req.body;
 
   const entitlements = PlanEntitlementService.getOwnerEntitlements(ownerId);
   if (!entitlements.capabilities.canUseGiving) {
@@ -1008,7 +1010,7 @@ ownerRouter.post(['/giving/withdrawals', '/withdrawals'], (req: AuthenticatedReq
   const ownerId = req.user!.id;
   const {
     amount,
-    currency = 'TZS',
+    currency = 'USD',
     payoutMethod,
     payoutAccountName,
     payoutAccountNumber,
@@ -1499,5 +1501,81 @@ ownerRouter.post('/featured-purchases/checkout', (req: AuthenticatedRequest, res
     message: 'Featured promotion order created.',
     purchase,
   });
+});
+
+// Station Owner Live Feed Moderation & Official Announcements
+ownerRouter.delete('/stations/:stationId/feed/:postId', (req: AuthenticatedRequest, res) => {
+  const { stationId, postId } = req.params;
+  const station = db.stations.findById(stationId);
+  if (!station || (station.ownerId !== req.user!.id && req.user!.role !== 'SUPER_ADMIN')) {
+    res.status(403).json({ error: 'Unauthorized to delete feed posts on this station.' });
+    return;
+  }
+
+  const deleted = db.feedPosts.delete(postId);
+  if (!deleted) {
+    res.status(404).json({ error: 'Feed post not found.' });
+    return;
+  }
+
+  res.json({ success: true, message: 'Feed post deleted.' });
+});
+
+ownerRouter.post('/stations/:stationId/feed/:postId/pin', (req: AuthenticatedRequest, res) => {
+  const { stationId, postId } = req.params;
+  const station = db.stations.findById(stationId);
+  if (!station || (station.ownerId !== req.user!.id && req.user!.role !== 'SUPER_ADMIN')) {
+    res.status(403).json({ error: 'Unauthorized to manage feed posts on this station.' });
+    return;
+  }
+
+  const post = db.feedPosts.togglePin(postId);
+  if (!post) {
+    res.status(404).json({ error: 'Feed post not found.' });
+    return;
+  }
+
+  res.json({ success: true, isPinned: post.isPinned, post });
+});
+
+ownerRouter.post('/stations/:stationId/feed/announcement', (req: AuthenticatedRequest, res) => {
+  const { stationId } = req.params;
+  const station = db.stations.findById(stationId);
+  if (!station || (station.ownerId !== req.user!.id && req.user!.role !== 'SUPER_ADMIN')) {
+    res.status(403).json({ error: 'Unauthorized to post announcements on this station.' });
+    return;
+  }
+
+  const { title, content } = req.body;
+  if (!content || !content.trim()) {
+    res.status(400).json({ error: 'Announcement content is required.' });
+    return;
+  }
+
+  const post = db.feedPosts.create({
+    id: `feed_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    stationId,
+    userId: req.user!.id,
+    authorName: `${station.name} (Official)`,
+    authorCity: station.city,
+    content: (title ? `📢 ${title}\n\n${content}` : content).trim(),
+    postType: 'ANNOUNCEMENT',
+    isPinned: true,
+    likesCount: 0,
+    createdAt: new Date().toISOString(),
+  });
+
+  res.status(201).json({ success: true, post });
+});
+
+// Notifications
+ownerRouter.get('/notifications', (req: AuthenticatedRequest, res) => {
+  const notifications = db.notifications.getByUserId(req.user!.id);
+  res.json({ notifications });
+});
+
+ownerRouter.post('/notifications/:id/read', (req: AuthenticatedRequest, res) => {
+  db.notifications.markRead(req.params.id, req.user!.id);
+  res.json({ success: true });
 });
 

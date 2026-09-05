@@ -176,7 +176,7 @@ export function FavoritesPage({ onNavigate }: FavoritesPageProps) {
               setActiveTab('favorites');
               setSelectedPlaylist(null);
             }}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
               activeTab === 'favorites'
                 ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
@@ -191,7 +191,7 @@ export function FavoritesPage({ onNavigate }: FavoritesPageProps) {
               setActiveTab('history');
               setSelectedPlaylist(null);
             }}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
               activeTab === 'history'
                 ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
@@ -203,7 +203,7 @@ export function FavoritesPage({ onNavigate }: FavoritesPageProps) {
 
           <button
             onClick={() => setActiveTab('playlists')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
               activeTab === 'playlists'
                 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/50'

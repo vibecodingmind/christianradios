@@ -230,7 +230,7 @@ export function AdminGivingTab() {
             Total Gross Donations
           </span>
           <div className="text-2xl font-black text-white">
-            TZS {Number(stats.totalGrossDonations || 0).toLocaleString()}
+            ${Number(stats.totalGrossDonations || 0).toLocaleString()} USD
           </div>
           <span className="text-[10px] text-slate-500 block">
             {stats.totalDonationsCount || 0} completed gifts
@@ -243,7 +243,7 @@ export function AdminGivingTab() {
             Platform Fee Revenue
           </span>
           <div className="text-2xl font-black text-emerald-400">
-            TZS {Number(stats.totalPlatformFeesRevenue || 0).toLocaleString()}
+            ${Number(stats.totalPlatformFeesRevenue || 0).toLocaleString()} USD
           </div>
           <span className="text-[10px] text-slate-500 block">
             {givingSettings.donationFeePercentage}% platform maintenance fee
@@ -256,7 +256,7 @@ export function AdminGivingTab() {
             Pending Payout Queue
           </span>
           <div className="text-2xl font-black text-amber-300">
-            TZS {Number(stats.totalPendingPayouts || 0).toLocaleString()}
+            ${Number(stats.totalPendingPayouts || 0).toLocaleString()} USD
           </div>
           <span className="text-[10px] text-slate-500 block">
             {stats.pendingWithdrawalsCount || 0} requests requiring review/disbursement
@@ -269,7 +269,7 @@ export function AdminGivingTab() {
             Total Disbursed Payouts
           </span>
           <div className="text-2xl font-black text-sky-400">
-            TZS {Number(stats.totalDisbursedPayouts || 0).toLocaleString()}
+            ${Number(stats.totalDisbursedPayouts || 0).toLocaleString()} USD
           </div>
           <span className="text-[10px] text-slate-500 block">
             Net broadcaster earnings transferred
@@ -379,10 +379,10 @@ export function AdminGivingTab() {
                         <div className="flex items-center gap-4 shrink-0">
                           <div className="text-right">
                             <div className="text-xl font-black text-white">
-                              {w.currency || 'TZS'} {Number(w.amount || 0).toLocaleString()}
+                              {w.currency || 'USD'} {Number(w.amount || 0).toLocaleString()}
                             </div>
                             <span className="text-[10px] text-slate-500 block">
-                              Net: {w.currency || 'TZS'} {Number(w.netAmount || w.amount || 0).toLocaleString()}
+                              Net: {w.currency || 'USD'} {Number(w.netAmount || w.amount || 0).toLocaleString()}
                             </span>
                           </div>
 
@@ -461,13 +461,13 @@ export function AdminGivingTab() {
                             )}
                           </td>
                           <td className="py-3 px-4 text-right font-medium text-slate-300">
-                            {d.currency || 'TZS'} {Number(d.grossAmount || d.amount || 0).toLocaleString()}
+                            {d.currency || 'USD'} {Number(d.grossAmount || d.amount || 0).toLocaleString()}
                           </td>
                           <td className="py-3 px-4 text-right text-emerald-400 font-semibold">
-                            +{d.currency || 'TZS'} {Number(d.platformFeeAmount || Math.round((d.grossAmount || d.amount || 0) * 0.05)).toLocaleString()}
+                            +{d.currency || 'USD'} {Number(d.platformFeeAmount || Math.round((d.grossAmount || d.amount || 0) * 0.05)).toLocaleString()}
                           </td>
                           <td className="py-3 px-4 text-right font-bold text-white">
-                            {d.currency || 'TZS'} {Number(d.netOwnerAmount || Math.round((d.grossAmount || d.amount || 0) * 0.95)).toLocaleString()}
+                            {d.currency || 'USD'} {Number(d.netOwnerAmount || Math.round((d.grossAmount || d.amount || 0) * 0.95)).toLocaleString()}
                           </td>
                           <td className="py-3 px-4">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -519,8 +519,8 @@ export function AdminGivingTab() {
 
                       <div className="space-y-1.5 pt-2 border-t border-slate-800">
                         <div className="flex justify-between text-xs font-bold">
-                          <span className="text-emerald-400">{camp.currency || 'TZS'} {Number(camp.amountRaised || 0).toLocaleString()}</span>
-                          <span className="text-slate-400">Target: {camp.currency || 'TZS'} {Number(camp.goalAmount || 0).toLocaleString()}</span>
+                          <span className="text-emerald-400">{camp.currency || 'USD'} {Number(camp.amountRaised || 0).toLocaleString()}</span>
+                          <span className="text-slate-400">Target: {camp.currency || 'USD'} {Number(camp.goalAmount || 0).toLocaleString()}</span>
                         </div>
                         <div className="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800">
                           <div className="h-full bg-gradient-to-r from-rose-500 to-emerald-400 rounded-full" style={{ width: `${pct}%` }} />
@@ -611,7 +611,7 @@ export function AdminGivingTab() {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      Minimum Broadcaster Payout (TZS)
+                      Minimum Broadcaster Payout (USD $)
                     </label>
                     <input
                       type="number"
@@ -656,7 +656,7 @@ export function AdminGivingTab() {
               <div className="flex justify-between">
                 <span className="text-slate-400">Amount Requested:</span>
                 <span className="font-bold text-emerald-400">
-                  {selectedWithdrawal.currency || 'TZS'} {Number(selectedWithdrawal.amount || 0).toLocaleString()}
+                  {selectedWithdrawal.currency || 'USD'} {Number(selectedWithdrawal.amount || 0).toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between">

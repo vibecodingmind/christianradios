@@ -22,7 +22,7 @@ export function PesapalCheckoutModal({
   onClose,
   title,
   amount: initialAmount,
-  currency: initialCurrency = 'TZS',
+  currency: initialCurrency = 'USD',
   planId,
   stationId,
   campaignId,

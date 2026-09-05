@@ -33,11 +33,10 @@ export function DonationModal({
   campaign,
   onDonationSuccess,
 }: DonationModalProps) {
-  const [amount, setAmount] = useState<number>(20000);
-  const [currency, setCurrency] = useState<'TZS' | 'USD' | 'KES'>('TZS');
+  const [amount, setAmount] = useState<number>(25);
+  const currency = 'USD';
   const [fundType, setFundType] = useState<string>(campaign ? 'CAMPAIGN' : 'GOSPEL_OUTREACH');
   const [paymentGateway, setPaymentGateway] = useState<'PESAPAL' | 'PAYPAL' | 'STRIPE'>('PESAPAL');
-  const [pesapalChannel, setPesapalChannel] = useState<'MPESA' | 'TIGO_PESA' | 'AIRTEL_MONEY' | 'CARD'>('MPESA');
   const [donorName, setDonorName] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [donorEmail, setDonorEmail] = useState('');
@@ -49,8 +48,7 @@ export function DonationModal({
 
   if (!isOpen) return null;
 
-  const presetAmountsTZS = [5000, 10000, 20000, 50000, 100000, 250000];
-  const presetAmountsUSD = [5, 15, 25, 50, 100, 250];
+  const presetAmounts = [5, 15, 25, 50, 100, 250];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,7 +70,7 @@ export function DonationModal({
           amount,
           currency,
           fundType: campaign ? 'CAMPAIGN' : fundType,
-          paymentMethod: paymentGateway === 'PESAPAL' ? pesapalChannel : paymentGateway,
+          paymentMethod: paymentGateway,
           paymentGateway,
           message,
         }),
@@ -137,30 +135,12 @@ export function DonationModal({
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-                    Select Contribution Amount
+                    Select Contribution Amount (USD $)
                   </label>
-                  <div className="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800">
-                    {(['TZS', 'USD', 'KES'] as const).map((curr) => (
-                      <button
-                        key={curr}
-                        type="button"
-                        onClick={() => {
-                          setCurrency(curr);
-                          if (curr === 'USD') setAmount(25);
-                          else setAmount(20000);
-                        }}
-                        className={`px-2.5 py-1 text-xs font-bold rounded-md transition ${
-                          currency === curr ? 'bg-rose-500 text-white' : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        {curr}
-                      </button>
-                    ))}
-                  </div>
                 </div>
 
                 <div className="grid grid-cols-6 gap-1.5 mb-2.5">
-                  {(currency === 'USD' ? presetAmountsUSD : presetAmountsTZS).map((preset) => (
+                  {presetAmounts.map((preset) => (
                     <button
                       key={preset}
                       type="button"
@@ -171,23 +151,23 @@ export function DonationModal({
                           : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700'
                       }`}
                     >
-                      {currency === 'USD' ? `$${preset}` : `${preset >= 1000 ? preset / 1000 + 'k' : preset}`}
+                      ${preset}
                     </button>
                   ))}
                 </div>
 
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-xs text-slate-400">
-                    {currency}
+                    $
                   </span>
                   <input
                     type="number"
-                    min="500"
+                    min="1"
                     required
                     value={amount}
                     onChange={(e) => setAmount(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-14 pr-4 py-2.5 text-white font-bold text-base focus:outline-none focus:border-rose-500"
-                    placeholder="Enter custom amount"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-4 py-2.5 text-white font-bold text-base focus:outline-none focus:border-rose-500"
+                    placeholder="Enter custom USD amount"
                   />
                 </div>
               </div>
@@ -267,30 +247,7 @@ export function DonationModal({
                   </button>
                 </div>
 
-                {/* Sub-channel selector if PesaPal selected */}
-                {paymentGateway === 'PESAPAL' && (
-                  <div className="mt-2 p-2.5 bg-slate-950 border border-slate-800 rounded-xl space-y-1.5">
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
-                      Select Mobile Money / Card Network
-                    </span>
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {(['MPESA', 'TIGO_PESA', 'AIRTEL_MONEY', 'CARD'] as const).map((ch) => (
-                        <button
-                          key={ch}
-                          type="button"
-                          onClick={() => setPesapalChannel(ch)}
-                          className={`py-1 px-1 text-[10px] font-bold rounded-lg border text-center transition ${
-                            pesapalChannel === ch
-                              ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
-                              : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
-                          }`}
-                        >
-                          {ch === 'AIRTEL_MONEY' ? 'Airtel' : ch === 'CARD' ? 'Card' : ch.replace('_', ' ')}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+
               </div>
 
               {/* Donor Details */}

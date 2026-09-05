@@ -36,7 +36,6 @@ import { useAuth } from '../context/AuthContext';
 import { StationCard } from '../components/station/StationCard';
 import { Carousel } from '../components/common/Carousel';
 import { AIRadioGuide } from '../components/ai/AIRadioGuide';
-import { ScripturePopupModal } from '../components/modals/ScripturePopupModal';
 import { apiFetch } from '../lib/api';
 import type { Category, Country, Station, SubscriptionPlan, PrayerRequest, StationReview } from '../types';
 
@@ -50,7 +49,7 @@ const defaultPlans: SubscriptionPlan[] = [
     annualPriceTzs: 0,
     monthlyPriceUsd: 0,
     annualPriceUsd: 0,
-    currency: 'TZS',
+    currency: 'USD',
     maxStations: 1,
     featuredMonthlyQuota: 0,
     maxActiveFeatured: 0,
@@ -67,59 +66,63 @@ const defaultPlans: SubscriptionPlan[] = [
     isActive: true,
     featuresList: [
       '1 Radio Station listing',
+      '24/7 Live Stream Player (up to 128kbps)',
       'Normal directory placement',
-      'Custom logo & cover image',
-      '24/7 Live stream player',
+      'Basic station profile (Logo & Tagline)',
       '7 days analytics history',
-    ],
-  },
-  {
-    id: 'plan_basic',
-    name: 'Basic Broadcaster',
-    tier: 'BASIC',
-    description: 'For growing stations seeking listener giving, analytics, and active support.',
-    monthlyPriceTzs: 15000,
-    annualPriceTzs: 144000,
-    monthlyPriceUsd: 6,
-    annualPriceUsd: 58,
-    currency: 'TZS',
-    maxStations: 2,
-    featuredMonthlyQuota: 1,
-    maxActiveFeatured: 1,
-    donationCampaignLimit: 1,
-    givingEnabled: true,
-    withdrawalsEnabled: true,
-    analyticsRetentionDays: 90,
-    advancedAnalyticsEnabled: true,
-    multiStationAnalyticsEnabled: false,
-    exportsEnabled: true,
-    advancedBrandingEnabled: false,
-    prioritySupport: false,
-    featuredPlacementPriority: 'BASIC',
-    isPopular: true,
-    isActive: true,
-    featuresList: [
-      'Up to 2 Radio Stations',
-      'Listener Giving & Donations enabled',
-      '1 Featured Spotlight campaign per month',
-      '90 days analytics retention & exports',
-      'Stream health SLA monitoring',
+      'Community support',
     ],
   },
   {
     id: 'plan_pro',
-    name: 'Pro Kingdom Fleet',
+    name: 'Pro Ministry',
     tier: 'PRO',
-    description: 'Complete suite for networks, multi-channel stations, and high-impact ministries.',
-    monthlyPriceTzs: 45000,
-    annualPriceTzs: 432000,
-    monthlyPriceUsd: 18,
-    annualPriceUsd: 172,
-    currency: 'TZS',
+    description: 'Ideal for growing Christian radio stations, ministries & dioceses.',
+    monthlyPriceTzs: 47500,
+    annualPriceTzs: 475000,
+    monthlyPriceUsd: 19,
+    annualPriceUsd: 190,
+    currency: 'USD',
+    maxStations: 3,
+    featuredMonthlyQuota: 1,
+    maxActiveFeatured: 1,
+    donationCampaignLimit: 3,
+    givingEnabled: true,
+    withdrawalsEnabled: true,
+    analyticsRetentionDays: 90,
+    advancedAnalyticsEnabled: true,
+    multiStationAnalyticsEnabled: true,
+    exportsEnabled: true,
+    advancedBrandingEnabled: true,
+    prioritySupport: true,
+    featuredPlacementPriority: 'HIGH',
+    isPopular: true,
+    isActive: true,
+    featuresList: [
+      'Up to 3 Radio Stations',
+      'HD Audio Stream & Backup Stream URL',
+      'Sow a Seed & Donation System (3 Campaigns)',
+      'Listener Premium Subscriptions Gating',
+      '1 Free Featured Directory Badge (3 days/mo)',
+      '90 days analytics & CSV report exports',
+      'Up to 3 Pinned Announcements in Live Feed',
+      'Priority email support (24h turnaround)',
+    ],
+  },
+  {
+    id: 'plan_vip',
+    name: 'Kingdom Network',
+    tier: 'VIP',
+    description: 'Ultimate enterprise broadcast suite for multi-station Christian networks.',
+    monthlyPriceTzs: 122500,
+    annualPriceTzs: 1225000,
+    monthlyPriceUsd: 49,
+    annualPriceUsd: 490,
+    currency: 'USD',
     maxStations: 10,
-    featuredMonthlyQuota: 5,
+    featuredMonthlyQuota: 3,
     maxActiveFeatured: 3,
-    donationCampaignLimit: 5,
+    donationCampaignLimit: 100,
     givingEnabled: true,
     withdrawalsEnabled: true,
     analyticsRetentionDays: 365,
@@ -128,46 +131,18 @@ const defaultPlans: SubscriptionPlan[] = [
     exportsEnabled: true,
     advancedBrandingEnabled: true,
     prioritySupport: true,
-    featuredPlacementPriority: 'HIGH',
-    isActive: true,
-    featuresList: [
-      'Up to 10 Radio Stations',
-      'Unlimited Giving & Custom Campaigns',
-      '5 Featured Spotlight campaigns per month',
-      '365 days analytics & multi-station reports',
-      'Priority 24/7 dedicated support & custom domain',
-    ],
-  },
-  {
-    id: 'plan_enterprise',
-    name: 'Global Network',
-    tier: 'BUSINESS',
-    description: 'Unlimited broadcast scale, custom branding, API access, and dedicated SLA.',
-    monthlyPriceTzs: 95000,
-    annualPriceTzs: 912000,
-    monthlyPriceUsd: 38,
-    annualPriceUsd: 365,
-    currency: 'TZS',
-    maxStations: 99,
-    featuredMonthlyQuota: 15,
-    maxActiveFeatured: 10,
-    donationCampaignLimit: 20,
-    givingEnabled: true,
-    withdrawalsEnabled: true,
-    analyticsRetentionDays: 730,
-    advancedAnalyticsEnabled: true,
-    multiStationAnalyticsEnabled: true,
-    exportsEnabled: true,
-    advancedBrandingEnabled: true,
-    prioritySupport: true,
     featuredPlacementPriority: 'HIGHEST',
     isActive: true,
     featuresList: [
-      'Unlimited Radio Stations',
-      'Full API Access & Mobile SDK',
-      '15 Featured Spotlight campaigns per month',
-      '2 Years analytics retention',
-      'Dedicated Account Manager & SLA Guarantee',
+      'Up to 10 Radio Stations',
+      'Multi-Region Backup Stream Failover',
+      'Unlimited Giving & Crowdfunding (0% fee)',
+      'Full Multi-Station Premium Access Gating',
+      '3 Free Featured Directory Badges (7 days/mo)',
+      '365 days full enterprise analytics & telemetry',
+      'Unlimited Pinned Announcements in Live Feed',
+      '5-min stream health checks & instant alerts',
+      'Dedicated Account Manager & 24/7 Priority Support',
     ],
   },
 ];
@@ -310,7 +285,7 @@ export function HomePage({ onNavigate, onOpenAuth, onPublicAction }: HomePagePro
       try {
         setLoading(true);
         const [stnRes, featRes, prayerRes, planRes, reviewRes] = await Promise.all([
-          apiFetch('/api/public/stations?limit=500'),
+          apiFetch('/api/public/stations?limit=32'),
           apiFetch('/api/public/featured'),
           apiFetch('/api/public/prayers'),
           apiFetch('/api/public/plans'),
@@ -419,8 +394,7 @@ export function HomePage({ onNavigate, onOpenAuth, onPublicAction }: HomePagePro
         </div>
       </div>
 
-      {/* 5. SCRIPTURE OF THE DAY (AUTOMATIC SESSION POPUP MODAL) */}
-      <ScripturePopupModal onNavigate={onNavigate} />
+      {/* 4. FEATURED RADIOS (4 ROWS GRID OF CARDS) */}
 
       {/* 6. SUPPORT / DONATION CARDS (5 CARDS IN 1 ROW - PREMIUM REDESIGN) */}
       <div className="space-y-6">
@@ -450,9 +424,9 @@ export function HomePage({ onNavigate, onOpenAuth, onPublicAction }: HomePagePro
             // Simulated realistic goal & progress metrics for visualization
             const percentages = [72, 85, 48, 91, 64];
             const percent = percentages[index % percentages.length];
-            const goalAmount = (index + 1) * 500000 + 1000000;
-            const formattedGoal = `TZS ${(goalAmount / 1000000).toFixed(1)}M`;
-            const formattedRaised = `TZS ${((goalAmount * percent) / 100000000).toFixed(1)}M`;
+            const goalAmount = (index + 1) * 500 + 1000;
+            const formattedGoal = `$${goalAmount.toLocaleString()}`;
+            const formattedRaised = `$${Math.round((goalAmount * percent) / 100).toLocaleString()}`;
 
             return (
               <div

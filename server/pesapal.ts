@@ -102,9 +102,9 @@ export async function queryPesaPalTransactionStatus(orderTrackingId: string): Pr
       if (pm.includes('CARD') || pm.includes('VISA') || pm.includes('MASTERCARD')) {
         method = 'CARD';
       } else if (pm.includes('TIGO')) {
-        method = 'TIGOPESA';
+        method = 'TIGO_PESA';
       } else if (pm.includes('AIRTEL')) {
-        method = 'AIRTELMONEY';
+        method = 'AIRTEL_MONEY';
       }
 
       return {

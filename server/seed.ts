@@ -10,9 +10,26 @@ export function runSeed() {
   db.seedInitialData((data) => {
     console.log('Seeding Christian Radios initial database...');
 
-    // 1. Subscription Plans
-    if (!data.plans || data.plans.length === 0 || !data.plans.some((p: any) => p.tier === 'FREE' || p.tier === 'BASIC')) {
+    // 1. Subscription Plans (Enforce strictly the 3 official packages: Free Starter, Pro Ministry, Kingdom Network)
+    if (
+      !data.plans ||
+      data.plans.length !== 3 ||
+      data.plans.some((p: any) =>
+        ['BASIC', 'STARTER', 'BUSINESS', 'PROFESSIONAL'].includes(p.tier as string) ||
+        ['plan_basic', 'plan_starter', 'plan_professional', 'plan_business', 'plan_enterprise'].includes(p.id)
+      )
+    ) {
       data.plans = DEFAULT_OFFICIAL_PLANS;
+    }
+
+    if (data.subscriptions && data.subscriptions.length > 0) {
+      data.subscriptions.forEach((sub: any) => {
+        if (sub.planId === 'plan_starter' || sub.planId === 'plan_basic') {
+          sub.planId = 'plan_pro';
+        } else if (['plan_professional', 'plan_business', 'plan_enterprise'].includes(sub.planId)) {
+          sub.planId = 'plan_vip';
+        }
+      });
     }
 
     // 1b. Featured Packages

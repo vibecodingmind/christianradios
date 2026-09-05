@@ -307,6 +307,8 @@ export interface Station {
     instagram?: string;
     youtube?: string;
     whatsapp?: string;
+    tiktok?: string;
+    linkedin?: string;
   };
   streamUrl: string;
   backupStreamUrl?: string;
@@ -328,6 +330,7 @@ export interface Station {
   sourceType?: SourceType;
   sourceUrl?: string;
   externalId?: string;
+  referenceTag?: string;
   importId?: string;
   claimStatus?: 'UNCLAIMED' | 'CLAIM_PENDING' | 'CLAIMED';
   lastSyncedAt?: string;
@@ -336,6 +339,8 @@ export interface Station {
   accessType?: 'FREE' | 'PREMIUM';
   monthlyPriceTzs?: number;
   annualPriceTzs?: number;
+  monthlyPriceUsd?: number;
+  annualPriceUsd?: number;
   premiumDescription?: string;
 
   planId?: string;
@@ -772,6 +777,22 @@ export interface PodcastEpisode {
   category: string;
   playCount: number;
   artworkUrl?: string;
+}
+
+export type FeedPostType = 'SHOUTOUT' | 'CHECK_IN' | 'ANNOUNCEMENT';
+
+export interface StationFeedPost {
+  id: string;
+  stationId: string;
+  userId?: string;
+  authorName: string;
+  authorCity?: string;
+  authorAvatar?: string;
+  content: string;
+  postType: FeedPostType;
+  isPinned?: boolean;
+  likesCount?: number;
+  createdAt: string;
 }
 
 export type DonationFundType =

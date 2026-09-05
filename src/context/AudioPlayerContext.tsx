@@ -198,7 +198,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       return;
     }
     try {
-      const res = await fetch(`/api/public/stations/${currentStation.slug}/now-playing`);
+      const identifier = encodeURIComponent(currentStation.slug || currentStation.id);
+      const res = await fetch(`/api/public/stations/${identifier}/now-playing`);
       if (res.ok) {
         const data: NowPlayingInfo = await res.json();
         setNowPlaying(data);
