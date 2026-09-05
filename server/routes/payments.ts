@@ -197,11 +197,11 @@ paymentsRouter.post('/subscribe-station', requireAuth, async (req: Authenticated
       return;
     }
 
-    const price = billingInterval === 'ANNUAL' ? (station.annualPriceTzs || 50000) : (station.monthlyPriceTzs || 5000);
+    const price = billingInterval === 'ANNUAL' ? (station.annualPriceUsd || 50) : (station.monthlyPriceUsd || 5);
     const durationDays = billingInterval === 'ANNUAL' ? 365 : 30;
 
-    const ownerShare = Math.floor(price * 0.8);
-    const platformShare = price - ownerShare;
+    const ownerShare = Number((price * 0.8).toFixed(2));
+    const platformShare = Number((price - ownerShare).toFixed(2));
 
     const sub = db.premiumSubscriptions.create({
       id: `pr_sub_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -213,7 +213,7 @@ paymentsRouter.post('/subscribe-station', requireAuth, async (req: Authenticated
       amountTzs: price,
       ownerShareTzs: ownerShare,
       platformShareTzs: platformShare,
-      currency: 'TZS',
+      currency: 'USD',
       currentPeriodStart: new Date().toISOString(),
       currentPeriodEnd: new Date(Date.now() + durationDays * 86400000).toISOString(),
       autoRenew: true,
@@ -228,7 +228,7 @@ paymentsRouter.post('/subscribe-station', requireAuth, async (req: Authenticated
       stationId: station.id,
       type: 'PREMIUM_SHARE_CREDIT',
       amount: ownerShare,
-      currency: 'TZS',
+      currency: 'USD',
       status: 'SETTLED',
       balanceAfter: (db.ledgerEntries.getOwnerBalance(station.ownerId)?.availableBalance || 0) + ownerShare,
       description: `Listener Premium Radio Subscription Share (${station.name})`,

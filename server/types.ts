@@ -392,6 +392,8 @@ export interface Station {
   accessType?: 'FREE' | 'PREMIUM';
   monthlyPriceTzs?: number;
   annualPriceTzs?: number;
+  monthlyPriceUsd?: number;
+  annualPriceUsd?: number;
   premiumDescription?: string;
 
   createdAt: string;
