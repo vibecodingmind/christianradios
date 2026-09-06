@@ -212,6 +212,14 @@ class DatabaseEngine {
         bannerNoticeActive: true,
         footerText: '© 2026 Christian Radios. Spreading the Gospel Across Every Nation.',
 
+        // Pre-Listen Audio Ident / Sonic Branding
+        audioIdentEnabled: true,
+        audioIdentUrl: '/audio/christianradios_ident.wav',
+        audioIdentFrequency: 'ONCE_PER_SESSION',
+        audioIdentDurationSeconds: 4,
+        audioIdentSkipAllowed: true,
+        audioIdentCustomText: "You're listening to ChristianRadios.org. One World. One Faith. Thousands of Voices.",
+
         // Giving Platform Settings
         givingEnabled: true,
         donationFeePercentage: 5.0,

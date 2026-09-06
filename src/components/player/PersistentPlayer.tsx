@@ -41,6 +41,9 @@ export function PersistentPlayer() {
     sleepTimerRemainingSeconds,
     liveListenersCount,
     isUsingBackupStream,
+    isIdentPlaying,
+    identRemainingSeconds,
+    skipIdent,
     togglePlay,
     setVolume,
     toggleMute,
@@ -150,6 +153,31 @@ export function PersistentPlayer() {
             <div className="bg-amber-950/70 border-b border-amber-800/40 px-4 py-1 text-[11px] text-amber-300 flex items-center justify-center gap-1.5 relative z-10">
               <Signal className="w-3 h-3 text-amber-400" />
               <span>Transmitting via High-Availability Backup Feed</span>
+            </div>
+          )}
+
+          {/* Pre-Listen Audio Ident / Sonic Logo Banner */}
+          {isIdentPlaying && (
+            <div className="bg-gradient-to-r from-amber-950/95 via-purple-950/90 to-slate-950 border-b border-amber-500/40 px-4 py-1.5 text-xs text-amber-200 flex items-center justify-between relative z-10 shadow-lg animate-fade-in">
+              <div className="flex items-center gap-2 truncate">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-spin" />
+                <span className="font-bold text-amber-300">Station Ident:</span>
+                <span className="truncate italic text-amber-100">"One World. One Faith. Thousands of Voices."</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-[10px] font-mono text-amber-300 ml-1">
+                  {identRemainingSeconds}s
+                </span>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  skipIdent();
+                }}
+                className="text-xs font-bold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 px-3 py-1 rounded-xl flex items-center gap-1.5 transition-all shadow-md shrink-0 ml-3 cursor-pointer"
+                title="Skip directly to live broadcast"
+              >
+                <span>Skip to Live</span>
+                <span className="font-mono">›</span>
+              </button>
             </div>
           )}
 

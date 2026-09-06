@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ShieldCheck,
   CreditCard,
@@ -26,6 +26,9 @@ import {
   Database,
   Cpu,
   Send,
+  Volume2,
+  Play,
+  Square,
 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import type { PlatformSettings } from '../../types';
@@ -37,7 +40,7 @@ export function AdminSettingsTab() {
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [activeSubSection, setActiveSubSection] = useState<
-    'gateways' | 'ai' | 'email' | 'whatsapp' | 'radio' | 'giving' | 'social' | 'security' | 'general'
+    'gateways' | 'ai' | 'email' | 'whatsapp' | 'radio' | 'giving' | 'social' | 'security' | 'general' | 'audioIdent'
   >('gateways');
   const [gatewayTesting, setGatewayTesting] = useState<string | null>(null);
   const [gatewayTestResult, setGatewayTestResult] = useState<{
@@ -46,9 +49,53 @@ export function AdminSettingsTab() {
     message: string;
   } | null>(null);
   const [showSecret, setShowSecret] = useState<{ [key: string]: boolean }>({});
+  const [testAudioPlaying, setTestAudioPlaying] = useState(false);
+  const testAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const toggleSecret = (key: string) => {
     setShowSecret((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const toggleTestAudio = () => {
+    if (testAudioPlaying) {
+      if (testAudioRef.current) {
+        testAudioRef.current.pause();
+        testAudioRef.current.currentTime = 0;
+      }
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.cancel();
+        } catch {}
+      }
+      setTestAudioPlaying(false);
+    } else {
+      const url = settings?.audioIdentUrl || '/audio/christianradios_ident.wav';
+      if (!testAudioRef.current) {
+        testAudioRef.current = new Audio();
+      }
+      const audio = testAudioRef.current;
+      audio.src = url;
+      audio.currentTime = 0;
+      audio.play().catch((err) => console.warn('Preview play warning:', err));
+      setTestAudioPlaying(true);
+
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window && !url.toLowerCase().endsWith('.mp3')) {
+        try {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(
+            settings?.audioIdentCustomText || "You're listening to Christian Radios. One World. One Faith. Thousands of Voices."
+          );
+          utterance.rate = 1.0;
+          utterance.pitch = 1.0;
+          window.speechSynthesis.speak(utterance);
+        } catch {}
+      }
+
+      const dur = (settings?.audioIdentDurationSeconds || 4) * 1000;
+      setTimeout(() => {
+        setTestAudioPlaying(false);
+      }, dur);
+    }
   };
 
   useEffect(() => {
@@ -309,6 +356,19 @@ export function AdminSettingsTab() {
         >
           <Globe className="w-4 h-4 text-slate-300" />
           Branding & URLs
+        </button>
+
+        <button
+          id="nav-sub-audio-ident"
+          onClick={() => setActiveSubSection('audioIdent')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
+            activeSubSection === 'audioIdent'
+              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <Volume2 className="w-4 h-4 text-amber-400" />
+          Pre-Listen Audio Ident
         </button>
       </div>
 
@@ -1521,6 +1581,208 @@ export function AdminSettingsTab() {
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono"
                 />
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SECTION 9: PRE-LISTEN AUDIO IDENT / SONIC BRANDING */}
+      {activeSubSection === 'audioIdent' && (
+        <div id="section-audio-ident" className="space-y-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                  <Volume2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    Pre-Listen Audio Ident & Sonic Branding
+                    <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      Broadcasting Ident
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Configure the platform audio ident that plays before listeners connect to live radio streams.
+                  </p>
+                </div>
+              </div>
+
+              {/* Audio Test / Preview Button */}
+              <button
+                type="button"
+                onClick={toggleTestAudio}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer ${
+                  testAudioPlaying
+                    ? 'bg-rose-500 hover:bg-rose-400 text-white animate-pulse'
+                    : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+                }`}
+              >
+                {testAudioPlaying ? (
+                  <>
+                    <Square className="w-3.5 h-3.5 fill-current" />
+                    <span>Stop Preview</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>Preview Sonic Ident</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Toggle Switch: Enable / Disable */}
+            <div className="flex items-center justify-between p-4 bg-slate-950 border border-slate-800 rounded-xl">
+              <div>
+                <h4 className="text-sm font-semibold text-white">Enable Pre-Listen Audio Ident</h4>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  When active, listeners hear a quick, memorable branding intro before the live radio station connects.
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.audioIdentEnabled ?? true}
+                  onChange={(e) => updateSetting('audioIdentEnabled', e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+              </label>
+            </div>
+
+            {/* Frequency Capping */}
+            <div className="space-y-3">
+              <label className="block text-xs font-semibold text-slate-300">
+                Playback Frequency (Retention & UX Protection)
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div
+                  onClick={() => updateSetting('audioIdentFrequency', 'ONCE_PER_SESSION')}
+                  className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                    (settings.audioIdentFrequency || 'ONCE_PER_SESSION') === 'ONCE_PER_SESSION'
+                      ? 'bg-amber-500/10 border-amber-500/50 text-white shadow-sm'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-amber-400">Once Per Session</span>
+                    <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded font-bold">
+                      Recommended
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Plays once on the user's first station play. Subsequent station flips connect immediately with zero wait.
+                  </p>
+                </div>
+
+                <div
+                  onClick={() => updateSetting('audioIdentFrequency', 'HOURLY')}
+                  className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                    settings.audioIdentFrequency === 'HOURLY'
+                      ? 'bg-amber-500/10 border-amber-500/50 text-white shadow-sm'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-amber-400">Once Every Hour</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Plays on the first play, then again if the listener tunes into a new station after 60 minutes.
+                  </p>
+                </div>
+
+                <div
+                  onClick={() => updateSetting('audioIdentFrequency', 'EVERY_PLAY')}
+                  className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                    settings.audioIdentFrequency === 'EVERY_PLAY'
+                      ? 'bg-amber-500/10 border-amber-500/50 text-white shadow-sm'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-amber-400">Every Station Play</span>
+                    <span className="text-[9px] bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1.5 py-0.5 rounded font-bold">
+                      High Drop-off Risk
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Plays before connecting to any radio station every single time the listener clicks Play.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Audio URL & Duration */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Audio File URL (MP3 / WAV)
+                </label>
+                <input
+                  type="text"
+                  placeholder="/audio/christianradios_ident.wav"
+                  value={settings.audioIdentUrl || ''}
+                  onChange={(e) => updateSetting('audioIdentUrl', e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Leave default for built-in celestial chime (<code className="text-slate-400">/audio/christianradios_ident.wav</code>) or paste your custom studio MP3/WAV recording.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Duration (Seconds)
+                </label>
+                <input
+                  type="number"
+                  min="3"
+                  max="15"
+                  value={settings.audioIdentDurationSeconds || 4}
+                  onChange={(e) => updateSetting('audioIdentDurationSeconds', Number(e.target.value))}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Ideal duration: 3 to 5 seconds.
+                </p>
+              </div>
+            </div>
+
+            {/* Listener Skip Permission */}
+            <div className="flex items-center justify-between p-4 bg-slate-950 border border-slate-800 rounded-xl">
+              <div>
+                <h4 className="text-sm font-semibold text-white">Allow Listeners to Skip</h4>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Displays a sleek "Skip to Live ›" button on the player so listeners can jump straight to the live broadcast if they wish.
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.audioIdentSkipAllowed ?? true}
+                  onChange={(e) => updateSetting('audioIdentSkipAllowed', e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+              </label>
+            </div>
+
+            {/* Custom Voiceover Text */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Spoken Ident Phrase (Voiceover / Tagline)
+              </label>
+              <textarea
+                rows={2}
+                value={settings.audioIdentCustomText || "You're listening to ChristianRadios.org. One World. One Faith. Thousands of Voices."}
+                onChange={(e) => updateSetting('audioIdentCustomText', e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 resize-none font-medium"
+                placeholder="You're listening to ChristianRadios.org. One World. One Faith. Thousands of Voices."
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                Spoken warmly by browser speech synthesis when using the built-in chime, or displayed as the on-air tagline during custom audio playback.
+              </p>
             </div>
           </div>
         </div>

@@ -27,6 +27,9 @@ interface AudioPlayerContextType {
   liveListenersCount: number;
   isExpanded: boolean;
   isUsingBackupStream: boolean;
+  isIdentPlaying: boolean;
+  identRemainingSeconds: number;
+  skipIdent: () => void;
   playStation: (station: Station) => void;
   playStream: (station: Station) => void;
   togglePlay: () => void;
@@ -61,8 +64,62 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [isUsingBackupStream, setIsUsingBackupStream] = useState(false);
   const [subscribingStation, setSubscribingStation] = useState<Station | null>(null);
   const [liveListenersCount, setLiveListenersCount] = useState<number>(0);
+
+  // Pre-Listen Audio Ident / Sonic Branding State
+  const [isIdentPlaying, setIsIdentPlaying] = useState(false);
+  const [identRemainingSeconds, setIdentRemainingSeconds] = useState(0);
+  const [identConfig, setIdentConfig] = useState({
+    enabled: true,
+    url: '/audio/christianradios_ident.wav',
+    frequency: 'ONCE_PER_SESSION',
+    durationSeconds: 4,
+    skipAllowed: true,
+    customText: "You're listening to ChristianRadios.org. One World. One Faith. Thousands of Voices.",
+  });
+  const identAudioRef = useRef<HTMLAudioElement | null>(null);
+  const identTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingStationRef = useRef<Station | null>(null);
+
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const sessionIdRef = useRef<string>('');
+
+  // Fetch Public Platform Config (Audio Ident, Sonic Branding, etc.)
+  useEffect(() => {
+    apiFetch('/api/public/config')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.audioIdent) {
+          setIdentConfig((prev) => ({ ...prev, ...data.audioIdent }));
+        }
+      })
+      .catch((err) => {
+        console.warn('[Player] Using default audio ident config:', err);
+      });
+  }, []);
+
+  const skipIdent = useCallback(() => {
+    if (identTimerRef.current) {
+      clearInterval(identTimerRef.current);
+      identTimerRef.current = null;
+    }
+    if (identAudioRef.current) {
+      try {
+        identAudioRef.current.pause();
+        identAudioRef.current.currentTime = 0;
+      } catch {}
+    }
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try { window.speechSynthesis.cancel(); } catch {}
+    }
+    setIsIdentPlaying(false);
+    setIdentRemainingSeconds(0);
+
+    const pending = pendingStationRef.current;
+    if (pending) {
+      pendingStationRef.current = null;
+      attachAndPlayStream(pending.streamUrl, false);
+    }
+  }, []);
 
   if (!sessionIdRef.current) {
     try {
@@ -399,7 +456,94 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const startPlayingStation = (station: Station) => {
     setCurrentStation(station);
     setIsUsingBackupStream(false);
-    attachAndPlayStream(station.streamUrl, false);
+    setHasError(false);
+    setErrorMessage(null);
+
+    const shouldPlayIdent = () => {
+      if (identConfig.enabled === false) return false;
+      if (identConfig.frequency === 'EVERY_PLAY') return true;
+      if (identConfig.frequency === 'HOURLY') {
+        const last = localStorage.getItem('cr_ident_last_play');
+        if (last && Date.now() - parseInt(last, 10) < 60 * 60 * 1000) return false;
+        return true;
+      }
+      // Default: ONCE_PER_SESSION
+      return !sessionStorage.getItem('cr_ident_session_played');
+    };
+
+    if (shouldPlayIdent()) {
+      sessionStorage.setItem('cr_ident_session_played', 'true');
+      localStorage.setItem('cr_ident_last_play', Date.now().toString());
+
+      // Pause any active audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+
+      setIsIdentPlaying(true);
+      const duration = Math.max(3, identConfig.durationSeconds || 4);
+      setIdentRemainingSeconds(duration);
+      pendingStationRef.current = station;
+
+      // Play ident sound
+      try {
+        if (!identAudioRef.current) {
+          identAudioRef.current = new Audio();
+        }
+        const identAudio = identAudioRef.current;
+        identAudio.src = identConfig.url || '/audio/christianradios_ident.wav';
+        identAudio.volume = isMuted ? 0 : volume;
+        identAudio.currentTime = 0;
+        identAudio.play().catch((e) => {
+          console.warn('[AudioIdent] Background audio play notice:', e);
+        });
+
+        // Speech synthesis overlay if speech is supported
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window && !identConfig.url.toLowerCase().endsWith('.mp3')) {
+          try {
+            window.speechSynthesis.cancel();
+            const textToSpeak = identConfig.customText || "You're listening to Christian Radios. One World. One Faith. Thousands of Voices.";
+            const utterance = new SpeechSynthesisUtterance(textToSpeak);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = isMuted ? 0 : volume;
+            window.speechSynthesis.speak(utterance);
+          } catch {}
+        }
+      } catch (err) {
+        console.warn('[AudioIdent] Ident start notice:', err);
+      }
+
+      // Countdown
+      if (identTimerRef.current) {
+        clearInterval(identTimerRef.current);
+      }
+      let remaining = duration;
+      identTimerRef.current = setInterval(() => {
+        remaining -= 1;
+        setIdentRemainingSeconds(Math.max(0, remaining));
+        if (remaining <= 0) {
+          if (identTimerRef.current) {
+            clearInterval(identTimerRef.current);
+            identTimerRef.current = null;
+          }
+          if (identAudioRef.current) {
+            try {
+              identAudioRef.current.pause();
+            } catch {}
+          }
+          setIsIdentPlaying(false);
+          const pending = pendingStationRef.current;
+          pendingStationRef.current = null;
+          if (pending) {
+            attachAndPlayStream(pending.streamUrl, false);
+          }
+        }
+      }, 1000);
+    } else {
+      setIsIdentPlaying(false);
+      attachAndPlayStream(station.streamUrl, false);
+    }
   };
 
   const playStation = async (station: Station) => {
@@ -439,6 +583,16 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (audioRef.current) {
       audioRef.current.pause();
     }
+    if (identAudioRef.current) {
+      try {
+        identAudioRef.current.pause();
+      } catch {}
+    }
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
+    }
     setIsPlaying(false);
   };
 
@@ -463,13 +617,29 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const setVolume = (newVolume: number) => {
     const clamped = Math.max(0, Math.min(1, newVolume));
     setVolumeState(clamped);
+    localStorage.setItem('cr_volume', clamped.toString());
     if (clamped > 0 && isMuted) {
       setIsMuted(false);
+    }
+    if (audioRef.current) {
+      audioRef.current.volume = isMuted ? 0 : clamped;
+    }
+    if (identAudioRef.current) {
+      identAudioRef.current.volume = isMuted ? 0 : clamped;
     }
   };
 
   const toggleMute = () => {
-    setIsMuted((prev) => !prev);
+    setIsMuted((prev) => {
+      const next = !prev;
+      if (audioRef.current) {
+        audioRef.current.muted = next;
+      }
+      if (identAudioRef.current) {
+        identAudioRef.current.muted = next;
+      }
+      return next;
+    });
   };
 
   const setSleepTimer = (minutes: number | null) => {
@@ -504,6 +674,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         liveListenersCount,
         isExpanded,
         isUsingBackupStream,
+        isIdentPlaying,
+        identRemainingSeconds,
+        skipIdent,
         playStation,
         playStream,
         togglePlay,

@@ -1157,6 +1157,25 @@ publicRouter.get('/stream-proxy', async (req, res) => {
   });
 });
 
+// Public Platform Config (Audio Ident, Sonic Branding, Notices)
+publicRouter.get('/config', (req, res) => {
+  const settings = db.settings.get();
+  res.json({
+    platformName: settings.platformName || 'Christian Radios',
+    tagline: settings.tagline || 'One World. One Faith. Thousands of Voices.',
+    audioIdent: {
+      enabled: settings.audioIdentEnabled ?? true,
+      url: settings.audioIdentUrl || '/audio/christianradios_ident.wav',
+      frequency: settings.audioIdentFrequency || 'ONCE_PER_SESSION',
+      durationSeconds: settings.audioIdentDurationSeconds || 4,
+      skipAllowed: settings.audioIdentSkipAllowed ?? true,
+      customText: settings.audioIdentCustomText || "You're listening to ChristianRadios.org. One World. One Faith. Thousands of Voices.",
+    },
+    givingEnabled: settings.givingEnabled ?? true,
+    bannerNotice: settings.bannerNoticeActive ? settings.bannerNotice : '',
+  });
+});
+
 // 17. Ministry Direct Donations & Station Campaigns
 publicRouter.get('/giving/config', (req, res) => {
   const settings = db.settings.get();

@@ -1063,6 +1063,14 @@ export interface PlatformSettings {
   bannerNoticeActive: boolean;
   footerText?: string;
 
+  // Pre-Listen Audio Ident / Sonic Branding Configuration
+  audioIdentEnabled?: boolean;
+  audioIdentUrl?: string;
+  audioIdentFrequency?: 'ONCE_PER_SESSION' | 'HOURLY' | 'EVERY_PLAY';
+  audioIdentDurationSeconds?: number;
+  audioIdentSkipAllowed?: boolean;
+  audioIdentCustomText?: string;
+
   // Giving & Support Platform Configuration
   givingEnabled?: boolean;
   donationFeePercentage?: number;

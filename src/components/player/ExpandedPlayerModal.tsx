@@ -41,6 +41,9 @@ export function ExpandedPlayerModal() {
     toggleMute,
     retryStream,
     isUsingBackupStream,
+    isIdentPlaying,
+    identRemainingSeconds,
+    skipIdent,
   } = useAudioPlayer();
 
   const { user } = useAuth();
@@ -84,6 +87,27 @@ export function ExpandedPlayerModal() {
           <X className="w-6 h-6" />
         </button>
       </div>
+
+      {/* Pre-Listen Audio Ident Banner in Modal */}
+      {isIdentPlaying && (
+        <div className="bg-gradient-to-r from-amber-950/90 via-purple-950/90 to-slate-900 border-b border-amber-500/30 px-6 py-2.5 flex items-center justify-between text-xs text-amber-200 shadow-md">
+          <div className="flex items-center gap-2.5">
+            <Sparkles className="w-4 h-4 text-amber-400 shrink-0 animate-spin" />
+            <span className="font-bold text-amber-300">Christian Radios Sonic Ident:</span>
+            <span className="italic text-amber-100">"One World. One Faith. Thousands of Voices."</span>
+            <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-[11px] font-mono text-amber-300">
+              {identRemainingSeconds}s
+            </span>
+          </div>
+          <button
+            onClick={skipIdent}
+            className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl font-bold transition-all shadow-md cursor-pointer flex items-center gap-1"
+          >
+            <span>Skip to Live</span>
+            <span>›</span>
+          </button>
+        </div>
+      )}
 
       {/* Main Content Body */}
       <div className="max-w-4xl mx-auto w-full px-4 py-6 flex-1 flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12">
