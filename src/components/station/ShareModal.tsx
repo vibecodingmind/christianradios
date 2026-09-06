@@ -30,6 +30,20 @@ export function ShareModal({ station, onClose }: ShareModalProps) {
   const embedCode = `<iframe src="${shareUrl}&embed=true" width="100%" height="160" frameborder="0" allow="autoplay"></iframe>`;
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(shareUrl)}&bgcolor=020617&color=38bdf8&margin=10`;
 
+  const countryName =
+    typeof station.country === 'object' && station.country !== null
+      ? (station.country as any).name || (station.country as any).code || 'Global'
+      : typeof station.country === 'string' && station.country
+      ? station.country
+      : station.countryCode
+      ? station.countryCode.toUpperCase()
+      : 'Global';
+
+  const countryFlag =
+    typeof station.country === 'object' && station.country !== null
+      ? (station.country as any).flagEmoji || '🌍'
+      : '🌍';
+
   const copyToClipboard = (text: string, type: 'link' | 'embed' | 'message') => {
     navigator.clipboard.writeText(text);
     if (type === 'link') {
@@ -222,7 +236,7 @@ export function ShareModal({ station, onClose }: ShareModalProps) {
               </span>
             </div>
             <p className="text-xs text-slate-400 truncate">
-              {station.genre || 'Christian Gospel'} • {station.country || 'Global Ministry'}
+              {station.genre || 'Christian Gospel'} • {countryFlag} {countryName}
             </p>
           </div>
         </div>

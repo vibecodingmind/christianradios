@@ -97,12 +97,26 @@ export function PersistentPlayer() {
 
   const currentVolumePercent = isMuted ? 0 : Math.round(volume * 100);
 
+  // Safely extract country display
+  const countryDisplayName =
+    typeof currentStation.country === 'object' && currentStation.country !== null
+      ? (currentStation.country as any).name || (currentStation.country as any).code || ''
+      : typeof currentStation.country === 'string'
+      ? currentStation.country
+      : currentStation.countryCode || '';
+
   return (
     <>
-      {/* Expanded Full-Width Persistent Audio Bar */}
-      <div className="fixed bottom-0 inset-x-0 w-full z-50 pointer-events-none">
-        <div className="pointer-events-auto relative w-full overflow-hidden bg-slate-950/95 dark:bg-slate-950/98 backdrop-blur-2xl border-t border-slate-800 shadow-[0_-8px_30px_rgba(0,0,0,0.85)] transition-all duration-300">
-          
+      {/* Floating Modern Audio Player Dock Widget */}
+      <div className="fixed bottom-2 sm:bottom-4 inset-x-2 sm:inset-x-4 lg:inset-x-8 z-50 pointer-events-none flex justify-center">
+        <div
+          className={`pointer-events-auto relative w-full max-w-7xl overflow-hidden rounded-3xl bg-slate-950/92 dark:bg-slate-950/95 backdrop-blur-2xl border border-slate-800 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.95),0_0_35px_rgba(16,185,129,0.18)] ring-1 ring-white/10 transition-all duration-300 ${
+            isPlaying ? 'animate-audio-glow-breathe' : ''
+          }`}
+        >
+          {/* Ambient Audio Mesh Background */}
+          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-sky-500/10 pointer-events-none" />
+
           {/* Top Audio Ambient Line */}
           {hasError ? (
             <div className="absolute top-0 inset-x-0 h-[2px] bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.8)]" />
@@ -116,7 +130,7 @@ export function PersistentPlayer() {
 
           {/* Stream Error Banner */}
           {hasError && (
-            <div className="bg-rose-950/90 border-b border-rose-800/60 px-4 py-1.5 text-xs text-rose-200 flex items-center justify-between">
+            <div className="bg-rose-950/90 border-b border-rose-800/60 px-4 py-1.5 text-xs text-rose-200 flex items-center justify-between relative z-10">
               <div className="flex items-center gap-2 truncate">
                 <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0 animate-bounce" />
                 <span className="truncate font-medium">{errorMessage || 'Stream connection issue. Reconnecting...'}</span>
@@ -133,21 +147,25 @@ export function PersistentPlayer() {
 
           {/* Backup Failover Stream Banner */}
           {isUsingBackupStream && !hasError && (
-            <div className="bg-amber-950/70 border-b border-amber-800/40 px-4 py-1 text-[11px] text-amber-300 flex items-center justify-center gap-1.5">
+            <div className="bg-amber-950/70 border-b border-amber-800/40 px-4 py-1 text-[11px] text-amber-300 flex items-center justify-center gap-1.5 relative z-10">
               <Signal className="w-3 h-3 text-amber-400" />
               <span>Transmitting via High-Availability Backup Feed</span>
             </div>
           )}
 
-          {/* Main Player Bar Body */}
-          <div className="w-full max-w-[1700px] mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between gap-3 sm:gap-6">
+          {/* Main Floating Widget Body */}
+          <div className="relative z-10 w-full px-3.5 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between gap-3 sm:gap-6">
             
             {/* LEFT SECTION: Station Identity & Now Playing Track */}
             <div className="flex items-center gap-3 min-w-0 flex-1 max-w-[240px] sm:max-w-xs md:max-w-sm lg:max-w-md">
               {/* Artwork with Live Equalizer Badge and Click-to-Expand */}
               <div
                 onClick={() => setIsExpanded(true)}
-                className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden bg-slate-900 border border-slate-750 shrink-0 cursor-pointer group shadow-lg transition-transform hover:scale-105 active:scale-95"
+                className={`relative w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden bg-slate-900 shrink-0 cursor-pointer group shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 ${
+                  isPlaying
+                    ? 'ring-2 ring-emerald-400/80 shadow-[0_0_18px_rgba(16,185,129,0.45)]'
+                    : 'ring-1 ring-slate-800'
+                }`}
                 title="Click to expand player"
               >
                 <img
@@ -173,10 +191,10 @@ export function PersistentPlayer() {
 
                 {/* Live Animated Equalizer Corner Overlay */}
                 {isPlaying && (
-                  <div className="absolute bottom-1 right-1 bg-slate-950/80 backdrop-blur-sm rounded-md px-1 py-0.5 flex items-end gap-0.5 border border-emerald-500/30">
+                  <div className="absolute bottom-1 right-1 bg-slate-950/85 backdrop-blur-sm rounded-md px-1 py-0.5 flex items-end gap-0.5 border border-emerald-500/40">
                     <span className="w-0.5 h-2 bg-emerald-400 rounded-full animate-bounce" />
-                    <span className="w-0.5 h-3 bg-emerald-400 rounded-full animate-bounce [animation-delay:0.15s]" />
-                    <span className="w-0.5 h-1.5 bg-emerald-400 rounded-full animate-bounce [animation-delay:0.3s]" />
+                    <span className="w-0.5 h-3.5 bg-emerald-300 rounded-full animate-bounce [animation-delay:0.15s]" />
+                    <span className="w-0.5 h-1.5 bg-teal-400 rounded-full animate-bounce [animation-delay:0.3s]" />
                   </div>
                 )}
 
@@ -196,10 +214,29 @@ export function PersistentPlayer() {
                     {currentStation.name}
                   </span>
 
-                  {/* Live Status Pill */}
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-extrabold uppercase tracking-wider shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    Live
+                  {/* Blinking Live Radar Beacon & On-Air Pill */}
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider shrink-0 transition-all ${
+                      isPlaying
+                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
+                        : 'bg-slate-800/80 border-slate-700 text-slate-400'
+                    }`}
+                  >
+                    <span className="relative flex h-2 w-2">
+                      {isPlaying && (
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      )}
+                      <span
+                        className={`relative inline-flex rounded-full h-2 w-2 ${
+                          isPlaying
+                            ? 'bg-emerald-400 animate-audio-blink shadow-[0_0_6px_rgba(16,185,129,1)]'
+                            : 'bg-slate-500'
+                        }`}
+                      />
+                    </span>
+                    <span className={isPlaying ? 'animate-audio-blink' : ''}>
+                      {isPlaying ? 'ON AIR' : 'OFFLINE'}
+                    </span>
                   </span>
 
                   {/* Listeners Count (if active) */}
@@ -211,9 +248,13 @@ export function PersistentPlayer() {
                   )}
                 </div>
 
-                {/* Now Playing Song / Program Stream Text */}
+                {/* Now Playing Song / Program Stream with Blinking Rhythm Music Icon */}
                 <div className="flex items-center gap-1.5 text-xs text-slate-300 min-w-0">
-                  <Music className="w-3 h-3 text-emerald-400 shrink-0" />
+                  <Music
+                    className={`w-3 h-3 text-emerald-400 shrink-0 ${
+                      isPlaying ? 'animate-audio-blink' : 'opacity-60'
+                    }`}
+                  />
                   <p className="truncate font-medium text-[11px] sm:text-xs">
                     {nowPlaying?.currentTrack ? (
                       <>
@@ -229,7 +270,7 @@ export function PersistentPlayer() {
                       </span>
                     ) : (
                       <span className="text-slate-400">
-                        {[currentStation.city, currentStation.genre || currentStation.language || 'Christian Radio']
+                        {[currentStation.city, countryDisplayName, currentStation.genre || currentStation.language || 'Christian Radio']
                           .filter(Boolean)
                           .join(' • ')}
                       </span>
@@ -252,15 +293,15 @@ export function PersistentPlayer() {
                   <RotateCw className="w-3.5 h-3.5" />
                 </button>
 
-                {/* Primary Master Play / Pause Orb */}
+                {/* Primary Master Play / Pause Orb with Glowing Halo */}
                 <button
                   onClick={togglePlay}
                   disabled={isLoading}
                   aria-label={isPlaying ? 'Pause broadcast' : 'Play broadcast'}
                   className={`relative w-11 h-11 sm:w-13 sm:h-13 rounded-full bg-gradient-to-tr from-emerald-500 via-teal-500 to-sky-500 hover:from-emerald-400 hover:to-sky-400 text-white flex items-center justify-center shadow-lg active:scale-95 transition-all duration-300 disabled:opacity-75 cursor-pointer focus:outline-none ${
                     isPlaying
-                      ? 'ring-4 ring-emerald-500/25 shadow-emerald-500/30'
-                      : 'shadow-slate-900'
+                      ? 'ring-4 ring-emerald-500/30 shadow-[0_0_25px_rgba(16,185,129,0.55)] animate-pulse'
+                      : 'shadow-slate-900 ring-2 ring-slate-700/50'
                   }`}
                 >
                   {isLoading || isBuffering ? (
@@ -289,7 +330,7 @@ export function PersistentPlayer() {
 
               {/* Dynamic Waveform Visualizer Bars & Session Timer */}
               <div className="hidden sm:flex items-center gap-2">
-                <div className="flex items-center gap-0.5 h-3.5 px-2 py-0.5 rounded-full bg-slate-900/60 border border-slate-800/60">
+                <div className="flex items-center gap-0.5 h-4 px-2.5 py-0.5 rounded-full bg-slate-900/80 border border-slate-800/80 shadow-inner">
                   {waveHeights.map((h, i) => (
                     <span
                       key={i}
@@ -297,18 +338,22 @@ export function PersistentPlayer() {
                         height: isPlaying ? `${h}%` : '20%',
                         animationDuration: isPlaying ? `${0.35 + (i % 5) * 0.12}s` : '0s',
                       }}
-                      className={`w-0.5 rounded-full bg-gradient-to-t from-emerald-500 to-teal-300 transition-all ${
+                      className={`w-0.5 rounded-full bg-gradient-to-t from-emerald-500 via-teal-400 to-sky-300 transition-all ${
                         isPlaying ? 'animate-bounce' : 'opacity-30'
                       }`}
                     />
                   ))}
                 </div>
 
-                {/* Active Session Listening Timer */}
+                {/* Active Session Listening Timer with Blinking Live Pulse */}
                 {isPlaying && (
-                  <span className="text-[10px] font-mono font-medium text-slate-400" title="Live stream listening duration">
-                    {formatSessionTime(sessionSeconds)}
-                  </span>
+                  <div
+                    className="flex items-center gap-1.5 text-[10px] font-mono font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md"
+                    title="Live stream listening duration"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-audio-blink" />
+                    <span>{formatSessionTime(sessionSeconds)}</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -323,7 +368,7 @@ export function PersistentPlayer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   title="Message radio studio on WhatsApp"
-                  className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition-all shadow-sm"
+                  className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition-all shadow-sm hover:scale-105"
                 >
                   <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
                   <span>WhatsApp</span>
@@ -357,12 +402,12 @@ export function PersistentPlayer() {
                 )}
               </button>
 
-              {/* Share Button */}
+              {/* Share Button (Fixed React Error #31) */}
               <button
                 type="button"
                 onClick={() => setShowShareModal(true)}
                 title="Share radio station"
-                className="hidden md:flex p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 rounded-xl transition cursor-pointer"
+                className="hidden md:flex p-2 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-xl transition cursor-pointer hover:scale-105"
               >
                 <Share2 className="w-4 h-4" />
               </button>
@@ -414,7 +459,7 @@ export function PersistentPlayer() {
                 type="button"
                 onClick={() => setIsExpanded(true)}
                 title="Open fullscreen player"
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-xl transition cursor-pointer shrink-0"
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-xl transition cursor-pointer shrink-0 hover:scale-105"
               >
                 <Maximize2 className="w-4 h-4" />
               </button>
