@@ -35,6 +35,7 @@ import { ReferralsPage } from './pages/ReferralsPage';
 import { SubscriptionCheckoutPage } from './pages/SubscriptionCheckoutPage';
 
 import { OwnerOnboardingModal } from './components/auth/OwnerOnboardingModal';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AIChatDrawer, AIAssistantButton } from './components/ai/AIChatDrawer';
 
 function MainAppContent() {
@@ -440,7 +441,14 @@ function MainAppContent() {
         )}
 
         {currentView === 'profile' && (
-          <ProfileSettingsPage onNavigate={handleNavigate} />
+          <ProtectedRoute
+            onOpenAuth={handleOpenAuth}
+            onNavigate={handleNavigate}
+            title="Listener Profile Sign In Required"
+            description="Please sign in to customize your profile, update notification preferences, and manage your account."
+          >
+            <ProfileSettingsPage onNavigate={handleNavigate} />
+          </ProtectedRoute>
         )}
 
         {currentView === 'referrals' && (
@@ -448,11 +456,27 @@ function MainAppContent() {
         )}
 
         {currentView === 'owner' && (
-          <OwnerDashboard onNavigate={handleNavigate} initialParam={viewParam} />
+          <ProtectedRoute
+            allowedRoles={['RADIO_OWNER', 'SUPER_ADMIN']}
+            onOpenAuth={handleOpenAuth}
+            onNavigate={handleNavigate}
+            title="Broadcaster Workspace Sign In Required"
+            description="Please sign in with your broadcaster or station owner credentials to access your console, studio desk, and stream controls."
+          >
+            <OwnerDashboard onNavigate={handleNavigate} initialParam={viewParam} />
+          </ProtectedRoute>
         )}
 
         {currentView === 'admin' && (
-          <AdminDashboard onNavigate={handleNavigate} initialParam={viewParam} />
+          <ProtectedRoute
+            allowedRoles={['SUPER_ADMIN']}
+            onOpenAuth={handleOpenAuth}
+            onNavigate={handleNavigate}
+            title="Super Admin Portal Restricted"
+            description="This area is reserved exclusively for platform administrators. Please authenticate with Super Admin credentials."
+          >
+            <AdminDashboard onNavigate={handleNavigate} initialParam={viewParam} />
+          </ProtectedRoute>
         )}
 
         {currentView === 'pricing' && (

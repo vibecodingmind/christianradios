@@ -743,6 +743,24 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
 
   const currentTabObj = ownerMenuGroups.flatMap((g) => g.items).find((i) => i.id === activeTab);
 
+  if (!user || (user.role !== 'RADIO_OWNER' && user.role !== 'SUPER_ADMIN')) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto">
+        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-4">
+          <Lock className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-white mb-2">Broadcaster Access Required</h2>
+        <p className="text-slate-400 text-sm mb-6">Please authenticate with an authorized broadcaster account to access this workspace.</p>
+        <button
+          onClick={() => onNavigate('home')}
+          className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-sm font-semibold transition-colors cursor-pointer"
+        >
+          Return to Directory
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-20">
       {/* Mobile Drawer Navigation Button & Bar */}

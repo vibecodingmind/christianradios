@@ -1,38 +1,38 @@
 import crypto from 'crypto';
 import { db } from './db.js';
+import { IntegrationService } from './services/integrationService.js';
 import type { Payment, PaymentMethod, PaymentStatus, Subscription } from './types.js';
 
-const PESAPAL_CONSUMER_KEY = process.env.PESAPAL_CONSUMER_KEY || '';
-const PESAPAL_CONSUMER_SECRET = process.env.PESAPAL_CONSUMER_SECRET || '';
-const PESAPAL_ENV = process.env.PESAPAL_ENV || 'sandbox';
+export function getPesaPalConfig() {
+  return IntegrationService.getPesaPalConfig();
+}
 
-const BASE_URL =
-  PESAPAL_ENV === 'live'
-    ? 'https://pay.pesapal.com/v3'
-    : 'https://cybqa.pesapal.com/pesapalv3';
-
-let cachedToken: { token: string; expiresAt: number } | null = null;
+let cachedToken: { token: string; expiresAt: number; configKey: string } | null = null;
 
 export async function getPesaPalAuthToken(): Promise<string> {
-  if (cachedToken && cachedToken.expiresAt > Date.now() + 60000) {
+  const config = getPesaPalConfig();
+
+  if (cachedToken && cachedToken.configKey === config.consumerKey && cachedToken.expiresAt > Date.now() + 60000) {
     return cachedToken.token;
   }
 
-  if (!PESAPAL_CONSUMER_KEY || !PESAPAL_CONSUMER_SECRET) {
-    // Return a mock token for development if credentials are empty
+  if (!config.consumerKey || !config.consumerSecret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('PesaPal credentials not configured in production environment.');
+    }
     return 'sandbox_pesapal_jwt_token_local_dev';
   }
 
   try {
-    const res = await fetch(`${BASE_URL}/api/Auth/RequestToken`, {
+    const res = await fetch(`${config.baseUrl}/api/Auth/RequestToken`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },
       body: JSON.stringify({
-        consumer_key: PESAPAL_CONSUMER_KEY,
-        consumer_secret: PESAPAL_CONSUMER_SECRET,
+        consumer_key: config.consumerKey,
+        consumer_secret: config.consumerSecret,
       }),
     });
 
@@ -44,10 +44,14 @@ export async function getPesaPalAuthToken(): Promise<string> {
     cachedToken = {
       token: data.token,
       expiresAt: Date.now() + 50 * 60 * 1000,
+      configKey: config.consumerKey,
     };
     return data.token;
   } catch (err) {
-    console.error('PesaPal Auth Token Error:', err);
+    console.error('[PesaPal] Auth Token Request Failed:', err instanceof Error ? err.message : err);
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('PesaPal payment gateway authentication failed.');
+    }
     return 'fallback_sandbox_token';
   }
 }
@@ -58,9 +62,10 @@ export async function queryPesaPalTransactionStatus(orderTrackingId: string): Pr
   paymentMethod?: PaymentMethod;
   description?: string;
 }> {
+  const config = getPesaPalConfig();
   const hasRealKeys =
-    PESAPAL_CONSUMER_KEY &&
-    PESAPAL_CONSUMER_KEY !== 'pesapal_live_or_sandbox_consumer_key';
+    config.consumerKey &&
+    config.consumerKey !== 'pesapal_live_or_sandbox_consumer_key';
 
   if (!hasRealKeys) {
     // Development / Sandbox mode without keys configured
@@ -74,7 +79,7 @@ export async function queryPesaPalTransactionStatus(orderTrackingId: string): Pr
 
   try {
     const token = await getPesaPalAuthToken();
-    const url = `${BASE_URL}/api/Transactions/GetTransactionStatus?orderTrackingId=${encodeURIComponent(orderTrackingId)}`;
+    const url = `${config.baseUrl}/api/Transactions/GetTransactionStatus?orderTrackingId=${encodeURIComponent(orderTrackingId)}`;
     const res = await fetch(url, {
       method: 'GET',
       headers: {
@@ -183,16 +188,17 @@ export async function createPesaPalOrder(
   db.payments.create(paymentRecord);
 
   // If live or valid keys exist, call real PesaPal SubmitOrderRequest
+  const config = getPesaPalConfig();
   const hasRealKeys =
-    PESAPAL_CONSUMER_KEY &&
-    PESAPAL_CONSUMER_KEY !== 'pesapal_live_or_sandbox_consumer_key';
+    config.consumerKey &&
+    config.consumerKey !== 'pesapal_live_or_sandbox_consumer_key';
 
   let redirectUrl = `/owner/payments/process?tracking_id=${orderTrackingId}&ref=${merchantReference}`;
 
   if (hasRealKeys) {
     try {
       const token = await getPesaPalAuthToken();
-      const ipnId = process.env.PESAPAL_IPN_ID || '00000000-0000-0000-0000-000000000000';
+      const ipnId = config.ipnId;
       const orderPayload = {
         id: merchantReference,
         currency: params.currency,
@@ -211,7 +217,7 @@ export async function createPesaPalOrder(
         },
       };
 
-      const res = await fetch(`${BASE_URL}/api/Transactions/SubmitOrderRequest`, {
+      const res = await fetch(`${config.baseUrl}/api/Transactions/SubmitOrderRequest`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

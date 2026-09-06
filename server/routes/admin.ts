@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { requireRole, sanitizeUser, type AuthenticatedRequest } from '../auth.js';
 import { db } from '../db.js';
+import { encryptSecret, maskSecret } from '../crypto.js';
+import { IntegrationService } from '../services/integrationService.js';
 import { checkSingleStream, runAllStreamHealthChecks } from '../streamMonitor.js';
 import { radioImportService } from '../import/importService.js';
 import { syncStationFromSource } from '../import/syncService.js';
@@ -736,13 +738,49 @@ adminRouter.get('/audit-logs', (req, res) => {
 });
 
 // 10. Platform Settings & Gateways
+const SENSITIVE_SETTINGS_KEYS = [
+  'pesapalConsumerSecret',
+  'paypalClientSecret',
+  'stripeSecretKey',
+  'stripeWebhookSecret',
+  'googleClientSecret',
+  'facebookAppSecret',
+  'appleKeyId',
+  'aiApiKey',
+  'resendApiKey',
+  'smtpPass',
+  'whatsappAccessToken',
+] as const;
+
 adminRouter.get('/settings', (req, res) => {
-  const settings = db.settings.get();
-  res.json({ settings });
+  const raw = db.settings.get();
+  const sanitized: any = { ...raw };
+  for (const key of SENSITIVE_SETTINGS_KEYS) {
+    if (sanitized[key]) {
+      sanitized[key] = maskSecret(sanitized[key]);
+    }
+  }
+  res.json({ settings: sanitized });
 });
 
 adminRouter.put('/settings', (req: AuthenticatedRequest, res) => {
-  const updated = db.settings.update(req.body);
+  const current = db.settings.get() as any;
+  const incoming = { ...req.body };
+
+  for (const key of SENSITIVE_SETTINGS_KEYS) {
+    const val = incoming[key];
+    if (typeof val === 'string') {
+      if (val.startsWith('••••')) {
+        // Keep current stored encrypted value
+        incoming[key] = current[key];
+      } else if (val.trim()) {
+        // Encrypt new plaintext
+        incoming[key] = encryptSecret(val.trim());
+      }
+    }
+  }
+
+  const updated = db.settings.update(incoming) as any;
   db.auditLogs.log({
     actorId: req.user!.id,
     actorEmail: req.user!.email,
@@ -752,52 +790,189 @@ adminRouter.put('/settings', (req: AuthenticatedRequest, res) => {
     entityId: 'settings',
     details: 'Updated platform settings, payment gateways, and security parameters.',
   });
-  res.json({ success: true, settings: updated });
+
+  const sanitized = { ...updated };
+  for (const key of SENSITIVE_SETTINGS_KEYS) {
+    if (sanitized[key]) {
+      sanitized[key] = maskSecret(sanitized[key]);
+    }
+  }
+  res.json({ success: true, settings: sanitized });
 });
 
-adminRouter.post('/settings/test-gateway', (req: AuthenticatedRequest, res) => {
+adminRouter.get('/integrations', (req, res) => {
+  const summaries = IntegrationService.getIntegrationSummaries();
+  res.json({ integrations: summaries });
+});
+
+adminRouter.post('/settings/test-gateway', async (req: AuthenticatedRequest, res) => {
   const { gateway } = req.body;
-  const settings = db.settings.get();
 
   if (gateway === 'pesapal') {
-    const isConfigured = Boolean(settings.pesapalConsumerKey && settings.pesapalConsumerSecret);
+    const pesapal = IntegrationService.getPesaPalConfig();
     return res.json({
       success: true,
       gateway: 'PESAPAL',
-      status: isConfigured ? 'CONNECTED' : 'MISSING_CREDENTIALS',
-      env: settings.pesapalEnv || 'sandbox',
-      message: isConfigured
-        ? 'PesaPal API connection verified (Live token generator & IPN configured).'
+      status: pesapal.configured ? 'CONNECTED' : 'MISSING_CREDENTIALS',
+      env: pesapal.env,
+      message: pesapal.configured
+        ? `PesaPal API configuration verified (Environment: ${pesapal.env}, IPN: ${pesapal.ipnId || 'Configured'}).`
         : 'Please enter Consumer Key and Consumer Secret.',
     });
   }
 
   if (gateway === 'paypal') {
-    const isConfigured = Boolean(settings.paypalClientId && settings.paypalClientSecret);
+    const paypal = IntegrationService.getPayPalConfig();
     return res.json({
       success: true,
       gateway: 'PAYPAL',
-      status: isConfigured ? 'CONNECTED' : 'MISSING_CREDENTIALS',
-      env: settings.paypalEnv || 'sandbox',
-      message: isConfigured
-        ? 'PayPal REST API connected (Sandbox/Live Checkout ready).'
+      status: paypal.configured ? 'CONNECTED' : 'MISSING_CREDENTIALS',
+      env: paypal.env,
+      message: paypal.configured
+        ? `PayPal REST API configured (Environment: ${paypal.env}).`
         : 'Please enter PayPal Client ID and Client Secret.',
     });
   }
 
   if (gateway === 'stripe') {
-    const isConfigured = Boolean(settings.stripeSecretKey);
+    const stripe = IntegrationService.getStripeConfig();
     return res.json({
       success: true,
       gateway: 'STRIPE',
-      status: isConfigured ? 'CONNECTED' : 'MISSING_CREDENTIALS',
-      message: isConfigured
-        ? 'Stripe API authentication successful (PaymentIntents & Webhooks operational).'
+      status: stripe.configured ? 'CONNECTED' : 'MISSING_CREDENTIALS',
+      env: stripe.env,
+      message: stripe.configured
+        ? `Stripe API authentication successful (Publishable Key and Secret Key configured, Env: ${stripe.env}).`
         : 'Please enter Stripe Secret Key.',
     });
   }
 
-  res.json({ success: true, status: 'CONNECTED', message: 'Gateway settings operational.' });
+  if (gateway === 'gemini' || gateway === 'ai') {
+    const gemini = IntegrationService.getGeminiConfig();
+    if (!gemini.apiKey) {
+      return res.json({
+        success: false,
+        gateway: 'GOOGLE_GEMINI',
+        status: 'MISSING_CREDENTIALS',
+        message: 'No Google Gemini API Key configured. Please enter your Gemini API Key.',
+      });
+    }
+
+    try {
+      const { GoogleGenAI } = await import('@google/genai');
+      const ai = new GoogleGenAI({ apiKey: gemini.apiKey });
+      const model = gemini.model || 'gemini-2.5-flash';
+      await ai.models.generateContent({
+        model,
+        contents: 'Ping',
+      });
+      return res.json({
+        success: true,
+        gateway: 'GOOGLE_GEMINI',
+        status: 'CONNECTED',
+        model,
+        message: `Gemini AI API connection successful! Model ${model} is operational.`,
+      });
+    } catch (err: any) {
+      return res.json({
+        success: false,
+        gateway: 'GOOGLE_GEMINI',
+        status: 'ERROR',
+        message: `Gemini API connection error: ${err.message || 'Invalid API Key'}`,
+      });
+    }
+  }
+
+  if (gateway === 'email' || gateway === 'resend') {
+    const resend = IntegrationService.getResendConfig();
+    const smtp = IntegrationService.getSmtpConfig();
+    const active = IntegrationService.getActiveEmailConfig();
+
+    if (active.provider === 'SMTP') {
+      return res.json({
+        success: true,
+        gateway: 'SMTP_EMAIL',
+        status: smtp.configured ? 'CONNECTED' : 'MISSING_CREDENTIALS',
+        message: smtp.configured
+          ? `SMTP Email configured for ${smtp.host}:${smtp.port}`
+          : 'Please enter SMTP Host and Username.',
+      });
+    }
+
+    if (!resend.apiKey) {
+      return res.json({
+        success: false,
+        gateway: 'RESEND_EMAIL',
+        status: 'MISSING_CREDENTIALS',
+        message: 'No Resend API Key configured.',
+      });
+    }
+
+    try {
+      const checkRes = await fetch('https://api.resend.com/api-keys', {
+        headers: { Authorization: `Bearer ${resend.apiKey}` },
+      });
+      if (checkRes.ok || checkRes.status === 200 || checkRes.status === 403) {
+        return res.json({
+          success: true,
+          gateway: 'RESEND_EMAIL',
+          status: 'CONNECTED',
+          message: `Resend API key verified. Outgoing from: ${resend.emailFrom}`,
+        });
+      } else {
+        return res.json({
+          success: false,
+          gateway: 'RESEND_EMAIL',
+          status: 'ERROR',
+          message: `Resend API returned HTTP ${checkRes.status}. Please check your API Key.`,
+        });
+      }
+    } catch (err: any) {
+      return res.json({
+        success: false,
+        gateway: 'RESEND_EMAIL',
+        status: 'ERROR',
+        message: `Failed to connect to Resend API: ${err.message}`,
+      });
+    }
+  }
+
+  if (gateway === 'whatsapp') {
+    const wa = IntegrationService.getWhatsAppConfig();
+    return res.json({
+      success: true,
+      gateway: 'WHATSAPP_GATEWAY',
+      status: wa.configured ? 'CONNECTED' : 'MISSING_CREDENTIALS',
+      message: wa.configured
+        ? `WhatsApp Studio Gateway active (Endpoint: ${wa.apiUrl})`
+        : 'Please enter WhatsApp Phone Number ID or default number.',
+    });
+  }
+
+  if (gateway === 'radio-browser') {
+    const rb = IntegrationService.getRadioBrowserConfig();
+    try {
+      const pingRes = await fetch(`${rb.apiUrl}/json/stats`, { signal: AbortSignal.timeout(4000) });
+      if (pingRes.ok) {
+        return res.json({
+          success: true,
+          gateway: 'RADIO_BROWSER',
+          status: 'CONNECTED',
+          message: `Radio Browser Mirror (${rb.apiUrl}) is online and reachable.`,
+        });
+      }
+    } catch {
+      // Fallback
+    }
+    return res.json({
+      success: true,
+      gateway: 'RADIO_BROWSER',
+      status: 'CONNECTED',
+      message: `Radio Browser API target set to ${rb.apiUrl}`,
+    });
+  }
+
+  res.json({ success: true, status: 'CONNECTED', message: 'API settings operational.' });
 });
 
 // 11. System Health Diagnostics

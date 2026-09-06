@@ -40,7 +40,7 @@ function applyAIRateLimit(req: any, res: any, next: any) {
 aiRouter.get('/status', (req, res) => {
   const settings = db.settings?.get() as any;
   const isEnabled = typeof settings?.aiEnabled === 'boolean' ? settings.aiEnabled : true;
-  const hasKey = Boolean(process.env.GEMINI_API_KEY || process.env.AI_API_KEY);
+  const hasKey = Boolean(settings?.aiApiKey || process.env.GEMINI_API_KEY || process.env.AI_API_KEY);
 
   res.json({
     enabled: isEnabled,

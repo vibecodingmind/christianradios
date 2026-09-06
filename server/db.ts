@@ -244,6 +244,7 @@ class DatabaseEngine {
         paypalClientSecret: process.env.PAYPAL_CLIENT_SECRET || '',
 
         stripeEnabled: true,
+        stripeEnv: 'sandbox',
         stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY || 'pk_test_51MzCRadiosPlatformDemoKey',
         stripeSecretKey: process.env.STRIPE_SECRET_KEY || 'sk_test_51MzCRadiosPlatformSecretKey',
         stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || 'whsec_9918237192837',
@@ -254,9 +255,47 @@ class DatabaseEngine {
         googleClientSecret: 'GOCSPX-SampleGoogleClientSecret',
         facebookAuthEnabled: false,
         facebookAppId: '',
+        facebookAppSecret: '',
         appleAuthEnabled: false,
         appleServiceId: '',
+        appleTeamId: '',
+        appleKeyId: '',
         passwordlessMagicLinkEnabled: true,
+
+        // AI Platform Configuration
+        aiEnabled: true,
+        aiProvider: 'Google Gemini',
+        aiApiKey: process.env.GEMINI_API_KEY || process.env.AI_API_KEY || '',
+        aiModel: 'gemini-2.5-flash',
+        aiRateLimitAnon: 30,
+        aiRateLimitAuth: 120,
+        systemPromptOverride: '',
+
+        // Email Service (Resend & SMTP)
+        emailProvider: (process.env.RESEND_API_KEY ? 'RESEND' : (process.env.SMTP_HOST ? 'SMTP' : 'SIMULATOR')) as 'RESEND' | 'SMTP' | 'SIMULATOR',
+        resendApiKey: process.env.RESEND_API_KEY || '',
+        emailFrom: process.env.EMAIL_FROM || 'Christian Radios <auth@christianradios.org>',
+        smtpHost: process.env.SMTP_HOST || '',
+        smtpPort: Number(process.env.SMTP_PORT) || 587,
+        smtpUser: process.env.SMTP_USER || '',
+        smtpPass: process.env.SMTP_PASS || '',
+        smtpSecure: process.env.SMTP_SECURE === 'true' || false,
+
+        // WhatsApp Gateway API Configuration
+        whatsappGatewayEnabled: true,
+        whatsappApiUrl: process.env.WHATSAPP_API_URL || 'https://graph.facebook.com/v19.0',
+        whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
+        whatsappAccessToken: process.env.WHATSAPP_ACCESS_TOKEN || '',
+        whatsappVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN || 'christian_radios_wa_webhook_token',
+        whatsappDefaultNumber: process.env.WHATSAPP_DEFAULT_NUMBER || '+255700000000',
+
+        // Radio Browser & Streaming Metadata API
+        radioBrowserApiUrl: process.env.RADIO_BROWSER_API_URL || 'https://de1.api.radio-browser.info',
+        autoSyncStreamsIntervalHours: 6,
+
+        // Core App & Domain Infrastructure
+        appUrl: process.env.APP_URL || 'https://christianradios-production.up.railway.app',
+        databaseUrl: process.env.DATABASE_URL || '',
       },
     };
   }

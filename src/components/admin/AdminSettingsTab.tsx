@@ -17,6 +17,15 @@ import {
   Zap,
   Sparkles,
   Coins,
+  Mail,
+  MessageSquare,
+  Server,
+  Eye,
+  EyeOff,
+  ExternalLink,
+  Database,
+  Cpu,
+  Send,
 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import type { PlatformSettings } from '../../types';
@@ -27,13 +36,20 @@ export function AdminSettingsTab() {
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [activeSubSection, setActiveSubSection] = useState<'gateways' | 'security' | 'social' | 'general' | 'ai'>('gateways');
-  const [gatewayTesting, setGatewayTesting] = useState<'pesapal' | 'paypal' | 'stripe' | null>(null);
+  const [activeSubSection, setActiveSubSection] = useState<
+    'gateways' | 'ai' | 'email' | 'whatsapp' | 'radio' | 'giving' | 'social' | 'security' | 'general'
+  >('gateways');
+  const [gatewayTesting, setGatewayTesting] = useState<string | null>(null);
   const [gatewayTestResult, setGatewayTestResult] = useState<{
     gateway: string;
     status: string;
     message: string;
   } | null>(null);
+  const [showSecret, setShowSecret] = useState<{ [key: string]: boolean }>({});
+
+  const toggleSecret = (key: string) => {
+    setShowSecret((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   useEffect(() => {
     loadSettings();
@@ -84,30 +100,30 @@ export function AdminSettingsTab() {
     }
   };
 
-  const testGateway = async (gateway: 'pesapal' | 'paypal' | 'stripe') => {
-    setGatewayTesting(gateway);
+  const testApi = async (apiName: string) => {
+    setGatewayTesting(apiName);
     setGatewayTestResult(null);
     try {
       const res = await apiFetch('/api/admin/settings/test-gateway', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gateway }),
+        body: JSON.stringify({ gateway: apiName }),
       });
       if (res.ok) {
         const data = await res.json();
         setGatewayTestResult(data);
       } else {
         setGatewayTestResult({
-          gateway: gateway.toUpperCase(),
+          gateway: apiName.toUpperCase(),
           status: 'ERROR',
-          message: 'Failed to test gateway endpoint.',
+          message: 'Failed to test API endpoint.',
         });
       }
     } catch (err: any) {
       setGatewayTestResult({
-        gateway: gateway.toUpperCase(),
+        gateway: apiName.toUpperCase(),
         status: 'ERROR',
-        message: err.message || 'Connection failed during gateway test',
+        message: err.message || 'Connection failed during API test',
       });
     } finally {
       setGatewayTesting(null);
@@ -194,66 +210,105 @@ export function AdminSettingsTab() {
         <button
           id="nav-sub-gateways"
           onClick={() => setActiveSubSection('gateways')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
             activeSubSection === 'gateways'
               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
               : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
           }`}
         >
-          <CreditCard className="w-4 h-4" />
-          Payment Gateways & Mobile Money
-        </button>
-
-        <button
-          id="nav-sub-security"
-          onClick={() => setActiveSubSection('security')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all ${
-            activeSubSection === 'security'
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-          }`}
-        >
-          <ShieldCheck className="w-4 h-4" />
-          Security, SSRF & Rate Limiting
-        </button>
-
-        <button
-          id="nav-sub-social"
-          onClick={() => setActiveSubSection('social')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all ${
-            activeSubSection === 'social'
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-          }`}
-        >
-          <Key className="w-4 h-4" />
-          Social Logins & OAuth
-        </button>
-
-        <button
-          id="nav-sub-general"
-          onClick={() => setActiveSubSection('general')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all ${
-            activeSubSection === 'general'
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-          }`}
-        >
-          <Globe className="w-4 h-4" />
-          General, Branding & Notice Banner
+          <CreditCard className="w-4 h-4 text-amber-400" />
+          Payment Gateways
         </button>
 
         <button
           id="nav-sub-ai"
           onClick={() => setActiveSubSection('ai')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
             activeSubSection === 'ai'
               ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
               : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
           }`}
         >
           <Sparkles className="w-4 h-4 text-cyan-400" />
-          AI Radio Guide & Engine Controls
+          AI & Gemini API
+        </button>
+
+        <button
+          id="nav-sub-email"
+          onClick={() => setActiveSubSection('email')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
+            activeSubSection === 'email'
+              ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <Mail className="w-4 h-4 text-purple-400" />
+          Email & Resend / SMTP
+        </button>
+
+        <button
+          id="nav-sub-whatsapp"
+          onClick={() => setActiveSubSection('whatsapp')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
+            activeSubSection === 'whatsapp'
+              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <MessageSquare className="w-4 h-4 text-emerald-400" />
+          WhatsApp Gateway API
+        </button>
+
+        <button
+          id="nav-sub-radio"
+          onClick={() => setActiveSubSection('radio')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
+            activeSubSection === 'radio'
+              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <Radio className="w-4 h-4 text-rose-400" />
+          Radio Directory APIs
+        </button>
+
+        <button
+          id="nav-sub-social"
+          onClick={() => setActiveSubSection('social')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
+            activeSubSection === 'social'
+              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <Key className="w-4 h-4 text-blue-400" />
+          Social Logins & OAuth
+        </button>
+
+        <button
+          id="nav-sub-security"
+          onClick={() => setActiveSubSection('security')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
+            activeSubSection === 'security'
+              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <ShieldCheck className="w-4 h-4 text-amber-400" />
+          Security & SSRF Firewall
+        </button>
+
+        <button
+          id="nav-sub-general"
+          onClick={() => setActiveSubSection('general')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
+            activeSubSection === 'general'
+              ? 'bg-slate-800 text-slate-200 border border-slate-700'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <Globe className="w-4 h-4 text-slate-300" />
+          Branding & URLs
         </button>
       </div>
 
@@ -307,9 +362,9 @@ export function AdminSettingsTab() {
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => testGateway('pesapal')}
+                  onClick={() => testApi('pesapal')}
                   disabled={gatewayTesting === 'pesapal'}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 rounded-lg transition-colors flex items-center gap-1.5"
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   {gatewayTesting === 'pesapal' ? (
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -404,9 +459,9 @@ export function AdminSettingsTab() {
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => testGateway('paypal')}
+                  onClick={() => testApi('paypal')}
                   disabled={gatewayTesting === 'paypal'}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 rounded-lg transition-colors flex items-center gap-1.5"
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   {gatewayTesting === 'paypal' ? (
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -488,9 +543,9 @@ export function AdminSettingsTab() {
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => testGateway('stripe')}
+                  onClick={() => testApi('stripe')}
                   disabled={gatewayTesting === 'stripe'}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 rounded-lg transition-colors flex items-center gap-1.5"
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   {gatewayTesting === 'stripe' ? (
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -996,41 +1051,83 @@ export function AdminSettingsTab() {
         </div>
       )}
 
-      {/* SECTION 5: AI DISCOVERY ENGINE */}
+      {/* SECTION 2: AI DISCOVERY ENGINE */}
       {activeSubSection === 'ai' && (
         <div id="section-ai" className="space-y-6">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-cyan-400" />
-                  AI Discovery Guide & Engine Configuration
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  Manage AI feature toggles, model parameters, rate limiting, and system prompt constraints.
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Google Gemini AI Intelligence Engine</h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Manage AI feature toggles, Google Gemini API Key, models, rate limits, and custom chaplain instructions.
+                  </p>
+                </div>
               </div>
 
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={typeof settings.aiEnabled === 'boolean' ? settings.aiEnabled : true}
-                  onChange={(e) => updateSetting('aiEnabled', e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
-              </label>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => testApi('gemini')}
+                  disabled={gatewayTesting === 'gemini'}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  {gatewayTesting === 'gemini' ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                  )}
+                  Test Gemini API
+                </button>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={typeof settings.aiEnabled === 'boolean' ? settings.aiEnabled : true}
+                    onChange={(e) => updateSetting('aiEnabled', e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
+                </label>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">AI Provider Engine</label>
-                <input
-                  type="text"
-                  disabled
-                  value="Google Gemini (@google/genai)"
-                  className="w-full bg-slate-950/60 border border-slate-800/80 rounded-xl px-4 py-2.5 text-sm text-cyan-400 font-semibold"
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-cyan-300">
+                    Google Gemini API Key
+                  </label>
+                  <a
+                    href="https://aistudio.google.com/app/apikey"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
+                  >
+                    Get Key from Google AI Studio <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showSecret['gemini'] ? 'text' : 'password'}
+                    value={settings.aiApiKey || ''}
+                    onChange={(e) => updateSetting('aiApiKey', e.target.value)}
+                    placeholder="AIzaSy..."
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => toggleSecret('gemini')}
+                    className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300 cursor-pointer"
+                  >
+                    {showSecret['gemini'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Once saved, this key takes effect immediately across all listener queries and searches.
+                </p>
               </div>
 
               <div>
@@ -1038,10 +1135,10 @@ export function AdminSettingsTab() {
                 <select
                   value={settings.aiModel || 'gemini-2.5-flash'}
                   onChange={(e) => updateSetting('aiModel', e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:border-cyan-500"
                 >
                   <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recommended: Fast & High Throughput)</option>
-                  <option value="gemini-2.5-pro">Gemini 2.5 Pro (Deep Reasoning & Research)</option>
+                  <option value="gemini-2.5-pro">Gemini 2.5 Pro (Deep Theological & Complex Reasoning)</option>
                 </select>
               </div>
 
@@ -1054,6 +1151,374 @@ export function AdminSettingsTab() {
                   value={settings.aiRateLimitAnon || 30}
                   onChange={(e) => updateSetting('aiRateLimitAnon', parseInt(e.target.value, 10) || 30)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  AI Spiritual Guide Custom Prompt Instructions (Optional)
+                </label>
+                <textarea
+                  rows={3}
+                  value={settings.systemPromptOverride || ''}
+                  onChange={(e) => updateSetting('systemPromptOverride', e.target.value)}
+                  placeholder="You are a gracious, compassionate Christian chaplain guiding listeners to gospel stations, uplifting worship, and biblical scriptures..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:border-cyan-500 font-sans"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SECTION 3: EMAIL SERVICE (RESEND & SMTP) */}
+      {activeSubSection === 'email' && (
+        <div id="section-email" className="space-y-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Transactional Email Delivery (Resend / SMTP)</h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Dispatches 6-digit login verification codes, 1-click magic links, password resets, and payout alerts.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => testApi('email')}
+                disabled={gatewayTesting === 'email'}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                {gatewayTesting === 'email' ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Send className="w-3.5 h-3.5 text-purple-400" />
+                )}
+                Test Email Dispatch
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Email Delivery Provider</label>
+                <select
+                  value={settings.emailProvider || 'RESEND'}
+                  onChange={(e) => updateSetting('emailProvider', e.target.value as 'RESEND' | 'SMTP' | 'SIMULATOR')}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:border-purple-500"
+                >
+                  <option value="RESEND">Resend.com API (Recommended: Instant & 99.9% Inbox Delivery)</option>
+                  <option value="SMTP">Custom SMTP Server (Office 365, Google Workspace, Self-Hosted)</option>
+                  <option value="SIMULATOR">Local Development Simulator (Console Logs Only)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">From Address & Sender Name</label>
+                <input
+                  type="text"
+                  value={settings.emailFrom || 'Christian Radios <auth@christianradios.org>'}
+                  onChange={(e) => updateSetting('emailFrom', e.target.value)}
+                  placeholder="Christian Radios <auth@christianradios.org>"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono"
+                />
+              </div>
+
+              {/* Resend Section */}
+              <div className="md:col-span-2 p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-purple-400" /> Resend API Key
+                  </span>
+                  <a
+                    href="https://resend.com/api-keys"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                  >
+                    Get API Key from Resend.com <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showSecret['resend'] ? 'text' : 'password'}
+                    value={settings.resendApiKey || ''}
+                    onChange={(e) => updateSetting('resendApiKey', e.target.value)}
+                    placeholder="re_123456789..."
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 font-mono pr-10 focus:border-purple-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => toggleSecret('resend')}
+                    className="absolute right-3 top-2 text-slate-500 hover:text-slate-300 cursor-pointer"
+                  >
+                    {showSecret['resend'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* SMTP Section */}
+              <div className="md:col-span-2 p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-4">
+                <h4 className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                  <Server className="w-3.5 h-3.5 text-slate-400" /> Custom SMTP Server Parameters (For SMTP Provider)
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-semibold text-slate-400 mb-1">SMTP Host</label>
+                    <input
+                      type="text"
+                      value={settings.smtpHost || ''}
+                      onChange={(e) => updateSetting('smtpHost', e.target.value)}
+                      placeholder="smtp.mailgun.org"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 mb-1">Port</label>
+                    <input
+                      type="number"
+                      value={settings.smtpPort || 587}
+                      onChange={(e) => updateSetting('smtpPort', Number(e.target.value))}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono"
+                    />
+                  </div>
+                  <div className="flex items-center pt-5">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={settings.smtpSecure ?? false}
+                        onChange={(e) => updateSetting('smtpSecure', e.target.checked)}
+                        className="rounded bg-slate-900 border-slate-700 text-purple-600"
+                      />
+                      SSL / TLS
+                    </label>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-semibold text-slate-400 mb-1">SMTP Username</label>
+                    <input
+                      type="text"
+                      value={settings.smtpUser || ''}
+                      onChange={(e) => updateSetting('smtpUser', e.target.value)}
+                      placeholder="postmaster@domain.org"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-semibold text-slate-400 mb-1">SMTP Password</label>
+                    <input
+                      type="password"
+                      value={settings.smtpPass || ''}
+                      onChange={(e) => updateSetting('smtpPass', e.target.value)}
+                      placeholder="••••••••••••"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SECTION 4: WHATSAPP GATEWAY API */}
+      {activeSubSection === 'whatsapp' && (
+        <div id="section-whatsapp" className="space-y-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                  <MessageSquare className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">WhatsApp Studio Gateway & Cloud API</h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Connect listener WhatsApp song requests, prayer petitions, and on-air shout-outs directly to broadcaster consoles.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => testApi('whatsapp')}
+                  disabled={gatewayTesting === 'whatsapp'}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  {gatewayTesting === 'whatsapp' ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                  )}
+                  Test WhatsApp API
+                </button>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.whatsappGatewayEnabled ?? true}
+                    onChange={(e) => updateSetting('whatsappGatewayEnabled', e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">WhatsApp Gateway API URL</label>
+                <input
+                  type="text"
+                  value={settings.whatsappApiUrl || 'https://graph.facebook.com/v19.0'}
+                  onChange={(e) => updateSetting('whatsappApiUrl', e.target.value)}
+                  placeholder="https://graph.facebook.com/v19.0"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Meta Phone Number ID</label>
+                <input
+                  type="text"
+                  value={settings.whatsappPhoneNumberId || ''}
+                  onChange={(e) => updateSetting('whatsappPhoneNumberId', e.target.value)}
+                  placeholder="e.g. 109823719283719"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Meta Cloud API Permanent Access Token</label>
+                <div className="relative">
+                  <input
+                    type={showSecret['wa'] ? 'text' : 'password'}
+                    value={settings.whatsappAccessToken || ''}
+                    onChange={(e) => updateSetting('whatsappAccessToken', e.target.value)}
+                    placeholder="EAAG..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => toggleSecret('wa')}
+                    className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300 cursor-pointer"
+                  >
+                    {showSecret['wa'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Webhook Verify Token</label>
+                <input
+                  type="text"
+                  value={settings.whatsappVerifyToken || 'christian_radios_wa_webhook_token'}
+                  onChange={(e) => updateSetting('whatsappVerifyToken', e.target.value)}
+                  placeholder="christian_radios_wa_webhook_token"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Default Station WhatsApp Hotline</label>
+                <input
+                  type="text"
+                  value={settings.whatsappDefaultNumber || '+255700000000'}
+                  onChange={(e) => updateSetting('whatsappDefaultNumber', e.target.value)}
+                  placeholder="+255 700 000 000"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono"
+                />
+                <span className="text-[11px] text-slate-400 mt-1 block">
+                  Format: International E.164 with country code (e.g. +255 712 345 678). Used for station click-to-chat links.
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SECTION 5: RADIO DIRECTORY APIS */}
+      {activeSubSection === 'radio' && (
+        <div id="section-radio" className="space-y-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                  <Radio className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Radio Directory & Streaming Mirror APIs</h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Connect to the global Radio-Browser API mirrors for automated metadata imports and station stream updates.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => testApi('radio-browser')}
+                disabled={gatewayTesting === 'radio-browser'}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                {gatewayTesting === 'radio-browser' ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Zap className="w-3.5 h-3.5 text-rose-400" />
+                )}
+                Test Directory API
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Radio-Browser API Mirror URL</label>
+                <select
+                  value={settings.radioBrowserApiUrl || 'https://de1.api.radio-browser.info'}
+                  onChange={(e) => updateSetting('radioBrowserApiUrl', e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono"
+                >
+                  <option value="https://de1.api.radio-browser.info">Germany Mirror (https://de1.api.radio-browser.info)</option>
+                  <option value="https://nl1.api.radio-browser.info">Netherlands Mirror (https://nl1.api.radio-browser.info)</option>
+                  <option value="https://at1.api.radio-browser.info">Austria Mirror (https://at1.api.radio-browser.info)</option>
+                  <option value="https://all.api.radio-browser.info">Global Load-Balanced (https://all.api.radio-browser.info)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Auto-Sync Streams Interval (Hours)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="48"
+                  value={settings.autoSyncStreamsIntervalHours || 6}
+                  onChange={(e) => updateSetting('autoSyncStreamsIntervalHours', Number(e.target.value))}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Stream Health Probe Interval (Minutes)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="60"
+                  value={settings.streamCheckIntervalMinutes || 5}
+                  onChange={(e) => updateSetting('streamCheckIntervalMinutes', Number(e.target.value))}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Stream Socket Probe Timeout (Seconds)</label>
+                <input
+                  type="number"
+                  min="2"
+                  max="30"
+                  value={settings.streamTimeoutSeconds || 8}
+                  onChange={(e) => updateSetting('streamTimeoutSeconds', Number(e.target.value))}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono"
                 />
               </div>
             </div>

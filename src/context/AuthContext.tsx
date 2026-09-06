@@ -8,7 +8,7 @@ interface AuthContextType {
   subscription?: Subscription;
   plan?: SubscriptionPlan;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; requiresVerification?: boolean; email?: string; devCode?: string; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; requiresVerification?: boolean; email?: string; error?: string }>;
   register: (data: {
     email: string;
     password: string;
@@ -17,10 +17,10 @@ interface AuthContextType {
     organizationName?: string;
     phone?: string;
     country?: string;
-  }) => Promise<{ success: boolean; requiresVerification?: boolean; email?: string; devCode?: string; error?: string }>;
+  }) => Promise<{ success: boolean; requiresVerification?: boolean; email?: string; error?: string }>;
   verifyEmailCode: (email: string, code: string) => Promise<{ success: boolean; error?: string }>;
   verifyEmailToken: (email: string, token: string) => Promise<{ success: boolean; error?: string }>;
-  resendVerificationCode: (email: string) => Promise<{ success: boolean; devCode?: string; error?: string }>;
+  resendVerificationCode: (email: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   quickLoginAs: (role: 'SUPER_ADMIN' | 'RADIO_OWNER' | 'LISTENER') => Promise<void>;
@@ -105,7 +105,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           success: false,
           requiresVerification: true,
           email: data.email,
-          devCode: data.devCode,
           error: data.message,
         };
       }
@@ -158,7 +157,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           success: true,
           requiresVerification: true,
           email: data.email,
-          devCode: data.devCode,
         };
       }
 
@@ -239,7 +237,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) {
         return { success: false, error: data.error || 'Failed to resend code.' };
       }
-      return { success: true, devCode: data.devCode };
+      return { success: true };
     } catch {
       return { success: false, error: 'Network error resending verification code.' };
     }

@@ -67,7 +67,6 @@ export function AuthModal({ isOpen, defaultTab = 'login', onClose }: AuthModalPr
   // Verification states
   const [verifyEmail, setVerifyEmail] = useState('');
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
-  const [devCode, setDevCode] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -276,7 +275,6 @@ export function AuthModal({ isOpen, defaultTab = 'login', onClose }: AuthModalPr
         const res = await login(email, password);
         if (res.requiresVerification) {
           setVerifyEmail(res.email || email);
-          setDevCode(res.devCode || null);
           setViewMode('verify');
           setResendCooldown(30);
           setSuccessMessage(res.error || 'A 6-digit authentication code has been sent to your email.');
@@ -298,7 +296,6 @@ export function AuthModal({ isOpen, defaultTab = 'login', onClose }: AuthModalPr
 
         if (res.requiresVerification) {
           setVerifyEmail(res.email || email);
-          setDevCode(res.devCode || null);
           setViewMode('verify');
           setResendCooldown(30);
           setSuccessMessage('Welcome! Please enter the 6-digit authentication code sent to your email.');
@@ -390,7 +387,6 @@ export function AuthModal({ isOpen, defaultTab = 'login', onClose }: AuthModalPr
     try {
       const res = await resendVerificationCode(verifyEmail);
       if (res.success) {
-        setDevCode(res.devCode || null);
         setResendCooldown(30);
         setSuccessMessage('A fresh 6-digit authentication code has been dispatched to your email.');
       } else {
@@ -533,27 +529,6 @@ export function AuthModal({ isOpen, defaultTab = 'login', onClose }: AuthModalPr
                 />
               ))}
             </div>
-
-            {/* Dev Helper Auto-fill Badge */}
-            {devCode && (
-              <div className="p-2.5 bg-sky-950/40 border border-sky-500/30 rounded-xl text-center">
-                <div className="text-[11px] text-sky-300 flex items-center justify-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Launch Preview Code: <strong className="font-mono text-white text-xs">{devCode}</strong></span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const digits = devCode.split('');
-                    setOtpDigits(digits);
-                    submitVerificationCode(devCode);
-                  }}
-                  className="text-[10px] text-sky-400 hover:text-sky-300 font-bold underline mt-1 cursor-pointer"
-                >
-                  Click to Auto-fill & Authenticate
-                </button>
-              </div>
-            )}
 
             <button
               type="button"

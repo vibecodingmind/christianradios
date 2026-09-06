@@ -3,7 +3,7 @@ import type { Request, Response, NextFunction } from 'express';
 import type { User, Role } from './types.js';
 import { db } from './db.js';
 
-const AUTH_SECRET = process.env.AUTH_SECRET || 'christian_radios_prod_secret_2026_salt_hash_min32';
+const AUTH_SECRET = process.env.JWT_SECRET || process.env.AUTH_SECRET || 'christian_radios_prod_secret_2026_salt_hash_min32';
 
 export interface AuthSessionPayload {
   userId: string;
@@ -190,10 +190,11 @@ export function sanitizeUser(user: User): Omit<User, 'passwordHash'> {
 export interface EmailVerificationEntry {
   userId: string;
   email: string;
-  code: string;
-  token: string;
+  codeHash: string;
+  tokenHash: string;
   expiresAt: number;
   lastSentAt: number;
+  attempts: number;
 }
 
 const emailVerificationsStore = new Map<string, EmailVerificationEntry>();
@@ -203,18 +204,32 @@ export function createEmailVerification(userId: string, email: string): { code: 
   // 6-digit cryptographic verification code
   const code = Math.floor(100000 + crypto.randomInt(900000)).toString();
   const token = crypto.randomBytes(32).toString('hex');
-  const expiresAt = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+  const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes TTL for OTP security
 
   emailVerificationsStore.set(cleanEmail, {
     userId,
     email: cleanEmail,
-    code,
-    token,
+    codeHash,
+    tokenHash,
     expiresAt,
     lastSentAt: Date.now(),
+    attempts: 0,
   });
 
   return { code, token };
+}
+
+export function canResendEmailVerification(email: string): { allowed: boolean; waitSeconds?: number } {
+  const cleanEmail = email.toLowerCase().trim();
+  const entry = emailVerificationsStore.get(cleanEmail);
+  if (!entry) return { allowed: true };
+  const elapsed = (Date.now() - entry.lastSentAt) / 1000;
+  if (elapsed < 60) {
+    return { allowed: false, waitSeconds: Math.ceil(60 - elapsed) };
+  }
+  return { allowed: true };
 }
 
 export function verifyEmailCode(email: string, code: string): User | null {
@@ -228,7 +243,20 @@ export function verifyEmailCode(email: string, code: string): User | null {
     return null;
   }
 
-  if (entry.code !== cleanCode) {
+  // Rate limiting attempts (max 5 failed attempts)
+  if (entry.attempts >= 5) {
+    emailVerificationsStore.delete(cleanEmail);
+    return null;
+  }
+
+  const incomingHash = crypto.createHash('sha256').update(cleanCode).digest('hex');
+  const match = crypto.timingSafeEqual(Buffer.from(incomingHash), Buffer.from(entry.codeHash));
+
+  if (!match) {
+    entry.attempts += 1;
+    if (entry.attempts >= 5) {
+      emailVerificationsStore.delete(cleanEmail);
+    }
     return null;
   }
 
@@ -252,7 +280,10 @@ export function verifyEmailToken(email: string, token: string): User | null {
     return null;
   }
 
-  if (entry.token !== cleanToken) {
+  const incomingTokenHash = crypto.createHash('sha256').update(cleanToken).digest('hex');
+  const match = crypto.timingSafeEqual(Buffer.from(incomingTokenHash), Buffer.from(entry.tokenHash));
+
+  if (!match) {
     return null;
   }
 

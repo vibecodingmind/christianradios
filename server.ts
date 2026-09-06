@@ -22,12 +22,20 @@ import { authRateLimiter, sensitiveActionRateLimiter, apiRateLimiter } from './s
 
 async function bootstrap() {
   const app = express();
+  app.disable('x-powered-by');
   const PORT = Number(process.env.PORT) || 3000;
 
   // 2. Production Security Headers & CORS Middleware
   app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+
+    // Allow third-party church/ministry websites to embed the radio player iframe
+    if (req.path.startsWith('/embed')) {
+      res.setHeader('Content-Security-Policy', 'frame-ancestors *');
+    } else {
+      res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    }
+
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');

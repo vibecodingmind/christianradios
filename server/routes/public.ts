@@ -1112,8 +1112,25 @@ publicRouter.get('/stream-proxy', async (req, res) => {
 
   const proxyReq = client.get(streamUrl, reqOptions, (proxyRes) => {
     if (proxyRes.statusCode && proxyRes.statusCode >= 300 && proxyRes.statusCode < 400 && proxyRes.headers.location) {
-      const redirectUrl = proxyRes.headers.location;
-      res.redirect(`/api/public/stream-proxy?url=${encodeURIComponent(redirectUrl)}`);
+      const rawRedirect = proxyRes.headers.location;
+      let absoluteRedirect: string;
+      try {
+        absoluteRedirect = new URL(rawRedirect, streamUrl).toString();
+      } catch {
+        res.status(400).send('Invalid redirect location');
+        return;
+      }
+
+      // Pre-validate redirect destination to prevent SSRF via open redirects
+      validateStreamUrl(absoluteRedirect).then((redirectCheck) => {
+        if (!redirectCheck.isValid) {
+          res.status(400).send('Prohibited redirect destination');
+          return;
+        }
+        res.redirect(`/api/public/stream-proxy?url=${encodeURIComponent(absoluteRedirect)}`);
+      }).catch(() => {
+        res.status(400).send('Failed to validate redirect destination');
+      });
       return;
     }
 

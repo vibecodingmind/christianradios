@@ -1,4 +1,6 @@
 import pg from 'pg';
+import fs from 'fs';
+import path from 'path';
 import type { DatabaseSchema } from './db.js';
 
 const { Pool } = pg;
@@ -13,9 +15,10 @@ export class PgDatabaseSync {
       console.log('[PostgreSQL] DATABASE_URL detected. Initializing PostgreSQL pool...');
       this.pool = new Pool({
         connectionString,
-        ssl: process.env.NODE_ENV === 'production' || connectionString.includes('railway')
-          ? { rejectUnauthorized: false }
-          : false,
+        ssl:
+          process.env.NODE_ENV === 'production' || connectionString.includes('railway')
+            ? { rejectUnauthorized: false }
+            : false,
       });
 
       this.pool.on('error', (err) => {
@@ -26,105 +29,39 @@ export class PgDatabaseSync {
     }
   }
 
+  public getPool(): pg.Pool | null {
+    return this.pool;
+  }
+
+  public getIsConnected(): boolean {
+    return this.isConnected;
+  }
+
   public async initSchemaAndSync(data: DatabaseSchema): Promise<void> {
     if (!this.pool) return;
 
     try {
       const client = await this.pool.connect();
       try {
-        console.log('[PostgreSQL] Creating database tables if not existing...');
+        console.log('[PostgreSQL] Running migrations & creating relational tables...');
 
-        await client.query(`
-          CREATE TABLE IF NOT EXISTS users (
-            id TEXT PRIMARY KEY,
-            email TEXT UNIQUE NOT NULL,
-            password_hash TEXT,
-            name TEXT,
-            phone TEXT,
-            role TEXT NOT NULL DEFAULT 'LISTENER',
-            status TEXT NOT NULL DEFAULT 'ACTIVE',
-            email_verified BOOLEAN DEFAULT FALSE,
-            avatar_url TEXT,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-          );
+        const candidatePaths = [
+          path.join(process.cwd(), 'server', 'migrations', '001_initial_schema.sql'),
+          path.join(process.cwd(), 'dist', 'server', 'migrations', '001_initial_schema.sql'),
+          typeof __dirname !== 'undefined' ? path.join(__dirname, 'migrations', '001_initial_schema.sql') : '',
+          typeof __dirname !== 'undefined' ? path.join(__dirname, '..', 'server', 'migrations', '001_initial_schema.sql') : '',
+        ].filter(Boolean);
 
-          CREATE TABLE IF NOT EXISTS categories (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            slug TEXT UNIQUE NOT NULL,
-            icon_name TEXT DEFAULT 'Radio',
-            description TEXT,
-            display_order INT DEFAULT 0,
-            is_active BOOLEAN DEFAULT TRUE
-          );
-
-          CREATE TABLE IF NOT EXISTS countries (
-            code TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            flag_emoji TEXT,
-            continent TEXT,
-            is_featured BOOLEAN DEFAULT FALSE
-          );
-
-          CREATE TABLE IF NOT EXISTS stations (
-            id TEXT PRIMARY KEY,
-            owner_id TEXT NOT NULL,
-            name TEXT NOT NULL,
-            slug TEXT UNIQUE NOT NULL,
-            tagline TEXT,
-            description TEXT,
-            logo_url TEXT NOT NULL,
-            cover_url TEXT,
-            country_code TEXT NOT NULL,
-            region TEXT,
-            city TEXT NOT NULL,
-            language TEXT NOT NULL,
-            genre TEXT NOT NULL,
-            category_id TEXT NOT NULL,
-            denomination TEXT,
-            website_url TEXT,
-            email TEXT,
-            phone TEXT,
-            stream_url TEXT NOT NULL,
-            backup_stream_url TEXT,
-            stream_type TEXT DEFAULT 'MP3',
-            bitrate_kbps INT DEFAULT 128,
-            timezone TEXT DEFAULT 'Africa/Dar_es_Salaam',
-            status TEXT DEFAULT 'ACTIVE',
-            verification_status TEXT DEFAULT 'VERIFIED',
-            claim_status TEXT DEFAULT 'CLAIMED',
-            is_featured BOOLEAN DEFAULT FALSE,
-            stream_status TEXT DEFAULT 'ONLINE',
-            play_count INT DEFAULT 0,
-            favorite_count INT DEFAULT 0,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-          );
-
-          CREATE TABLE IF NOT EXISTS platform_settings (
-            id INT PRIMARY KEY DEFAULT 1,
-            data JSONB NOT NULL,
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-          );
-
-          CREATE TABLE IF NOT EXISTS notifications (
-            id TEXT PRIMARY KEY,
-            user_id TEXT NOT NULL,
-            title TEXT NOT NULL,
-            message TEXT NOT NULL,
-            type TEXT NOT NULL,
-            read BOOLEAN DEFAULT FALSE,
-            action_url TEXT,
-            metadata JSONB,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-          );
-        `);
+        const migrationFile = candidatePaths.find((p) => fs.existsSync(p));
+        if (migrationFile) {
+          const sql = fs.readFileSync(migrationFile, 'utf-8');
+          await client.query(sql);
+        }
 
         this.isConnected = true;
-        console.log('[PostgreSQL] Tables verified. Starting initial data sync...');
+        console.log('[PostgreSQL] Relational tables verified. Synchronizing initial seed...');
 
-        // Sync Countries
+        // 1. Countries
         if (Array.isArray(data.countries) && data.countries.length > 0) {
           for (const c of data.countries) {
             await client.query(
@@ -136,7 +73,7 @@ export class PgDatabaseSync {
           }
         }
 
-        // Sync Categories
+        // 2. Categories
         if (Array.isArray(data.categories) && data.categories.length > 0) {
           for (const cat of data.categories) {
             await client.query(
@@ -148,7 +85,7 @@ export class PgDatabaseSync {
           }
         }
 
-        // Sync Users
+        // 3. Users
         if (Array.isArray(data.users) && data.users.length > 0) {
           for (const u of data.users) {
             await client.query(
@@ -159,7 +96,7 @@ export class PgDatabaseSync {
                 u.id,
                 u.email,
                 u.passwordHash,
-                u.name || u.fullName || '',
+                u.name || (u as any).fullName || '',
                 u.phone || '',
                 u.role || 'LISTENER',
                 u.status || 'ACTIVE',
@@ -172,9 +109,30 @@ export class PgDatabaseSync {
           }
         }
 
-        // Sync Stations (all 1062 stations)
+        // 4. Subscription Plans
+        if (Array.isArray(data.plans) && data.plans.length > 0) {
+          for (const p of data.plans) {
+            await client.query(
+              `INSERT INTO subscription_plans (id, name, tier, price_tzs, price_usd, features, max_stations, bitrate_cap_kbps, is_active)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               ON CONFLICT (id) DO UPDATE SET name = $2, tier = $3, price_tzs = $4, price_usd = $5, features = $6, max_stations = $7, bitrate_cap_kbps = $8, is_active = $9;`,
+              [
+                p.id,
+                p.name,
+                p.tier,
+                (p as any).priceTzs || p.monthlyPriceTzs || 0,
+                (p as any).priceUsd || p.monthlyPriceUsd || 0,
+                JSON.stringify(p.featuresList || (p as any).features || []),
+                p.maxStations || 1,
+                (p as any).bitrateCapKbps || 128,
+                p.isActive !== false,
+              ]
+            );
+          }
+        }
+
+        // 5. Stations
         if (Array.isArray(data.stations) && data.stations.length > 0) {
-          console.log(`[PostgreSQL] Syncing ${data.stations.length} stations to PostgreSQL...`);
           for (const s of data.stations) {
             try {
               await client.query(
@@ -186,7 +144,15 @@ export class PgDatabaseSync {
                   is_featured, stream_status, play_count, favorite_count, created_at, updated_at
                 ) VALUES (
                   $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32
-                ) ON CONFLICT (id) DO NOTHING;`,
+                ) ON CONFLICT (id) DO UPDATE SET
+                  name = $3,
+                  slug = $4,
+                  tagline = $5,
+                  description = $6,
+                  logo_url = $7,
+                  stream_url = $19,
+                  status = $24,
+                  stream_status = $28;`,
                 [
                   s.id,
                   s.ownerId || 'usr_owner_01',
@@ -222,13 +188,13 @@ export class PgDatabaseSync {
                   s.updatedAt ? new Date(s.updatedAt) : new Date(),
                 ]
               );
-            } catch (err) {
-              // Ignore individual row conflict or format errors
+            } catch {
+              // Ignore conflicts
             }
           }
         }
 
-        // Sync Settings
+        // 6. Platform Settings
         if (data.settings) {
           await client.query(
             `INSERT INTO platform_settings (id, data, updated_at) VALUES (1, $1, NOW())
@@ -237,17 +203,13 @@ export class PgDatabaseSync {
           );
         }
 
-        console.log('[PostgreSQL] Initial sync completed successfully!');
+        console.log('[PostgreSQL] Initial synchronization verified successfully!');
       } finally {
         client.release();
       }
     } catch (err) {
-      console.error('[PostgreSQL] Schema init or sync error:', err);
+      console.error('[PostgreSQL] Schema initialization or synchronization error:', err);
     }
-  }
-
-  public getIsConnected(): boolean {
-    return this.isConnected;
   }
 }
 

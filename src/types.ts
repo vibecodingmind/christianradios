@@ -1076,10 +1076,37 @@ export interface PlatformSettings {
   // AI Platform Configuration
   aiEnabled?: boolean;
   aiProvider?: string;
+  aiApiKey?: string;
   aiModel?: string;
   aiRateLimitAnon?: number;
   aiRateLimitAuth?: number;
   systemPromptOverride?: string;
+
+  // Email & Messaging Service (Resend & SMTP)
+  emailProvider?: 'RESEND' | 'SMTP' | 'SIMULATOR';
+  resendApiKey?: string;
+  emailFrom?: string;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUser?: string;
+  smtpPass?: string;
+  smtpSecure?: boolean;
+
+  // WhatsApp Gateway API Configuration
+  whatsappGatewayEnabled?: boolean;
+  whatsappApiUrl?: string;
+  whatsappPhoneNumberId?: string;
+  whatsappAccessToken?: string;
+  whatsappVerifyToken?: string;
+  whatsappDefaultNumber?: string;
+
+  // Radio Browser & Streaming Metadata API
+  radioBrowserApiUrl?: string;
+  autoSyncStreamsIntervalHours?: number;
+
+  // Core Platform URLs & Infrastructure
+  appUrl?: string;
+  databaseUrl?: string;
 
   // Payment Gateways (PesaPal, PayPal & Stripe)
   pesapalEnabled: boolean;
@@ -1094,6 +1121,7 @@ export interface PlatformSettings {
   paypalClientSecret?: string;
 
   stripeEnabled: boolean;
+  stripeEnv?: 'sandbox' | 'live';
   stripePublishableKey: string;
   stripeSecretKey: string;
   stripeWebhookSecret: string;
@@ -1104,11 +1132,18 @@ export interface PlatformSettings {
   googleClientSecret: string;
   facebookAuthEnabled: boolean;
   facebookAppId: string;
+  facebookAppSecret?: string;
   appleAuthEnabled: boolean;
   appleServiceId: string;
+  appleTeamId?: string;
+  appleKeyId?: string;
   passwordlessMagicLinkEnabled: boolean;
 
   // Premium Radios & Referral Rules Configuration
+  premiumRadiosEnabled?: boolean;
+  minPremiumPriceTzs?: number;
+  maxPremiumPriceTzs?: number;
+  premiumRevenueShareOwnerPercentage?: number;
   referralCommissionOwnerPercentage?: number;
   referralCommissionListenerPercentage?: number;
   referralAttributionWindowDays?: number;

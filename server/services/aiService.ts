@@ -10,6 +10,7 @@ import {
   type ContentQueryResult,
 } from './aiTools.js';
 import { db } from '../db.js';
+import { IntegrationService } from './integrationService.js';
 import type { Station, PodcastEpisode, PrayerRequest } from '../types.js';
 
 export interface AIGuideResponse {
@@ -36,20 +37,18 @@ export class AIService {
   }
 
   private getApiKey(): string | null {
-    return process.env.GEMINI_API_KEY || process.env.AI_API_KEY || null;
+    const gemini = IntegrationService.getGeminiConfig();
+    return gemini.apiKey || null;
   }
 
   private getModel(): string {
-    const settings = db.settings?.get() as any;
-    return settings?.aiModel || process.env.AI_MODEL || 'gemini-2.5-flash';
+    const gemini = IntegrationService.getGeminiConfig();
+    return gemini.model;
   }
 
   private isAIEnabled(): boolean {
-    const settings = db.settings?.get() as any;
-    if (settings && typeof settings.aiEnabled === 'boolean') {
-      return settings.aiEnabled;
-    }
-    return true;
+    const gemini = IntegrationService.getGeminiConfig();
+    return gemini.enabled;
   }
 
   /**

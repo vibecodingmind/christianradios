@@ -325,6 +325,24 @@ export function AdminDashboard({ onNavigate, initialParam }: AdminDashboardProps
 
   const currentTabObj = adminMenuGroups.flatMap((g) => g.items).find((i) => i.id === activeTab);
 
+  if (!user || user.role !== 'SUPER_ADMIN') {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto">
+        <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 mb-4">
+          <AlertTriangle className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-white mb-2">Super Admin Access Required</h2>
+        <p className="text-slate-400 text-sm mb-6">You must be authenticated as a Super Administrator to view this portal.</p>
+        <button
+          onClick={() => onNavigate('home')}
+          className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-sm font-semibold transition-colors cursor-pointer"
+        >
+          Return to Directory
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div id="admin-dashboard-root" className="space-y-6 pb-20">
       {/* Top Executive Header Banner */}

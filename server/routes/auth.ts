@@ -10,11 +10,12 @@ import {
   verifyPasswordResetToken,
   consumePasswordResetToken,
   createEmailVerification,
+  canResendEmailVerification,
   verifyEmailCode,
   verifyEmailToken,
   type AuthenticatedRequest,
 } from '../auth.js';
-import { sendAuthVerificationEmail, getLatestEmailFor } from '../email.js';
+import { sendAuthVerificationEmail } from '../email.js';
 import { db } from '../db.js';
 import type { User, Role } from '../types.js';
 import { DEFAULT_OFFICIAL_PLANS, PlanEntitlementService } from '../services/entitlement.js';
@@ -149,7 +150,6 @@ authRouter.post('/register', async (req, res) => {
       success: true,
       requiresVerification: true,
       email: newUser.email,
-      devCode: code,
       message: 'Account created! Please check your email for the 6-digit authentication code.',
     });
   } catch (err: unknown) {
@@ -254,6 +254,14 @@ authRouter.post('/resend-code', async (req, res) => {
       return;
     }
 
+    const canResend = canResendEmailVerification(user.email);
+    if (!canResend.allowed) {
+      res.status(429).json({
+        error: `Please wait ${canResend.waitSeconds || 60} seconds before requesting another code.`,
+      });
+      return;
+    }
+
     const { code, token: emailToken } = createEmailVerification(user.id, user.email);
     const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
     const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:3000';
@@ -271,18 +279,15 @@ authRouter.post('/resend-code', async (req, res) => {
     res.json({
       success: true,
       message: 'A fresh 6-digit authentication code has been sent to your email.',
-      devCode: code,
     });
   } catch {
     res.status(500).json({ error: 'Failed to resend authentication code.' });
   }
 });
 
-// Latest email inspector (for testing / preview convenience)
+// Latest email inspector (strictly disabled in production)
 authRouter.get('/latest-email', (req, res) => {
-  const email = (req.query.email as string) || '';
-  const latest = getLatestEmailFor(email);
-  res.json({ latest });
+  res.status(404).json({ error: 'Endpoint not found.' });
 });
 
 const LoginSchema = z.object({
@@ -328,7 +333,6 @@ authRouter.post('/login', async (req, res) => {
       res.status(200).json({
         requiresVerification: true,
         email: user.email,
-        devCode: code,
         message: 'Please authenticate your email to complete login. A fresh code has been sent.',
       });
       return;
@@ -541,7 +545,7 @@ authRouter.post('/change-password', requireAuth, (req: AuthenticatedRequest, res
   res.json({ success: true, message: 'Password updated successfully.' });
 });
 
-authRouter.post('/forgot-password', (req, res) => {
+authRouter.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
   if (email && typeof email === 'string') {
     const user = db.users.findByEmail(email.toLowerCase().trim());
@@ -554,9 +558,26 @@ authRouter.post('/forgot-password', (req, res) => {
         action: 'PASSWORD_RESET_REQUESTED',
         entityType: 'User',
         entityId: user.id,
-        details: `Password reset token generated (valid for 15m). Token: ${resetToken}`,
+        details: 'Password reset instructions generated and dispatched.',
         ipAddress: req.ip || '127.0.0.1',
       });
+
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+      const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:3000';
+      const baseUrl = `${protocol}://${host}`;
+
+      try {
+        await sendAuthVerificationEmail({
+          to: user.email,
+          name: user.name,
+          code: 'RESET',
+          token: resetToken,
+          role: user.role,
+          baseUrl,
+        });
+      } catch (mailErr) {
+        console.error('[Auth] Failed sending password reset email:', mailErr);
+      }
     }
   }
 

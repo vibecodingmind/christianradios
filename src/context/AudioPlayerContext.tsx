@@ -312,7 +312,21 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       clearTimeout(fallbackTimeoutRef.current);
     }
 
-    const isHls = streamUrl.includes('.m3u8') || streamUrl.includes('application/x-mpegURL');
+    // Insecure HTTP streams on HTTPS origins trigger mixed-content blocks in modern browsers.
+    // Pre-emptively route through secure proxy gateway for immediate, error-free playback:
+    let targetStreamUrl = streamUrl;
+    let targetIsProxy = isProxy;
+    if (
+      !isProxy &&
+      streamUrl.startsWith('http://') &&
+      typeof window !== 'undefined' &&
+      window.location.protocol === 'https:'
+    ) {
+      targetStreamUrl = `/api/public/stream-proxy?url=${encodeURIComponent(streamUrl)}`;
+      targetIsProxy = true;
+    }
+
+    const isHls = targetStreamUrl.includes('.m3u8') || targetStreamUrl.includes('application/x-mpegURL');
 
     if (isHls && Hls.isSupported()) {
       const hls = new Hls({
@@ -321,7 +335,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         maxBufferLength: 10,
       });
       hlsRef.current = hls;
-      hls.loadSource(streamUrl);
+      hls.loadSource(targetStreamUrl);
       hls.attachMedia(audio);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -333,18 +347,18 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           })
           .catch((err) => {
             console.error('HLS play error:', err);
-            handlePlaybackError(streamUrl, isBackup, isProxy);
+            handlePlaybackError(streamUrl, isBackup, targetIsProxy);
           });
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
         if (data.fatal) {
-          handlePlaybackError(streamUrl, isBackup, isProxy);
+          handlePlaybackError(streamUrl, isBackup, targetIsProxy);
         }
       });
     } else {
       // Standard MP3 / AAC / Icecast stream
-      audio.src = streamUrl;
+      audio.src = targetStreamUrl;
 
       audio
         .play()
@@ -354,12 +368,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         })
         .catch((err) => {
           console.warn('[Player] Direct audio play rejected, attempting proxy gateway:', err);
-          handlePlaybackError(streamUrl, isBackup, isProxy);
+          handlePlaybackError(streamUrl, isBackup, targetIsProxy);
         });
 
       audio.onerror = () => {
         console.warn('[Player] Direct audio stream error, attempting proxy gateway...');
-        handlePlaybackError(streamUrl, isBackup, isProxy);
+        handlePlaybackError(streamUrl, isBackup, targetIsProxy);
       };
     }
   };
