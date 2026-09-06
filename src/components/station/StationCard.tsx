@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Play, Pause, Heart, Star, Sparkles, ShieldCheck, Signal } from 'lucide-react';
 import { useAudioPlayer } from '../../context/AudioPlayerContext';
+import { useFavorites } from '../../context/FavoritesContext';
 import type { Station } from '../../types';
 
 export interface StationCardProps {
@@ -13,31 +14,13 @@ export interface StationCardProps {
 
 export function StationCard({ station, onNavigate, layout = 'grid', variant = 'default' }: StationCardProps) {
   const { currentStation, isPlaying, isLoading, playStation, togglePlay } = useAudioPlayer();
-  const [isFavorite, setIsFavorite] = useState(false);
+  const { isFavorite: checkIsFavorite, toggleFavorite: doToggleFavorite } = useFavorites();
 
-  useEffect(() => {
-    try {
-      const savedFavs = JSON.parse(localStorage.getItem('christian_radios_favorites') || '[]');
-      setIsFavorite(savedFavs.includes(station.id));
-    } catch {
-      setIsFavorite(false);
-    }
-  }, [station.id]);
+  const isFavorite = checkIsFavorite(station.id);
 
   const toggleFavorite = (e: React.MouseEvent) => {
     e.stopPropagation();
-    try {
-      const savedFavs: string[] = JSON.parse(localStorage.getItem('christian_radios_favorites') || '[]');
-      let updated: string[];
-      if (savedFavs.includes(station.id)) {
-        updated = savedFavs.filter((id) => id !== station.id);
-        setIsFavorite(false);
-      } else {
-        updated = [...savedFavs, station.id];
-        setIsFavorite(true);
-      }
-      localStorage.setItem('christian_radios_favorites', JSON.stringify(updated));
-    } catch {}
+    doToggleFavorite(station);
   };
 
   const isCurrent = currentStation?.id === station.id;

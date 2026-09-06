@@ -23,6 +23,7 @@ import {
   Unlink,
 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
+import { useLiveSyncListener } from '../../context/RealtimeContext';
 import type { Station, WhatsAppSession, WhatsAppAccountType } from '../../types';
 
 interface WhatsAppGatewayModalProps {
@@ -93,6 +94,24 @@ export function WhatsAppGatewayModal({
       loadSessionStatus();
     }
   }, [isOpen, selectedStationId]);
+
+  // Live SSE listener for WhatsApp connection status changes
+  useLiveSyncListener('WHATSAPP_STATUS_CHANGED', (event) => {
+    if (event.stationId === currentStation?.id) {
+      loadSessionStatus();
+    }
+  });
+
+  // Active fast 2s polling while waiting for pairing scan
+  useEffect(() => {
+    if (!isOpen || !currentStation || session.status !== 'PAIRING') return;
+
+    const pollInterval = setInterval(() => {
+      loadSessionStatus();
+    }, 2000);
+
+    return () => clearInterval(pollInterval);
+  }, [isOpen, currentStation?.id, session.status]);
 
   // Countdown timer for pairing QR code
   useEffect(() => {

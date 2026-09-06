@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useAudioPlayer } from '../../context/AudioPlayerContext';
 import { useAuth } from '../../context/AuthContext';
+import { useFavorites } from '../../context/FavoritesContext';
 import { ReportModal } from '../station/ReportModal';
 import { ShareModal } from '../station/ShareModal';
 
@@ -43,7 +44,7 @@ export function ExpandedPlayerModal() {
   } = useAudioPlayer();
 
   const { user } = useAuth();
-  const [isFavorited, setIsFavorited] = useState(false);
+  const { isFavorite, toggleFavorite } = useFavorites();
   const [showReport, setShowReport] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [activeTab, setActiveTab] = useState<'info' | 'schedule'>('info');
@@ -52,19 +53,10 @@ export function ExpandedPlayerModal() {
     return null;
   }
 
-  const toggleFavorite = async () => {
-    if (!user) return;
-    try {
-      const res = await fetch('/api/listener/favorites/toggle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stationId: currentStation.id }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setIsFavorited(data.isFavorite);
-      }
-    } catch {}
+  const isFavorited = isFavorite(currentStation.id);
+
+  const handleToggleFavorite = () => {
+    toggleFavorite(currentStation);
   };
 
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -117,19 +109,17 @@ export function ExpandedPlayerModal() {
           </div>
 
           <div className="mt-6 flex items-center gap-3">
-            {user && (
-              <button
-                onClick={toggleFavorite}
-                className={`p-3 rounded-2xl border transition-colors flex items-center gap-2 text-xs font-semibold ${
-                  isFavorited
-                    ? 'bg-rose-500/20 text-rose-400 border-rose-500/40'
-                    : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800'
-                }`}
-              >
-                <Heart className={`w-4 h-4 ${isFavorited ? 'fill-current text-rose-500' : ''}`} />
-                {isFavorited ? 'Favorited' : 'Add to Favorites'}
-              </button>
-            )}
+            <button
+              onClick={handleToggleFavorite}
+              className={`p-3 rounded-2xl border transition-all duration-200 flex items-center gap-2 text-xs font-semibold cursor-pointer active:scale-95 ${
+                isFavorited
+                  ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 shadow-sm shadow-rose-500/20'
+                  : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800'
+              }`}
+            >
+              <Heart className={`w-4 h-4 transition-transform duration-200 ${isFavorited ? 'fill-current text-rose-500 scale-110' : ''}`} />
+              {isFavorited ? 'Favorited' : 'Add to Favorites'}
+            </button>
             <button
               onClick={() => setShowShare(true)}
               className="p-3 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-2xl transition-colors flex items-center gap-2 text-xs font-semibold"

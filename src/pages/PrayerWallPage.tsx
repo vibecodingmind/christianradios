@@ -26,6 +26,7 @@ import { ReportPrayerModal } from '../components/modals/ReportPrayerModal';
 import { AIPrayerModal } from '../components/ai/AIPrayerModal';
 import { PrayerPublisherAvatar } from '../components/common/PrayerPublisherAvatar';
 import { useAuth } from '../context/AuthContext';
+import { useLiveSyncListener } from '../context/RealtimeContext';
 import { apiFetch } from '../lib/api';
 
 interface PrayerWallPageProps {
@@ -115,6 +116,14 @@ export function PrayerWallPage({ onNavigate, onOpenAuth }: PrayerWallPageProps) 
     setCurrentPage(p);
     scrollToPrayers();
   };
+
+  // Real-time live sync listeners for prayer requests
+  useLiveSyncListener('PRAYER_ADDED', () => {
+    fetchPrayers();
+  });
+  useLiveSyncListener('PRAYER_UPDATED', () => {
+    fetchPrayers();
+  });
 
   useEffect(() => {
     setCurrentPage(1);

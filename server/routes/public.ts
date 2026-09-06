@@ -7,6 +7,7 @@ import { validateStreamUrl } from '../ssrf.js';
 import { getLiveNowPlayingMetadata } from '../icyMetadata.js';
 import type { StationReport, TicketPriority } from '../types.js';
 import { whatsappGateway } from '../services/whatsappGateway.js';
+import { broadcastLiveEvent } from '../liveSync.js';
 
 export const publicRouter = Router();
 
@@ -650,6 +651,9 @@ publicRouter.post('/prayers', requireAuth, (req: AuthenticatedRequest, res) => {
     });
   }
 
+  // Broadcast realtime prayer event to live subscribers & dashboards
+  broadcastLiveEvent('PRAYER_ADDED', prayer, { stationId, userId: user.id });
+
   res.status(201).json({ success: true, prayer });
 });
 
@@ -891,6 +895,9 @@ publicRouter.post('/stations/:stationId/feed', (req, res) => {
       metadata: { stationId: st.id, postId: post.id },
     });
   }
+
+  // Broadcast realtime song request / shoutout event
+  broadcastLiveEvent('SONG_REQUEST_ADDED', post, { stationId: st.id, userId });
 
   res.status(201).json({ success: true, post });
 });

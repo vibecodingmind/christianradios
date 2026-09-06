@@ -16,6 +16,7 @@ import { kycRouter } from './server/routes/kyc.js';
 import { adminVerificationRouter } from './server/routes/adminVerification.js';
 import { listenerPulseRouter } from './server/routes/listenerPulse.js';
 import { notificationsRouter } from './server/routes/notifications.js';
+import { handleLiveEventsStream } from './server/liveSync.js';
 
 import { authRateLimiter, sensitiveActionRateLimiter, apiRateLimiter } from './server/rateLimiter.js';
 
@@ -78,6 +79,7 @@ async function bootstrap() {
   });
 
   app.use('/api/auth', authRouter);
+  app.get('/api/public/events', handleLiveEventsStream);
   app.use('/api/public', publicRouter);
   app.use('/api/public', listenerPulseRouter);
   app.use('/api/listener', listenerRouter);

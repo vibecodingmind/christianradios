@@ -28,6 +28,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
+import { useLiveSyncListener } from '../../context/RealtimeContext';
 import type { Station, StationFeedPost } from '../../types';
 import { WhatsAppGatewayModal } from '../modals/WhatsAppGatewayModal';
 
@@ -79,9 +80,20 @@ export function OwnerStudioDesk({ stations, onAddStation, onStationUpdated }: Ow
     }
   }, [modalStationId, stations, activeStation?.id]);
 
+  // Real-time live sync listeners for incoming song requests and WhatsApp messages
+  useLiveSyncListener('SONG_REQUEST_ADDED', () => {
+    loadRequests();
+  });
+  useLiveSyncListener('SONG_REQUEST_UPDATED', () => {
+    loadRequests();
+  });
+  useLiveSyncListener('WHATSAPP_MESSAGE', () => {
+    loadRequests();
+  });
+
   useEffect(() => {
     loadRequests();
-    const interval = setInterval(loadRequests, 15000); // Polling every 15s for live show freshness
+    const interval = setInterval(loadRequests, 8000); // Polling every 8s fallback for live show freshness
     return () => clearInterval(interval);
   }, []);
 

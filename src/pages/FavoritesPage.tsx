@@ -18,6 +18,7 @@ import { apiFetch } from '../lib/api';
 import type { Station, Playlist } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useAudioPlayer } from '../context/AudioPlayerContext';
+import { useFavorites } from '../context/FavoritesContext';
 
 interface FavoritesPageProps {
   onNavigate: (view: string, param?: string) => void;
@@ -26,11 +27,12 @@ interface FavoritesPageProps {
 export function FavoritesPage({ onNavigate }: FavoritesPageProps) {
   const { user } = useAuth();
   const { playStation } = useAudioPlayer();
+  const { favoriteStations, favoriteIds, isLoading: favLoading, refreshFavorites } = useFavorites();
 
   const [activeTab, setActiveTab] = useState<'favorites' | 'history' | 'playlists'>('favorites');
-  const [favorites, setFavorites] = useState<Station[]>([]);
   const [recentStations, setRecentStations] = useState<Station[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [extraStations, setExtraStations] = useState<Station[]>([]);
   const [loading, setLoading] = useState(true);
 
   // New Playlist Modal State
@@ -40,18 +42,40 @@ export function FavoritesPage({ onNavigate }: FavoritesPageProps) {
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
   const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);
 
+  // Load any missing stations if only IDs were cached
+  useEffect(() => {
+    const missingIds = Array.from(favoriteIds).filter(
+      (id) => !favoriteStations.some((s) => s.id === id)
+    );
+    if (missingIds.length > 0) {
+      apiFetch('/api/public/stations?limit=100')
+        .then(async (res) => {
+          if (res.ok) {
+            const data = await res.json();
+            const matched = (data.stations || []).filter((s: Station) => missingIds.includes(s.id));
+            setExtraStations(matched);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [favoriteIds, favoriteStations]);
+
+  // Combined reactive favorites list
+  const favorites = React.useMemo(() => {
+    const combined = [...favoriteStations];
+    for (const extra of extraStations) {
+      if (!combined.some((s) => s.id === extra.id) && favoriteIds.has(extra.id)) {
+        combined.push(extra);
+      }
+    }
+    return combined.filter((s) => favoriteIds.has(s.id));
+  }, [favoriteStations, extraStations, favoriteIds]);
+
   useEffect(() => {
     async function loadData() {
       try {
         setLoading(true);
         if (user) {
-          // Load favorites
-          const favRes = await apiFetch('/api/listener/favorites');
-          if (favRes.ok) {
-            const data = await favRes.json();
-            setFavorites(data.stations || data.favorites || []);
-          }
-
           // Load recently listened
           const histRes = await apiFetch('/api/listener/recently-listened');
           if (histRes.ok) {
@@ -64,19 +88,6 @@ export function FavoritesPage({ onNavigate }: FavoritesPageProps) {
           if (plRes.ok) {
             const data = await plRes.json();
             setPlaylists(data.playlists || []);
-          }
-        } else {
-          // For guests, load from public featured or guest localStorage
-          const savedFavIds = JSON.parse(localStorage.getItem('cr_guest_favorites') || '[]');
-          if (savedFavIds.length > 0) {
-            const res = await apiFetch('/api/public/stations?limit=50');
-            if (res.ok) {
-              const data = await res.json();
-              const matched = (data.stations || []).filter((s: Station) =>
-                savedFavIds.includes(s.id)
-              );
-              setFavorites(matched);
-            }
           }
         }
       } catch (err) {

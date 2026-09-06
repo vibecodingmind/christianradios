@@ -30,6 +30,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useAudioPlayer } from '../context/AudioPlayerContext';
 import { useNotifications } from '../context/NotificationContext';
+import { useFavorites } from '../context/FavoritesContext';
 import { apiFetch } from '../lib/api';
 import type { PrayerRequest, Donation, Station } from '../types';
 
@@ -69,12 +70,16 @@ export function ProfileSettingsPage({ onNavigate }: ProfileSettingsPageProps) {
   const [newPassword, setNewPassword] = useState('');
   const [passwordMsg, setPasswordMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  const { favoriteStations } = useFavorites();
+
   // Listener Data States
   const [myPrayers, setMyPrayers] = useState<PrayerRequest[]>([]);
   const [myDonations, setMyDonations] = useState<Donation[]>([]);
-  const [myFavorites, setMyFavorites] = useState<Station[]>([]);
+  const [serverFavorites, setServerFavorites] = useState<Station[]>([]);
   const [totalGivingUsd, setTotalGivingUsd] = useState(0);
   const [loadingData, setLoadingData] = useState(false);
+
+  const myFavorites = favoriteStations.length > 0 ? favoriteStations : serverFavorites;
 
   // Praise Report Modal State
   const [answeringPrayer, setAnsweringPrayer] = useState<PrayerRequest | null>(null);
@@ -94,7 +99,7 @@ export function ProfileSettingsPage({ onNavigate }: ProfileSettingsPageProps) {
       setMyPrayers(prayersRes.prayers || []);
       setMyDonations(donationsRes.donations || []);
       setTotalGivingUsd(donationsRes.totalAmountUsd || 0);
-      setMyFavorites(favsRes.stations || []);
+      setServerFavorites(favsRes.stations || []);
     } catch (err) {
       console.error('Failed to load listener dashboard data:', err);
     } finally {

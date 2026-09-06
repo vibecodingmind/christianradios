@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { AudioPlayerProvider, useAudioPlayer } from './context/AudioPlayerContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { RealtimeProvider } from './context/RealtimeContext';
+import { FavoritesProvider } from './context/FavoritesContext';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
 import { PersistentPlayer } from './components/player/PersistentPlayer';
@@ -552,11 +554,15 @@ export function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <NotificationProvider>
-          <AudioPlayerProvider>
-            <MainAppContent />
-          </AudioPlayerProvider>
-        </NotificationProvider>
+        <RealtimeProvider>
+          <FavoritesProvider>
+            <NotificationProvider>
+              <AudioPlayerProvider>
+                <MainAppContent />
+              </AudioPlayerProvider>
+            </NotificationProvider>
+          </FavoritesProvider>
+        </RealtimeProvider>
       </AuthProvider>
     </ThemeProvider>
   );

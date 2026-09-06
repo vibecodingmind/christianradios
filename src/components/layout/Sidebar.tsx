@@ -17,6 +17,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { User } from '../../types';
+import { useFavorites } from '../../context/FavoritesContext';
 
 interface SidebarProps {
   currentView: string;
@@ -27,6 +28,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ currentView, onNavigate, onPublicAction, user, onCloseMobile }: SidebarProps) {
+  const { favoritesCount } = useFavorites();
+
   const handleItemClick = (view: string, param?: string) => {
     onNavigate(view, param);
     if (onCloseMobile) onCloseMobile();
@@ -39,7 +42,7 @@ export function Sidebar({ currentView, onNavigate, onPublicAction, user, onClose
   ];
 
   const yourFaithItems = [
-    { id: 'favorites', label: 'Favourites', icon: Heart, count: null },
+    { id: 'favorites', label: 'Favourites', icon: Heart, count: favoritesCount > 0 ? favoritesCount : null },
     { id: 'prayer-wall', label: 'Prayer Wall', icon: HeartHandshake, count: null },
     { id: 'giving', label: 'Giving & Support', icon: Gift, count: null },
   ];

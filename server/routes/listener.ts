@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { requireAuth, type AuthenticatedRequest } from '../auth.js';
 import { db } from '../db.js';
 import type { ListeningSession } from '../types.js';
+import { broadcastLiveEvent } from '../liveSync.js';
 
 export const listenerRouter = Router();
 
@@ -24,6 +25,33 @@ listenerRouter.get('/favorites', requireAuth, (req: AuthenticatedRequest, res) =
   res.json({ stations });
 });
 
+// Sync / Bulk Merge Favorites (Used when guest logs in or local favorites are synced)
+listenerRouter.post('/favorites/sync', requireAuth, (req: AuthenticatedRequest, res) => {
+  const userId = req.user!.id;
+  const { stationIds } = req.body;
+  if (Array.isArray(stationIds)) {
+    for (const stationId of stationIds) {
+      if (typeof stationId === 'string' && stationId.trim()) {
+        const existing = db.favorites.findByUser(userId).find((f) => f.stationId === stationId);
+        if (!existing) {
+          db.favorites.toggle(userId, stationId);
+        }
+      }
+    }
+  }
+  const favorites = db.favorites.findByUser(userId);
+  const favoriteStationIds = new Set(favorites.map((f) => f.stationId));
+  const stations = db.stations
+    .getAll()
+    .filter((s) => favoriteStationIds.has(s.id))
+    .map((s) => ({
+      ...s,
+      category: db.categories.findById(s.categoryId),
+      country: db.countries.findByCode(s.countryCode),
+    }));
+  res.json({ success: true, stations });
+});
+
 // Toggle Favorite Station
 listenerRouter.post('/favorites/toggle', requireAuth, (req: AuthenticatedRequest, res) => {
   const userId = req.user!.id;
@@ -43,6 +71,9 @@ listenerRouter.post('/favorites/toggle', requireAuth, (req: AuthenticatedRequest
     eventType: 'FAVORITE',
     timestamp: new Date().toISOString(),
   });
+
+  // Broadcast realtime favorite event
+  broadcastLiveEvent('FAVORITE_TOGGLED', { stationId, isFavorite: isFav }, { stationId, userId });
 
   res.json({
     isFavorite: isFav,

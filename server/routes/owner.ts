@@ -10,6 +10,7 @@ import { radioImportService } from '../import/importService.js';
 import { syncStationFromSource } from '../import/syncService.js';
 import { PlanEntitlementService, DEFAULT_OFFICIAL_PLANS } from '../services/entitlement.js';
 import { whatsappGateway } from '../services/whatsappGateway.js';
+import { broadcastLiveEvent } from '../liveSync.js';
 import type { Station, StationStatus, RadioStationClaim } from '../types.js';
 
 export const ownerRouter = Router();
@@ -1810,6 +1811,9 @@ ownerRouter.post('/song-requests/:id/play-on-air', (req: AuthenticatedRequest, r
     playedAt: new Date().toISOString(),
   });
 
+  // Broadcast realtime update to studio desk
+  broadcastLiveEvent('SONG_REQUEST_UPDATED', updated, { stationId: post.stationId });
+
   // Notify listener if user ID is attached
   if (post.userId) {
     db.notifications.create({
@@ -1902,6 +1906,10 @@ ownerRouter.post('/stations/:id/bridge/simulate-inbound', (req: AuthenticatedReq
     createdAt: new Date().toISOString(),
   });
 
+  // Broadcast realtime WhatsApp message and request to broadcaster desk
+  broadcastLiveEvent('WHATSAPP_MESSAGE', post, { stationId: station.id });
+  broadcastLiveEvent('SONG_REQUEST_ADDED', post, { stationId: station.id });
+
   res.json({
     success: true,
     message: `Simulated inbound ${channel} message delivered to Studio Desk!`,
@@ -1945,6 +1953,7 @@ ownerRouter.post('/stations/:id/whatsapp/pair', (req: AuthenticatedRequest, res)
 
   try {
     const pairing = whatsappGateway.initializePairing(id);
+    broadcastLiveEvent('WHATSAPP_STATUS_CHANGED', { status: 'PAIRING', ...pairing }, { stationId: id });
     res.json({ success: true, ...pairing });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to initialize WhatsApp pairing.' });
@@ -1980,6 +1989,8 @@ ownerRouter.post('/stations/:id/whatsapp/confirm-scan', (req: AuthenticatedReque
     });
 
     const updatedStation = db.stations.findById(id);
+    broadcastLiveEvent('WHATSAPP_STATUS_CHANGED', { status: 'CONNECTED', session, station: updatedStation }, { stationId: id });
+    broadcastLiveEvent('STATION_UPDATED', updatedStation, { stationId: id });
     res.json({ success: true, session, station: updatedStation });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to confirm WhatsApp pairing.' });
@@ -2003,6 +2014,8 @@ ownerRouter.post('/stations/:id/whatsapp/disconnect', (req: AuthenticatedRequest
   try {
     const session = whatsappGateway.disconnect(id);
     const updatedStation = db.stations.findById(id);
+    broadcastLiveEvent('WHATSAPP_STATUS_CHANGED', { status: 'DISCONNECTED', session, station: updatedStation }, { stationId: id });
+    broadcastLiveEvent('STATION_UPDATED', updatedStation, { stationId: id });
     res.json({ success: true, session, station: updatedStation });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to disconnect WhatsApp session.' });

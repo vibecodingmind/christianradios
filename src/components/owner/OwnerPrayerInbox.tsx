@@ -21,6 +21,7 @@ import {
   Globe2,
 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
+import { useLiveSyncListener } from '../../context/RealtimeContext';
 import type { Station, PrayerRequest } from '../../types';
 import { PrayerPublisherAvatar } from '../common/PrayerPublisherAvatar';
 
@@ -41,8 +42,18 @@ export function OwnerPrayerInbox({ stations }: OwnerPrayerInboxProps) {
   // Studio Teleprompter Mode State
   const [teleprompterPrayer, setTeleprompterPrayer] = useState<PrayerRequest | null>(null);
 
+  // Real-time live sync listeners for incoming and updated prayers
+  useLiveSyncListener('PRAYER_ADDED', () => {
+    loadPrayers();
+  });
+  useLiveSyncListener('PRAYER_UPDATED', () => {
+    loadPrayers();
+  });
+
   useEffect(() => {
     loadPrayers();
+    const interval = setInterval(loadPrayers, 10000); // 10s fallback polling
+    return () => clearInterval(interval);
   }, []);
 
   const loadPrayers = async () => {
