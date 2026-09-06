@@ -8,7 +8,8 @@ import { validateStreamUrl } from '../ssrf.js';
 import { checkSingleStream } from '../streamMonitor.js';
 import { radioImportService } from '../import/importService.js';
 import { syncStationFromSource } from '../import/syncService.js';
-import { PlanEntitlementService } from '../services/entitlement.js';
+import { PlanEntitlementService, DEFAULT_OFFICIAL_PLANS } from '../services/entitlement.js';
+import { whatsappGateway } from '../services/whatsappGateway.js';
 import type { Station, StationStatus, RadioStationClaim } from '../types.js';
 
 export const ownerRouter = Router();
@@ -47,12 +48,30 @@ ownerRouter.get('/stations', (req: AuthenticatedRequest, res) => {
 
 // Plans endpoint for owner subscription tiers
 ownerRouter.get('/plans', (req: AuthenticatedRequest, res) => {
-  const plans = db.plans.getAll().filter((p) => p.isActive !== false);
-  res.json({ plans });
+  let plans = db.plans.getAll().filter((p) => p.isActive !== false);
+  if (!plans || plans.length === 0) {
+    plans = DEFAULT_OFFICIAL_PLANS;
+    for (const p of DEFAULT_OFFICIAL_PLANS) {
+      if (!db.plans.findById(p.id)) {
+        db.plans.create(p);
+      }
+    }
+  }
+
+  // Guarantee analyticsAccessLevel and defaults on all plans
+  const sanitizedPlans = plans.map((p) => ({
+    ...p,
+    analyticsAccessLevel:
+      p.analyticsAccessLevel ||
+      (p.tier === 'VIP' ? 'FULL_ENTERPRISE' : p.tier === 'PRO' || p.advancedAnalyticsEnabled ? 'ADVANCED' : 'BASIC'),
+    streamMonitoringIntervalMinutes: p.streamMonitoringIntervalMinutes || (p.tier === 'VIP' ? 5 : p.tier === 'PRO' ? 15 : 60),
+  }));
+
+  res.json({ plans: sanitizedPlans });
 });
 
 // Stream testing endpoint
-ownerRouter.post('/test-stream', async (req: AuthenticatedRequest, res) => {
+ownerRouter.post(['/test-stream', '/stations/test-stream'], async (req: AuthenticatedRequest, res) => {
   try {
     const { streamUrl, backupStreamUrl } = req.body;
     if (!streamUrl) {
@@ -722,6 +741,7 @@ ownerRouter.post('/featured-campaigns', (req: AuthenticatedRequest, res) => {
   const pricePerDay = placement === 'HOMEPAGE_HERO' ? 2500 : 1500;
   const totalPrice = pricePerDay * durationDays;
 
+  const initialStatus = req.body.status || 'ACTIVE';
   const campaign = db.featuredCampaigns.create({
     id: `camp_${Date.now()}`,
     stationId,
@@ -731,13 +751,62 @@ ownerRouter.post('/featured-campaigns', (req: AuthenticatedRequest, res) => {
     endDate: new Date(Date.now() + durationDays * 86400000).toISOString(),
     price: totalPrice,
     currency: 'TZS',
-    status: 'SCHEDULED',
+    status: initialStatus,
     impressions: 0,
     clicks: 0,
     createdAt: new Date().toISOString(),
   });
 
+  if (initialStatus === 'ACTIVE') {
+    db.stations.update(stationId, { isFeatured: true });
+  }
+
   res.status(201).json({ success: true, campaign });
+});
+
+// 10b. Update Promotion Status (Pause, Resume, Cancel)
+ownerRouter.patch(['/featured-campaigns/:id/status', '/featured-campaigns/:id'], (req: AuthenticatedRequest, res) => {
+  const ownerId = req.user!.id;
+  const { id } = req.params;
+  const { status } = req.body; // 'ACTIVE' | 'PAUSED' | 'CANCELLED'
+
+  const campaign = db.featuredCampaigns.findById(id);
+  if (!campaign || campaign.ownerId !== ownerId) {
+    res.status(404).json({ error: 'Campaign not found or not owned by your account.' });
+    return;
+  }
+
+  const updated = db.featuredCampaigns.update(id, { status });
+
+  if (status === 'ACTIVE') {
+    db.stations.update(campaign.stationId, { isFeatured: true });
+  } else if (status === 'PAUSED' || status === 'CANCELLED') {
+    const otherActive = db.featuredCampaigns.getActive().some((c) => c.stationId === campaign.stationId && c.id !== id);
+    if (!otherActive) {
+      db.stations.update(campaign.stationId, { isFeatured: false });
+    }
+  }
+
+  res.json({ success: true, campaign: updated });
+});
+
+ownerRouter.delete('/featured-campaigns/:id', (req: AuthenticatedRequest, res) => {
+  const ownerId = req.user!.id;
+  const { id } = req.params;
+
+  const campaign = db.featuredCampaigns.findById(id);
+  if (!campaign || campaign.ownerId !== ownerId) {
+    res.status(404).json({ error: 'Campaign not found.' });
+    return;
+  }
+
+  db.featuredCampaigns.delete(id);
+  const otherActive = db.featuredCampaigns.getActive().some((c) => c.stationId === campaign.stationId);
+  if (!otherActive) {
+    db.stations.update(campaign.stationId, { isFeatured: false });
+  }
+
+  res.json({ success: true, message: 'Campaign deleted.' });
 });
 
 // 11. Support Tickets
@@ -1010,27 +1079,37 @@ ownerRouter.post(['/giving/withdrawals', '/withdrawals'], (req: AuthenticatedReq
   const ownerId = req.user!.id;
   const {
     amount,
-    currency = 'USD',
+    currency = 'TZS',
     payoutMethod,
     payoutAccountName,
     payoutAccountNumber,
     payoutBankOrProvider,
     stationId,
     notes,
+    accountDetails,
   } = req.body;
 
+  const finalAccountName = payoutAccountName || req.user!.name || req.user!.email;
+  const finalAccountNumber = payoutAccountNumber || accountDetails || 'Primary Account';
+
+  const financialSummary = db.getUserFinancialSummary(ownerId);
+  const currentBalance = db.ledgerEntries.getOwnerBalance(ownerId);
+  const effectiveAvailable = Math.max(currentBalance.availableBalance, financialSummary.availableBalance);
+  const hasReferralEarnings = financialSummary.totalCommissions > 0;
+  const hasDonationEarnings = effectiveAvailable > 0;
+
   const entitlements = PlanEntitlementService.getOwnerEntitlements(ownerId);
-  if (!entitlements.capabilities.canWithdraw) {
+  if (!entitlements.capabilities.canWithdraw && !hasReferralEarnings && !hasDonationEarnings) {
     res.status(403).json({
       code: 'FEATURE_LOCKED',
-      error: `Payout withdrawals are disabled on your current plan (${entitlements.plan.name}). Upgrade to Basic, Pro, or VIP to request payouts.`,
+      error: `Payout withdrawals are disabled on your current plan (${entitlements.plan.name}). Upgrade to Pro or VIP to enable automated payouts, or contact support.`,
     });
     return;
   }
 
   const numAmount = Number(amount);
-  if (!numAmount || !payoutMethod || !payoutAccountName || !payoutAccountNumber) {
-    res.status(400).json({ error: 'Amount, payout method, account name, and account number are required.' });
+  if (!numAmount || !payoutMethod || !finalAccountName || !finalAccountNumber) {
+    res.status(400).json({ error: 'Amount, payout method, and account details are required.' });
     return;
   }
 
@@ -1043,10 +1122,9 @@ ownerRouter.post(['/giving/withdrawals', '/withdrawals'], (req: AuthenticatedReq
     return;
   }
 
-  const currentBalance = db.ledgerEntries.getOwnerBalance(ownerId);
-  if (numAmount > currentBalance.availableBalance) {
+  if (numAmount > effectiveAvailable) {
     res.status(400).json({
-      error: `Insufficient available balance. You have ${currentBalance.availableBalance.toLocaleString()} ${currency} available, but requested ${numAmount.toLocaleString()} ${currency}.`,
+      error: `Insufficient available balance. You have ${effectiveAvailable.toLocaleString()} ${currency} available, but requested ${numAmount.toLocaleString()} ${currency}.`,
     });
     return;
   }
@@ -1113,9 +1191,60 @@ ownerRouter.get('/prayers', (req: AuthenticatedRequest, res) => {
   // Broadcaster sees prayers addressed to their stations + all general prayers
   const stationPrayers = allPrayers.filter(
     (p) => !p.stationId || myStationIds.has(p.stationId)
-  );
+  ).map((p) => {
+    if (p.isAnonymous) return { ...p, authorAvatar: undefined };
+    if (p.authorAvatar) return p;
+    if (p.userId) {
+      const user = db.users.findById(p.userId);
+      if (user?.avatarUrl) {
+        return { ...p, authorAvatar: user.avatarUrl };
+      }
+    }
+    return p;
+  });
 
   res.json({ prayers: stationPrayers });
+});
+
+// 14b. Broadcaster Mark Prayer Lifted On-Air
+ownerRouter.post('/prayers/:id/pray-on-air', (req: AuthenticatedRequest, res) => {
+  const ownerId = req.user!.id;
+  const { id } = req.params;
+  const { stationId } = req.body;
+
+  const prayer = db.prayerRequests.findById(id);
+  if (!prayer) {
+    res.status(404).json({ error: 'Prayer request not found.' });
+    return;
+  }
+
+  const myStations = db.stations.findByOwnerId(ownerId);
+  const station = stationId
+    ? myStations.find((s) => s.id === stationId)
+    : myStations[0];
+
+  const stationName = station ? station.name : (prayer.stationName || 'Christian Radio');
+
+  const updated = db.prayerRequests.update(id, {
+    prayedOnAir: true,
+    prayedOnAirStationName: stationName,
+    prayedOnAirAt: new Date().toISOString(),
+    prayedCount: (prayer.prayedCount || 0) + 1,
+  });
+
+  if (prayer.userId) {
+    db.notifications.create({
+      id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userId: prayer.userId,
+      title: '🕊️ Your Prayer Was Lifted On-Air!',
+      message: `${stationName} presenters and intercessors prayed over your request "${prayer.title}" during the live broadcast!`,
+      type: 'SYSTEM_ALERT',
+      read: false,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  res.json({ success: true, prayer: updated });
 });
 
 // 15. Reviews & Listener Testimonies
@@ -1224,6 +1353,54 @@ ownerRouter.get('/imports', (req: AuthenticatedRequest, res) => {
   res.json({ imports });
 });
 
+// 20b. Search / Fetch Platform Stations to Claim
+ownerRouter.get('/claimable-stations', (req: AuthenticatedRequest, res) => {
+  const ownerId = req.user!.id;
+  const q = ((req.query.q as string) || '').trim().toLowerCase();
+
+  const allStations = db.stations.getAll();
+  const myClaims = db.stationClaims.findByClaimantId(ownerId);
+  const myClaimMap = new Map(myClaims.map((c) => [c.stationId, c]));
+
+  const filtered = allStations
+    .filter((s) => {
+      // Exclude stations already owned by this owner
+      if (s.ownerId === ownerId) return false;
+      if (!q) return true;
+      return (
+        s.name.toLowerCase().includes(q) ||
+        s.city?.toLowerCase().includes(q) ||
+        s.countryCode?.toLowerCase().includes(q) ||
+        s.genre?.toLowerCase().includes(q)
+      );
+    })
+    .slice(0, 25)
+    .map((s) => {
+      const userClaim = myClaimMap.get(s.id);
+      return {
+        id: s.id,
+        name: s.name,
+        slug: s.slug,
+        logoUrl: s.logoUrl,
+        city: s.city,
+        countryCode: s.countryCode,
+        genre: s.genre,
+        streamStatus: s.streamStatus,
+        ownerId: s.ownerId,
+        isUnclaimed: !s.ownerId || s.ownerId === 'usr_superadmin' || s.ownerId.startsWith('imported_'),
+        userClaim: userClaim
+          ? {
+              id: userClaim.id,
+              status: userClaim.status,
+              createdAt: userClaim.createdAt,
+            }
+          : null,
+      };
+    });
+
+  res.json({ stations: filtered });
+});
+
 // 21. Owner Station Claims
 ownerRouter.get('/claims', (req: AuthenticatedRequest, res) => {
   const ownerId = req.user!.id;
@@ -1327,7 +1504,7 @@ ownerRouter.post('/claims', (req: AuthenticatedRequest, res) => {
   }
 });
 
-// Cancel a pending claim
+// Cancel or delete a claim
 ownerRouter.delete('/claims/:id', (req: AuthenticatedRequest, res) => {
   const ownerId = req.user!.id;
   const { id } = req.params;
@@ -1342,13 +1519,26 @@ ownerRouter.delete('/claims/:id', (req: AuthenticatedRequest, res) => {
     return;
   }
 
-  if (claim.status !== 'PENDING' && claim.status !== 'UNDER_REVIEW') {
-    res.status(400).json({ error: 'Only pending or in-review claims can be cancelled.' });
-    return;
+  const isPermanent = req.query.permanent === 'true' || claim.status === 'CANCELLED' || claim.status === 'REJECTED';
+
+  if (isPermanent) {
+    db.stationClaims.delete(id);
+  } else {
+    db.stationClaims.update(id, { status: 'CANCELLED' });
   }
 
-  db.stationClaims.update(id, { status: 'CANCELLED' });
-  res.json({ success: true, message: 'Claim request cancelled.' });
+  // If no other active claims exist for this station, reset claimStatus to UNCLAIMED
+  const remainingActive = db.stationClaims.findByStationId(claim.stationId).some(
+    (c) => c.id !== id && (c.status === 'PENDING' || c.status === 'UNDER_REVIEW')
+  );
+  if (!remainingActive) {
+    db.stations.update(claim.stationId, { claimStatus: 'UNCLAIMED' });
+  }
+
+  res.json({
+    success: true,
+    message: isPermanent ? 'Claim record deleted successfully.' : 'Claim request cancelled.',
+  });
 });
 
 // 21. Configure Station Premium/Free Access Mode
@@ -1438,7 +1628,11 @@ ownerRouter.get('/referrals', (req: AuthenticatedRequest, res) => {
   const ownerId = req.user!.id;
   const user = db.users.findById(ownerId);
 
-  const referralCode = user?.referralCode || `REF_${ownerId.substring(0, 8).toUpperCase()}`;
+  let referralCode = user?.referralCode;
+  if (!referralCode) {
+    referralCode = `REF_${ownerId.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8).toUpperCase()}`;
+    db.users.update(ownerId, { referralCode });
+  }
   const referralLink = `${req.protocol}://${req.get('host')}?ref=${referralCode}`;
 
   const referralsList = db.referrals.findByReferrerId(ownerId);
@@ -1578,4 +1772,303 @@ ownerRouter.post('/notifications/:id/read', (req: AuthenticatedRequest, res) => 
   db.notifications.markRead(req.params.id, req.user!.id);
   res.json({ success: true });
 });
+
+// 15. Broadcaster Live Studio Requests (Song Requests & Shoutouts)
+ownerRouter.get('/song-requests', (req: AuthenticatedRequest, res) => {
+  const ownerId = req.user!.id;
+  const myStations = db.stations.findByOwnerId(ownerId);
+  const myStationIds = new Set(myStations.map((s) => s.id));
+
+  const allPosts = db.feedPosts.getAll();
+  const stationRequests = allPosts.filter(
+    (p) => myStationIds.has(p.stationId) && (p.postType === 'SONG_REQUEST' || p.postType === 'SHOUTOUT')
+  );
+
+  res.json({ requests: stationRequests });
+});
+
+// 15b. Mark Song Request or Shout-out as Played On-Air
+ownerRouter.post('/song-requests/:id/play-on-air', (req: AuthenticatedRequest, res) => {
+  const ownerId = req.user!.id;
+  const { id } = req.params;
+  const post = db.feedPosts.findById(id);
+
+  if (!post) {
+    res.status(404).json({ error: 'Request not found.' });
+    return;
+  }
+
+  const station = db.stations.findById(post.stationId);
+  if (!station || station.ownerId !== ownerId) {
+    res.status(403).json({ error: 'Unauthorized to manage requests for this station.' });
+    return;
+  }
+
+  const updated = db.feedPosts.update(id, {
+    playedOnAir: true,
+    readOnAir: true,
+    playedAt: new Date().toISOString(),
+  });
+
+  // Notify listener if user ID is attached
+  if (post.userId) {
+    db.notifications.create({
+      id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userId: post.userId,
+      title: post.postType === 'SONG_REQUEST' ? '🎵 Your Song Request Was Played On-Air!' : '📣 Your Shout-out Was Read On-Air!',
+      message: `${station.name} just aired your ${post.postType === 'SONG_REQUEST' ? `song request "${post.songTitle || 'special song'}"` : 'greeting'} live on their broadcast!`,
+      type: 'SYSTEM',
+      read: false,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  res.json({ success: true, request: updated });
+});
+
+// 15c. Update Station WhatsApp & SMS Bridge Settings
+ownerRouter.put('/stations/:id/bridge-settings', (req: AuthenticatedRequest, res) => {
+  const ownerId = req.user!.id;
+  const { id } = req.params;
+  const station = db.stations.findById(id);
+
+  if (!station) {
+    res.status(404).json({ error: 'Station not found.' });
+    return;
+  }
+
+  if (station.ownerId !== ownerId && req.user!.role !== 'SUPER_ADMIN') {
+    res.status(403).json({ error: 'Unauthorized to modify bridge settings for this station.' });
+    return;
+  }
+
+  const {
+    whatsappNumber,
+    smsNumber,
+    smsKeywordPrefix,
+    whatsappBridgeEnabled,
+    smsBridgeEnabled,
+  } = req.body;
+
+  const updated = db.stations.update(id, {
+    whatsappNumber: whatsappNumber !== undefined ? String(whatsappNumber).trim() : station.whatsappNumber,
+    smsNumber: smsNumber !== undefined ? String(smsNumber).trim() : station.smsNumber,
+    smsKeywordPrefix: smsKeywordPrefix !== undefined ? String(smsKeywordPrefix).trim().toUpperCase() : station.smsKeywordPrefix,
+    whatsappBridgeEnabled: whatsappBridgeEnabled !== undefined ? Boolean(whatsappBridgeEnabled) : station.whatsappBridgeEnabled,
+    smsBridgeEnabled: smsBridgeEnabled !== undefined ? Boolean(smsBridgeEnabled) : station.smsBridgeEnabled,
+  });
+
+  res.json({ success: true, station: updated });
+});
+
+// 15d. Simulate Inbound WhatsApp / SMS Message for Broadcaster Testing
+ownerRouter.post('/stations/:id/bridge/simulate-inbound', (req: AuthenticatedRequest, res) => {
+  const ownerId = req.user!.id;
+  const { id } = req.params;
+  const station = db.stations.findById(id);
+
+  if (!station) {
+    res.status(404).json({ error: 'Station not found.' });
+    return;
+  }
+
+  if (station.ownerId !== ownerId && req.user!.role !== 'SUPER_ADMIN') {
+    res.status(403).json({ error: 'Unauthorized.' });
+    return;
+  }
+
+  const {
+    senderName = 'Grace Wanjiru',
+    senderCity = 'Nairobi',
+    channel = 'WHATSAPP',
+    messageType = 'SHOUTOUT',
+    content = 'Blessed morning praise team! Tuning in from Westlands, enjoying the gospel broadcast.',
+    songTitle,
+    artistName,
+  } = req.body;
+
+  const post = db.feedPosts.create({
+    id: `feed_sim_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    stationId: station.id,
+    authorName: senderName,
+    authorCity: senderCity,
+    content: content,
+    postType: messageType === 'SONG_REQUEST' ? 'SONG_REQUEST' : 'SHOUTOUT',
+    songTitle: messageType === 'SONG_REQUEST' ? (songTitle || 'Kama Si Wewe') : undefined,
+    artistName: messageType === 'SONG_REQUEST' ? (artistName || 'Gloria Muliro') : undefined,
+    playedOnAir: false,
+    readOnAir: false,
+    likesCount: 0,
+    createdAt: new Date().toISOString(),
+  });
+
+  res.json({
+    success: true,
+    message: `Simulated inbound ${channel} message delivered to Studio Desk!`,
+    post,
+  });
+});
+
+// 16. WhatsApp Studio Gateway Endpoints (Standard & Business WhatsApp)
+
+// 16a. Get Station WhatsApp Connection Status
+ownerRouter.get('/stations/:id/whatsapp/status', (req: AuthenticatedRequest, res) => {
+  const { id } = req.params;
+  const station = db.stations.findById(id);
+  if (!station) {
+    res.status(404).json({ error: 'Station not found.' });
+    return;
+  }
+
+  if (station.ownerId !== req.user!.id && req.user!.role !== 'SUPER_ADMIN') {
+    res.status(403).json({ error: 'Unauthorized.' });
+    return;
+  }
+
+  const session = whatsappGateway.getStationSession(id);
+  res.json({ success: true, session });
+});
+
+// 16b. Initialize QR Pairing Session (Supports Standard & Business WhatsApp)
+ownerRouter.post('/stations/:id/whatsapp/pair', (req: AuthenticatedRequest, res) => {
+  const { id } = req.params;
+  const station = db.stations.findById(id);
+  if (!station) {
+    res.status(404).json({ error: 'Station not found.' });
+    return;
+  }
+
+  if (station.ownerId !== req.user!.id && req.user!.role !== 'SUPER_ADMIN') {
+    res.status(403).json({ error: 'Unauthorized.' });
+    return;
+  }
+
+  try {
+    const pairing = whatsappGateway.initializePairing(id);
+    res.json({ success: true, ...pairing });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to initialize WhatsApp pairing.' });
+  }
+});
+
+// 16c. Confirm Pairing (Linked Devices scan complete)
+ownerRouter.post('/stations/:id/whatsapp/confirm-scan', (req: AuthenticatedRequest, res) => {
+  const { id } = req.params;
+  const station = db.stations.findById(id);
+  if (!station) {
+    res.status(404).json({ error: 'Station not found.' });
+    return;
+  }
+
+  if (station.ownerId !== req.user!.id && req.user!.role !== 'SUPER_ADMIN') {
+    res.status(403).json({ error: 'Unauthorized.' });
+    return;
+  }
+
+  const { phone, accountType = 'STANDARD', deviceInfo, token } = req.body;
+  if (!phone) {
+    res.status(400).json({ error: 'Phone number is required.' });
+    return;
+  }
+
+  try {
+    const session = whatsappGateway.confirmPairing(id, {
+      phone,
+      accountType,
+      deviceInfo,
+      token,
+    });
+
+    const updatedStation = db.stations.findById(id);
+    res.json({ success: true, session, station: updatedStation });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to confirm WhatsApp pairing.' });
+  }
+});
+
+// 16d. Disconnect / Unlink WhatsApp Session
+ownerRouter.post('/stations/:id/whatsapp/disconnect', (req: AuthenticatedRequest, res) => {
+  const { id } = req.params;
+  const station = db.stations.findById(id);
+  if (!station) {
+    res.status(404).json({ error: 'Station not found.' });
+    return;
+  }
+
+  if (station.ownerId !== req.user!.id && req.user!.role !== 'SUPER_ADMIN') {
+    res.status(403).json({ error: 'Unauthorized.' });
+    return;
+  }
+
+  try {
+    const session = whatsappGateway.disconnect(id);
+    const updatedStation = db.stations.findById(id);
+    res.json({ success: true, session, station: updatedStation });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to disconnect WhatsApp session.' });
+  }
+});
+
+// 16e. Send Outbound WhatsApp Reply to Listener
+ownerRouter.post('/stations/:id/whatsapp/reply', async (req: AuthenticatedRequest, res) => {
+  const { id } = req.params;
+  const station = db.stations.findById(id);
+  if (!station) {
+    res.status(404).json({ error: 'Station not found.' });
+    return;
+  }
+
+  if (station.ownerId !== req.user!.id && req.user!.role !== 'SUPER_ADMIN') {
+    res.status(403).json({ error: 'Unauthorized.' });
+    return;
+  }
+
+  const { postId, message } = req.body;
+  if (!postId || !message) {
+    res.status(400).json({ error: 'Post ID and reply message are required.' });
+    return;
+  }
+
+  try {
+    const result = await whatsappGateway.sendOutboundReply(
+      id,
+      postId,
+      message,
+      req.user!.name || 'Studio Presenter'
+    );
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to send WhatsApp reply.' });
+  }
+});
+
+// 16f. Update Meta WhatsApp Cloud API Settings
+ownerRouter.put('/stations/:id/whatsapp/meta-config', (req: AuthenticatedRequest, res) => {
+  const { id } = req.params;
+  const station = db.stations.findById(id);
+  if (!station) {
+    res.status(404).json({ error: 'Station not found.' });
+    return;
+  }
+
+  if (station.ownerId !== req.user!.id && req.user!.role !== 'SUPER_ADMIN') {
+    res.status(403).json({ error: 'Unauthorized.' });
+    return;
+  }
+
+  const { metaPhoneNumberId, metaAccessToken, metaVerifyToken } = req.body;
+
+  try {
+    const session = whatsappGateway.saveMetaConfig(id, {
+      metaPhoneNumberId,
+      metaAccessToken,
+      metaVerifyToken,
+    });
+    const updatedStation = db.stations.findById(id);
+    res.json({ success: true, session, station: updatedStation });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to update Meta configuration.' });
+  }
+});
+
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { Radio, Compass, Heart, HeartHandshake, Tag } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { UserAccountMenu } from './UserAccountMenu';
+import { NotificationBell } from '../notifications/NotificationBell';
 
 interface HeaderProps {
   currentView: string;
@@ -87,7 +88,10 @@ export function Header({ currentView, onNavigate, onOpenAuth }: HeaderProps) {
           {/* Action Area */}
           <div className="flex items-center gap-2.5 shrink-0">
             {user ? (
-              <UserAccountMenu onNavigate={onNavigate} />
+              <div className="flex items-center gap-2">
+                <NotificationBell onNavigate={onNavigate} />
+                <UserAccountMenu onNavigate={onNavigate} />
+              </div>
             ) : (
               <div className="flex items-center gap-2">
                 <button

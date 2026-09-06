@@ -187,3 +187,85 @@ export function sanitizeUser(user: User): Omit<User, 'passwordHash'> {
   return sanitized;
 }
 
+export interface EmailVerificationEntry {
+  userId: string;
+  email: string;
+  code: string;
+  token: string;
+  expiresAt: number;
+  lastSentAt: number;
+}
+
+const emailVerificationsStore = new Map<string, EmailVerificationEntry>();
+
+export function createEmailVerification(userId: string, email: string): { code: string; token: string } {
+  const cleanEmail = email.toLowerCase().trim();
+  // 6-digit cryptographic verification code
+  const code = Math.floor(100000 + crypto.randomInt(900000)).toString();
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+
+  emailVerificationsStore.set(cleanEmail, {
+    userId,
+    email: cleanEmail,
+    code,
+    token,
+    expiresAt,
+    lastSentAt: Date.now(),
+  });
+
+  return { code, token };
+}
+
+export function verifyEmailCode(email: string, code: string): User | null {
+  const cleanEmail = email.toLowerCase().trim();
+  const cleanCode = code.trim();
+  const entry = emailVerificationsStore.get(cleanEmail);
+
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    emailVerificationsStore.delete(cleanEmail);
+    return null;
+  }
+
+  if (entry.code !== cleanCode) {
+    return null;
+  }
+
+  // Mark user verified
+  const user = db.users.findById(entry.userId) || db.users.findByEmail(cleanEmail);
+  if (!user) return null;
+
+  const updatedUser = db.users.update(user.id, { emailVerified: true }) || user;
+  emailVerificationsStore.delete(cleanEmail);
+  return updatedUser;
+}
+
+export function verifyEmailToken(email: string, token: string): User | null {
+  const cleanEmail = email.toLowerCase().trim();
+  const cleanToken = token.trim();
+  const entry = emailVerificationsStore.get(cleanEmail);
+
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    emailVerificationsStore.delete(cleanEmail);
+    return null;
+  }
+
+  if (entry.token !== cleanToken) {
+    return null;
+  }
+
+  const user = db.users.findById(entry.userId) || db.users.findByEmail(cleanEmail);
+  if (!user) return null;
+
+  const updatedUser = db.users.update(user.id, { emailVerified: true }) || user;
+  emailVerificationsStore.delete(cleanEmail);
+  return updatedUser;
+}
+
+export function getPendingVerification(email: string): EmailVerificationEntry | null {
+  return emailVerificationsStore.get(email.toLowerCase().trim()) || null;
+}
+
+

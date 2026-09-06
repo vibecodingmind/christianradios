@@ -26,6 +26,7 @@ export const DEFAULT_OFFICIAL_PLANS: SubscriptionPlan[] = [
     prioritySupport: false,
     featuredPlacementPriority: 'NONE',
     streamMonitoringIntervalMinutes: 60,
+    analyticsAccessLevel: 'BASIC',
     isActive: true,
     featuresList: [
       '1 Radio Station listing',
@@ -60,6 +61,7 @@ export const DEFAULT_OFFICIAL_PLANS: SubscriptionPlan[] = [
     prioritySupport: true,
     featuredPlacementPriority: 'HIGH',
     streamMonitoringIntervalMinutes: 15,
+    analyticsAccessLevel: 'ADVANCED',
     isPopular: true,
     isActive: true,
     featuresList: [
@@ -97,6 +99,7 @@ export const DEFAULT_OFFICIAL_PLANS: SubscriptionPlan[] = [
     prioritySupport: true,
     featuredPlacementPriority: 'HIGHEST',
     streamMonitoringIntervalMinutes: 5,
+    analyticsAccessLevel: 'FULL_ENTERPRISE',
     isActive: true,
     featuresList: [
       'Up to 10 Radio Stations',

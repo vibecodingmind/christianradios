@@ -353,6 +353,12 @@ export interface Station {
   websiteUrl?: string;
   email?: string;
   phone?: string;
+  whatsappNumber?: string;
+  smsNumber?: string;
+  whatsappBridgeEnabled?: boolean;
+  whatsappSession?: WhatsAppSession;
+  smsBridgeEnabled?: boolean;
+  smsKeywordPrefix?: string;
   donationEnabled?: boolean;
   socialLinks?: {
     facebook?: string;
@@ -653,6 +659,7 @@ export interface Payment {
   provider: PaymentProvider;
   providerRef?: string;
   paymentMethod?: PaymentMethod;
+  billingInterval?: 'MONTHLY' | 'ANNUAL';
   description: string;
   failureReason?: string;
   createdAt: string;
@@ -722,9 +729,17 @@ export interface Notification {
     | 'WITHDRAWAL_UPDATE'
     | 'NEW_DONATION'
     | 'FEATURED_ACTIVATED'
+    | 'SONG_REQUEST'
+    | 'PRAYER_REQUEST'
+    | 'PRAYER_ANSWERED'
+    | 'CLAIM_UPDATE'
+    | 'KYC_UPDATE'
+    | 'TESTIMONY_RECEIVED'
     | 'SYSTEM';
   read: boolean;
   createdAt: string;
+  actionUrl?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface NowPlayingInfo {
@@ -764,7 +779,9 @@ export interface SupportTicket {
 
 export interface PrayerRequest {
   id: string;
+  userId?: string;
   authorName: string;
+  authorAvatar?: string;
   isAnonymous: boolean;
   category: 'Healing' | 'Family' | 'Salvation' | 'Ministry' | 'Financial' | 'Peace' | 'Guidance' | 'General';
   title: string;
@@ -775,11 +792,15 @@ export interface PrayerRequest {
   countryCode?: string;
   status: 'APPROVED' | 'PENDING' | 'ANSWERED';
   testimony?: string;
+  prayedOnAir?: boolean;
+  prayedOnAirStationName?: string;
+  prayedOnAirAt?: string;
   createdAt: string;
 }
 
 export interface StationReview {
   id: string;
+  userId?: string;
   stationId: string;
   stationSlug?: string;
   stationName?: string;
@@ -812,7 +833,24 @@ export interface PodcastEpisode {
   artworkUrl?: string;
 }
 
-export type FeedPostType = 'SHOUTOUT' | 'CHECK_IN' | 'ANNOUNCEMENT';
+export type FeedPostType = 'SHOUTOUT' | 'CHECK_IN' | 'ANNOUNCEMENT' | 'SONG_REQUEST';
+
+export type WhatsAppAccountType = 'STANDARD' | 'BUSINESS';
+export type WhatsAppSessionStatus = 'DISCONNECTED' | 'PAIRING' | 'CONNECTED';
+
+export interface WhatsAppSession {
+  status: WhatsAppSessionStatus;
+  accountType?: WhatsAppAccountType;
+  connectedPhone?: string;
+  deviceInfo?: string;
+  qrCode?: string;
+  pairingToken?: string;
+  pairedAt?: string;
+  lastActiveAt?: string;
+  metaPhoneNumberId?: string;
+  metaAccessToken?: string;
+  metaVerifyToken?: string;
+}
 
 export interface StationFeedPost {
   id: string;
@@ -823,9 +861,61 @@ export interface StationFeedPost {
   authorAvatar?: string;
   content: string;
   postType: FeedPostType;
+  channel?: 'WHATSAPP' | 'SMS' | 'WEB';
+  accountType?: WhatsAppAccountType;
+  senderPhone?: string;
+  songTitle?: string;
+  artistName?: string;
+  dedicationMessage?: string;
+  playedOnAir?: boolean;
+  readOnAir?: boolean;
+  playedAt?: string;
   isPinned?: boolean;
   likesCount?: number;
+  replies?: Array<{
+    id: string;
+    senderName: string;
+    message: string;
+    createdAt: string;
+  }>;
   createdAt: string;
+}
+
+export interface LiveListenerSession {
+  id: string;
+  stationId: string;
+  stationName?: string;
+  userId?: string;
+  countryCode: string;
+  countryName: string;
+  city: string;
+  lat: number;
+  lng: number;
+  bitrate?: number;
+  lastPing: number;
+}
+
+export interface GlobalListenerPulse {
+  totalActiveListeners: number;
+  activeStationsCount: number;
+  stationCounts: Record<string, number>;
+  countryBreakdown: Array<{
+    countryCode: string;
+    countryName: string;
+    count: number;
+    lat: number;
+    lng: number;
+  }>;
+  recentPings: Array<{
+    id: string;
+    stationId: string;
+    stationName: string;
+    countryName: string;
+    city: string;
+    lat: number;
+    lng: number;
+    time: string;
+  }>;
 }
 
 export type DonationFundType =
@@ -865,6 +955,8 @@ export interface Donation {
   ownerId?: string;
   campaignId?: string;
   campaignTitle?: string;
+  donorUserId?: string;
+  userId?: string;
   donorName: string;
   isAnonymous?: boolean;
   donorEmail: string;

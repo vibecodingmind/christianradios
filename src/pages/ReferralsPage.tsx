@@ -18,6 +18,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../lib/api';
 import type { Referral, ReferralCommission } from '../types';
+import { PayoutRequestModal } from '../components/payout/PayoutRequestModal';
 
 interface FinancialSummary {
   grossEarnings: number;
@@ -28,7 +29,13 @@ interface FinancialSummary {
   availableBalance: number;
 }
 
-export function ReferralsPage({ onNavigate }: { onNavigate: (view: string, param?: string) => void }) {
+export function ReferralsPage({
+  onNavigate,
+  onOpenAuth,
+}: {
+  onNavigate: (view: string, param?: string) => void;
+  onOpenAuth?: (tab?: 'login' | 'register') => void;
+}) {
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -49,11 +56,6 @@ export function ReferralsPage({ onNavigate }: { onNavigate: (view: string, param
 
   // Withdrawal state
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
-  const [withdrawAmount, setWithdrawAmount] = useState('20000');
-  const [payoutMethod, setPayoutMethod] = useState('MOBILE_MONEY');
-  const [accountDetails, setAccountDetails] = useState('');
-  const [withdrawLoading, setWithdrawLoading] = useState(false);
-  const [withdrawMsg, setWithdrawMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     loadReferralData();
@@ -88,47 +90,14 @@ export function ReferralsPage({ onNavigate }: { onNavigate: (view: string, param
     setTimeout(() => setCopied(false), 2500);
   };
 
-  const handleWithdrawSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setWithdrawLoading(true);
-    setWithdrawMsg(null);
-    try {
-      const endpoint = user?.role === 'RADIO_OWNER' ? '/api/owner/withdrawals' : '/api/listener/withdrawals';
-      const res = await apiFetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: withdrawAmount,
-          paymentMethod: payoutMethod,
-          accountDetails: accountDetails || `${user?.fullName} (${user?.email})`,
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setWithdrawMsg({ type: 'success', text: data.message || 'Withdrawal request submitted!' });
-        setTimeout(() => {
-          setWithdrawModalOpen(false);
-          loadReferralData();
-        }, 2000);
-      } else {
-        setWithdrawMsg({ type: 'error', text: data.error || 'Withdrawal failed.' });
-      }
-    } catch (err) {
-      setWithdrawMsg({ type: 'error', text: 'Network connection error.' });
-    } finally {
-      setWithdrawLoading(false);
-    }
-  };
-
   if (!user) {
     return (
       <div className="py-20 text-center space-y-4">
         <h2 className="text-xl font-bold text-white">Sign In Required</h2>
         <p className="text-xs text-slate-400">Please sign in to access your referral link and earnings dashboard.</p>
         <button
-          onClick={() => onNavigate('login')}
-          className="bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs px-5 py-2.5 rounded-xl shadow-md transition"
+          onClick={() => (onOpenAuth ? onOpenAuth('login') : onNavigate('home'))}
+          className="bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs px-5 py-2.5 rounded-xl shadow-md transition cursor-pointer"
         >
           Sign In / Register
         </button>
@@ -318,92 +287,17 @@ export function ReferralsPage({ onNavigate }: { onNavigate: (view: string, param
       </div>
 
       {/* Payout Withdrawal Modal */}
-      {withdrawModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full space-y-6 shadow-2xl relative">
-            <h3 className="text-xl font-bold text-white flex items-center gap-2">
-              <Wallet className="w-6 h-6 text-emerald-400" /> Request Referral Payout
-            </h3>
-
-            <form onSubmit={handleWithdrawSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Withdrawal Amount (TZS)
-                </label>
-                <input
-                  type="number"
-                  min="20000"
-                  max={financial.availableBalance}
-                  value={withdrawAmount}
-                  onChange={(e) => setWithdrawAmount(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-emerald-500"
-                  required
-                />
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Available: TZS {financial.availableBalance.toLocaleString()} (Min: TZS 20,000)
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Payout Method
-                </label>
-                <select
-                  value={payoutMethod}
-                  onChange={(e) => setPayoutMethod(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-emerald-500"
-                >
-                  <option value="MOBILE_MONEY">Mobile Money (M-Pesa / Tigo / Airtel)</option>
-                  <option value="BANK_TRANSFER">Bank Wire Transfer</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Account Details (Phone Number / Bank Details)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. +255 700 000 000 (M-Pesa / Vodacom)"
-                  value={accountDetails}
-                  onChange={(e) => setAccountDetails(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-emerald-500"
-                  required
-                />
-              </div>
-
-              {withdrawMsg && (
-                <div
-                  className={`p-3 rounded-xl text-xs font-semibold ${
-                    withdrawMsg.type === 'success'
-                      ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300'
-                      : 'bg-rose-500/10 border border-rose-500/20 text-rose-300'
-                  }`}
-                >
-                  {withdrawMsg.text}
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setWithdrawModalOpen(false)}
-                  className="px-5 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={withdrawLoading}
-                  className="px-6 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-lg disabled:opacity-50"
-                >
-                  {withdrawLoading ? 'Submitting...' : 'Submit Request'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Unified Payout Request Modal */}
+      <PayoutRequestModal
+        isOpen={withdrawModalOpen}
+        onClose={() => setWithdrawModalOpen(false)}
+        userRole={user.role}
+        availableBalance={financial.availableBalance}
+        currency="TZS"
+        onSuccess={() => {
+          loadReferralData();
+        }}
+      />
     </div>
   );
 }

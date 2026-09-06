@@ -8,7 +8,7 @@ interface AuthContextType {
   subscription?: Subscription;
   plan?: SubscriptionPlan;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; requiresVerification?: boolean; email?: string; devCode?: string; error?: string }>;
   register: (data: {
     email: string;
     password: string;
@@ -17,7 +17,10 @@ interface AuthContextType {
     organizationName?: string;
     phone?: string;
     country?: string;
-  }) => Promise<{ success: boolean; error?: string }>;
+  }) => Promise<{ success: boolean; requiresVerification?: boolean; email?: string; devCode?: string; error?: string }>;
+  verifyEmailCode: (email: string, code: string) => Promise<{ success: boolean; error?: string }>;
+  verifyEmailToken: (email: string, token: string) => Promise<{ success: boolean; error?: string }>;
+  resendVerificationCode: (email: string) => Promise<{ success: boolean; devCode?: string; error?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   quickLoginAs: (role: 'SUPER_ADMIN' | 'RADIO_OWNER' | 'LISTENER') => Promise<void>;
@@ -97,6 +100,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: data.error || 'Login failed' };
       }
 
+      if (data.requiresVerification) {
+        return {
+          success: false,
+          requiresVerification: true,
+          email: data.email,
+          devCode: data.devCode,
+          error: data.message,
+        };
+      }
+
       if (data.token) {
         setAuthToken(data.token);
       }
@@ -140,6 +153,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       localStorage.removeItem('cr_referral_code');
 
+      if (data.requiresVerification) {
+        return {
+          success: true,
+          requiresVerification: true,
+          email: data.email,
+          devCode: data.devCode,
+        };
+      }
+
       if (data.token) {
         setAuthToken(data.token);
       }
@@ -151,6 +173,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { success: true };
     } catch {
       return { success: false, error: 'Network error. Please try again.' };
+    }
+  };
+
+  const verifyEmailCode = async (email: string, code: string) => {
+    try {
+      const res = await apiFetch('/api/auth/verify-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || 'Verification failed.' };
+      }
+
+      if (data.token) {
+        setAuthToken(data.token);
+      }
+      setUser(data.user);
+      if (data.ownerProfile) {
+        setOwnerProfile(data.ownerProfile);
+      }
+      await refreshUser();
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Network error during verification.' };
+    }
+  };
+
+  const verifyEmailToken = async (email: string, token: string) => {
+    try {
+      const res = await apiFetch('/api/auth/verify-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, token }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || 'Verification link is invalid or expired.' };
+      }
+
+      if (data.token) {
+        setAuthToken(data.token);
+      }
+      setUser(data.user);
+      if (data.ownerProfile) {
+        setOwnerProfile(data.ownerProfile);
+      }
+      await refreshUser();
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Network error during link verification.' };
+    }
+  };
+
+  const resendVerificationCode = async (email: string) => {
+    try {
+      const res = await apiFetch('/api/auth/resend-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || 'Failed to resend code.' };
+      }
+      return { success: true, devCode: data.devCode };
+    } catch {
+      return { success: false, error: 'Network error resending verification code.' };
     }
   };
 
@@ -212,12 +303,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     name?: string;
     avatarUrl?: string;
     role?: Role;
+    referralCode?: string;
   }) => {
     try {
+      const storedRef = localStorage.getItem('cr_referral_code') || undefined;
       const res = await apiFetch('/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(googlePayload),
+        body: JSON.stringify({
+          ...googlePayload,
+          referralCode: googlePayload.referralCode || storedRef,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -231,6 +327,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data.ownerProfile) {
         setOwnerProfile(data.ownerProfile);
       }
+      localStorage.removeItem('cr_referral_code');
       await refreshUser();
       return { success: true };
     } catch {

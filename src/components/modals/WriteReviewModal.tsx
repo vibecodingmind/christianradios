@@ -1,19 +1,24 @@
-import React, { useState } from 'react';
-import { Star, X, MessageSquareHeart, Send, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Star, X, MessageSquareHeart, Send, CheckCircle, Lock, LogIn, UserCheck, Shield } from 'lucide-react';
 import type { Station } from '../../types';
+import { useAuth } from '../../context/AuthContext';
+import { apiFetch } from '../../lib/api';
 
 interface WriteReviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   station: Station;
   onSuccess?: () => void;
+  onOpenAuth?: (tab?: 'login' | 'register') => void;
 }
 
-export function WriteReviewModal({ isOpen, onClose, station, onSuccess }: WriteReviewModalProps) {
+export function WriteReviewModal({ isOpen, onClose, station, onSuccess, onOpenAuth }: WriteReviewModalProps) {
+  const { user } = useAuth();
+
   const [rating, setRating] = useState(5);
   const [hoverRating, setHoverRating] = useState(0);
-  const [authorName, setAuthorName] = useState('');
-  const [authorEmail, setAuthorEmail] = useState('');
+  const [authorName, setAuthorName] = useState(user?.name || '');
+  const [authorEmail, setAuthorEmail] = useState(user?.email || '');
   const [city, setCity] = useState('');
   const [countryCode, setCountryCode] = useState(station.countryCode || 'TZ');
   const [title, setTitle] = useState('');
@@ -21,6 +26,13 @@ export function WriteReviewModal({ isOpen, onClose, station, onSuccess }: WriteR
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user && isOpen) {
+      if (user.name && !authorName) setAuthorName(user.name);
+      if (user.email && !authorEmail) setAuthorEmail(user.email);
+    }
+  }, [user, isOpen]);
 
   if (!isOpen) return null;
 
@@ -30,13 +42,13 @@ export function WriteReviewModal({ isOpen, onClose, station, onSuccess }: WriteR
     setIsSubmitting(true);
 
     try {
-      const res = await fetch(`/api/public/stations/${station.slug}/reviews`, {
+      const res = await apiFetch(`/api/public/stations/${station.slug}/reviews`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rating,
-          authorName,
-          authorEmail,
+          authorName: authorName || user?.name || 'Faithful Listener',
+          authorEmail: authorEmail || user?.email,
           city,
           countryCode,
           title: title || 'Life-changing Broadcast',
@@ -61,12 +73,58 @@ export function WriteReviewModal({ isOpen, onClose, station, onSuccess }: WriteR
       <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 relative shadow-2xl my-8">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
 
-        {!submitted ? (
+        {/* 1. AUTH GATE FOR GUEST USERS */}
+        {!user ? (
+          <div className="text-center py-6 space-y-5">
+            <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 mx-auto flex items-center justify-center shadow-xl">
+              <Lock className="w-8 h-8" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-white">Sign In to Share Your Testimony</h3>
+              <p className="text-xs text-slate-300 max-w-sm mx-auto leading-relaxed">
+                To maintain authentic and verified testimonies for <strong>{station.name}</strong> and prevent spam, please sign in with your free listener account.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 text-left space-y-2">
+              <div className="flex items-center gap-2 text-xs text-slate-300 font-medium">
+                <Shield className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Verified testimonies encourage station broadcasters and ministry leaders.</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-slate-300 font-medium">
+                <MessageSquareHeart className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>Your story helps build the faith of listeners around the world.</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  if (onOpenAuth) onOpenAuth('login');
+                }}
+                className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition cursor-pointer"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Sign In / Register</span>
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs transition cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : !submitted ? (
           <div>
             <div className="flex items-center gap-3 mb-5">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
@@ -76,6 +134,14 @@ export function WriteReviewModal({ isOpen, onClose, station, onSuccess }: WriteR
                 <h3 className="text-xl font-bold text-white">Share Your Testimony</h3>
                 <p className="text-xs text-slate-400">How has {station.name} impacted your spiritual walk?</p>
               </div>
+            </div>
+
+            {/* Authenticated user banner */}
+            <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-medium">
+              <UserCheck className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="truncate">
+                Posting as <strong>{user.name}</strong> ({user.email})
+              </span>
             </div>
 
             {error && (
@@ -96,7 +162,7 @@ export function WriteReviewModal({ isOpen, onClose, station, onSuccess }: WriteR
                       onMouseEnter={() => setHoverRating(star)}
                       onMouseLeave={() => setHoverRating(0)}
                       onClick={() => setRating(star)}
-                      className="p-1 transition-transform hover:scale-110"
+                      className="p-1 transition-transform hover:scale-110 cursor-pointer"
                     >
                       <Star
                         className={`w-7 h-7 ${
@@ -161,7 +227,7 @@ export function WriteReviewModal({ isOpen, onClose, station, onSuccess }: WriteR
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-amber-500/25 transition disabled:opacity-50"
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-amber-500/25 transition disabled:opacity-50 cursor-pointer"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>{isSubmitting ? 'Submitting...' : 'Post Testimony'}</span>
@@ -180,7 +246,7 @@ export function WriteReviewModal({ isOpen, onClose, station, onSuccess }: WriteR
             </p>
             <button
               onClick={onClose}
-              className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition"
+              className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition cursor-pointer"
             >
               Close
             </button>

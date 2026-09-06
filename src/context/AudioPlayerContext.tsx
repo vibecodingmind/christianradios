@@ -24,6 +24,7 @@ interface AudioPlayerContextType {
   errorMessage: string | null;
   sleepTimerMinutes: number | null;
   sleepTimerRemainingSeconds: number | null;
+  liveListenersCount: number;
   isExpanded: boolean;
   isUsingBackupStream: boolean;
   playStation: (station: Station) => void;
@@ -59,6 +60,22 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [isExpanded, setIsExpanded] = useState(false);
   const [isUsingBackupStream, setIsUsingBackupStream] = useState(false);
   const [subscribingStation, setSubscribingStation] = useState<Station | null>(null);
+  const [liveListenersCount, setLiveListenersCount] = useState<number>(0);
+  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const sessionIdRef = useRef<string>('');
+
+  if (!sessionIdRef.current) {
+    try {
+      let saved = sessionStorage.getItem('cr_live_session_id');
+      if (!saved) {
+        saved = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+        sessionStorage.setItem('cr_live_session_id', saved);
+      }
+      sessionIdRef.current = saved;
+    } catch {
+      sessionIdRef.current = `sess_${Date.now()}`;
+    }
+  }
 
   const { user } = useAuth();
 
@@ -67,6 +84,62 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const sessionTimerRef = useRef<NodeJS.Timeout | null>(null);
   const sessionSecondsRef = useRef<number>(0);
   const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Real-time Live Listener Heartbeat Ping Engine
+  useEffect(() => {
+    if (!isPlaying || !currentStation) {
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+        heartbeatIntervalRef.current = null;
+      }
+      return;
+    }
+
+    const sessionId = sessionIdRef.current;
+    const stId = currentStation.id;
+
+    const pingHeartbeat = async () => {
+      try {
+        const res = await fetch(`/api/public/stations/${stId}/heartbeat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId,
+            countryCode: currentStation.countryCode,
+            bitrate: 128,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (typeof data.liveListeners === 'number') {
+            setLiveListenersCount(data.liveListeners);
+          }
+        }
+      } catch {
+        // silent heartbeat ignore
+      }
+    };
+
+    pingHeartbeat();
+    heartbeatIntervalRef.current = setInterval(pingHeartbeat, 25000);
+
+    return () => {
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+        heartbeatIntervalRef.current = null;
+      }
+      try {
+        fetch(`/api/public/stations/${stId}/heartbeat/leave`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId }),
+          keepalive: true,
+        }).catch(() => {});
+      } catch {
+        // silent
+      }
+    };
+  }, [isPlaying, currentStation?.id]);
 
   // Initialize HTML5 Audio element once
   useEffect(() => {
@@ -414,6 +487,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         errorMessage,
         sleepTimerMinutes,
         sleepTimerRemainingSeconds,
+        liveListenersCount,
         isExpanded,
         isUsingBackupStream,
         playStation,

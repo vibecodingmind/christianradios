@@ -15,6 +15,7 @@ import {
   Search,
   Radio,
 } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
 import type { VerificationMethod } from '../../types';
 
 interface ClaimStationModalProps {
@@ -77,14 +78,23 @@ export const ClaimStationModal: React.FC<ClaimStationModalProps> = ({
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Sync initial props when opened
+  const [selectedStationLogo, setSelectedStationLogo] = useState('');
+  const [selectedStationMeta, setSelectedStationMeta] = useState('');
+
+  // Sync initial props when opened or changed
   useEffect(() => {
-    if (initialStationId) {
-      setSelectedStationId(initialStationId);
-      setSelectedStationName(initialStationName || 'Selected Station');
+    if (isOpen) {
+      setSelectedStationId(initialStationId || '');
+      setSelectedStationName(initialStationName || '');
       setSelectedStationSlug(initialStationSlug || '');
+      setClaimantName(initialName);
+      setClaimantEmail(initialEmail);
+      setSearchQuery('');
+      setSearchResults([]);
+      setSubmittedSuccess(false);
+      setErrorMsg(null);
     }
-  }, [initialStationId, initialStationName, initialStationSlug]);
+  }, [isOpen, initialStationId, initialStationName, initialStationSlug, initialEmail, initialName]);
 
   const handleSearchStations = async (query: string) => {
     setSearchQuery(query);
@@ -94,6 +104,14 @@ export const ClaimStationModal: React.FC<ClaimStationModalProps> = ({
     }
     setIsSearching(true);
     try {
+      if (isBroadcasterUser) {
+        const res = await apiFetch(`/api/owner/claimable-stations?q=${encodeURIComponent(query.trim())}`);
+        const data = await res.json();
+        if (res.ok && data.stations) {
+          setSearchResults(data.stations);
+          return;
+        }
+      }
       const res = await fetch(`/api/public/stations?search=${encodeURIComponent(query.trim())}`);
       const data = await res.json();
       if (res.ok) {
@@ -148,7 +166,8 @@ export const ClaimStationModal: React.FC<ClaimStationModalProps> = ({
             verificationMethod,
           };
 
-      const res = await fetch(endpoint, {
+      const fetchFn = isBroadcasterUser ? apiFetch : fetch;
+      const res = await fetchFn(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -233,14 +252,34 @@ export const ClaimStationModal: React.FC<ClaimStationModalProps> = ({
                 </div>
               )}
 
-              {/* Station Selection or Search */}
+              {/* Station Selection or Search (One radio at a time) */}
               {selectedStationId ? (
-                <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <Building2 className="w-5 h-5 text-amber-400 shrink-0" />
-                    <div>
-                      <p className="text-xs font-semibold text-white">Target Station: {selectedStationName}</p>
-                      <p className="text-[11px] text-slate-500 font-mono">ID: {selectedStationId}</p>
+                <div className="p-4 rounded-2xl bg-slate-950 border border-amber-500/30 flex items-center justify-between gap-3 shadow-inner">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {selectedStationLogo ? (
+                      <img
+                        src={selectedStationLogo}
+                        alt={selectedStationName}
+                        className="w-12 h-12 rounded-xl object-cover border border-slate-800 shrink-0"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                        <Radio className="w-6 h-6" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-white truncate">{selectedStationName}</p>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-semibold shrink-0">
+                          1 Station Selected
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                        {selectedStationMeta || `ID: ${selectedStationId}`}
+                      </p>
                     </div>
                   </div>
                   {!initialStationId && (
@@ -250,59 +289,89 @@ export const ClaimStationModal: React.FC<ClaimStationModalProps> = ({
                         setSelectedStationId('');
                         setSelectedStationName('');
                         setSelectedStationSlug('');
+                        setSelectedStationLogo('');
+                        setSelectedStationMeta('');
                       }}
-                      className="text-xs text-amber-400 hover:text-amber-300 underline font-semibold"
+                      className="text-xs text-amber-400 hover:text-amber-300 underline font-semibold px-2.5 py-1 rounded-lg hover:bg-slate-900 transition shrink-0 cursor-pointer"
                     >
-                      Change Station
+                      Change Radio
                     </button>
                   )}
                 </div>
               ) : (
-                <div className="space-y-2 p-3.5 rounded-xl bg-slate-950 border border-slate-800">
-                  <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                    <Search className="w-3.5 h-3.5 text-amber-400" /> Search Station in Directory to Claim <span className="text-amber-400">*</span>
-                  </label>
+                <div className="space-y-2.5 p-4 rounded-2xl bg-slate-950 border border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                      <Search className="w-3.5 h-3.5 text-amber-400" /> Search Radio Station to Claim <span className="text-amber-400">*</span>
+                    </label>
+                    <span className="text-[10px] text-slate-400">1 station per claim</span>
+                  </div>
                   <div className="relative">
                     <input
                       type="text"
-                      placeholder="Type station name or city (e.g. Radio Maria, Praise Power)..."
+                      placeholder="Type station name, city, frequency (e.g. Upendo FM, Radio Maria, Praise Power)..."
                       value={searchQuery}
                       onChange={(e) => handleSearchStations(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-amber-500"
+                      className="w-full pl-9 pr-9 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500 shadow-sm"
                     />
+                    <Search className="absolute left-3 top-3 w-3.5 h-3.5 text-slate-500" />
                     {isSearching && (
                       <Loader2 className="absolute right-3 top-2.5 w-4 h-4 animate-spin text-amber-400" />
                     )}
                   </div>
 
                   {searchResults.length > 0 && (
-                    <div className="max-h-40 overflow-y-auto space-y-1 pt-1 divide-y divide-slate-800">
+                    <div className="max-h-52 overflow-y-auto space-y-1.5 pt-1 divide-y divide-slate-800/80 pr-1">
                       {searchResults.map((st) => (
-                        <button
+                        <div
                           key={st.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedStationId(st.id);
-                            setSelectedStationName(st.name);
-                            setSelectedStationSlug(st.slug || '');
-                            setSearchResults([]);
-                            setSearchQuery('');
-                          }}
-                          className="w-full p-2 rounded text-left hover:bg-slate-800/80 flex items-center justify-between transition"
+                          className="pt-1.5 first:pt-0 flex items-center justify-between gap-3 p-2 rounded-xl hover:bg-slate-900 transition"
                         >
-                          <div className="flex items-center gap-2">
-                            <Radio className="w-4 h-4 text-amber-400 shrink-0" />
-                            <div>
-                              <p className="text-xs font-bold text-white">{st.name}</p>
-                              <p className="text-[10px] text-slate-400">{st.city}, {st.countryCode} • {st.genre}</p>
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center text-amber-400 shrink-0 overflow-hidden">
+                              {st.logoUrl ? (
+                                <img
+                                  src={st.logoUrl}
+                                  alt={st.name}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                <Radio className="w-4 h-4" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-white truncate">{st.name}</p>
+                              <p className="text-[10px] text-slate-400 truncate">
+                                {[st.city, st.countryCode, st.genre].filter(Boolean).join(' • ')}
+                              </p>
                             </div>
                           </div>
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedStationId(st.id);
+                              setSelectedStationName(st.name);
+                              setSelectedStationSlug(st.slug || '');
+                              setSelectedStationLogo(st.logoUrl || '');
+                              setSelectedStationMeta([st.city, st.countryCode, st.genre].filter(Boolean).join(' • '));
+                              setSearchResults([]);
+                              setSearchQuery('');
+                            }}
+                            className="text-xs px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold shadow-sm transition shrink-0 cursor-pointer"
+                          >
                             Select
-                          </span>
-                        </button>
+                          </button>
+                        </div>
                       ))}
                     </div>
+                  )}
+                  {searchQuery && !isSearching && searchResults.length === 0 && (
+                    <p className="text-[11px] text-slate-400 text-center py-2">
+                      No matching stations found. Check the spelling or register a new station under "My Stations".
+                    </p>
                   )}
                 </div>
               )}

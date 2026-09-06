@@ -2,9 +2,11 @@ import { Router } from 'express';
 import http from 'http';
 import https from 'https';
 import { db } from '../db.js';
+import { requireAuth, getSessionFromRequest, type AuthenticatedRequest } from '../auth.js';
 import { validateStreamUrl } from '../ssrf.js';
 import { getLiveNowPlayingMetadata } from '../icyMetadata.js';
 import type { StationReport, TicketPriority } from '../types.js';
+import { whatsappGateway } from '../services/whatsappGateway.js';
 
 export const publicRouter = Router();
 
@@ -113,16 +115,44 @@ publicRouter.get('/stations', (req, res) => {
     });
   }
 
-  // Sorting
-  if (sort === 'popular') {
-    stations.sort((a, b) => (b.playCount || 0) - (a.playCount || 0));
-  } else if (sort === 'trending') {
-    stations.sort((a, b) => (b.favoriteCount || 0) - (a.favoriteCount || 0));
-  } else if (sort === 'newest') {
-    stations.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  } else if (sort === 'name') {
-    stations.sort((a, b) => a.name.localeCompare(b.name));
-  }
+  // Featured Radios Always on Top First + Chosen Sort Criterion
+  const sortParam = (req.query.sortBy || req.query.sort || 'popular') as string;
+  const activeCampaigns = db.featuredCampaigns.getActive();
+  const campaignStationIds = new Set(activeCampaigns.map((c) => c.stationId));
+
+  const activeSubs = db.subscriptions.getAll().filter((s) => s.status === 'ACTIVE' || s.status === 'TRIALING');
+  const proOrVipOwnerIds = new Set(
+    activeSubs
+      .filter((s) => s.planId === 'plan_pro' || s.planId === 'plan_vip')
+      .map((s) => s.ownerId)
+  );
+
+  const isStationFeatured = (s: any) =>
+    Boolean(
+      s.isFeatured ||
+      s.featured ||
+      campaignStationIds.has(s.id) ||
+      (s.ownerId && proOrVipOwnerIds.has(s.ownerId))
+    );
+
+  stations.sort((a, b) => {
+    const aFeat = isStationFeatured(a) ? 1 : 0;
+    const bFeat = isStationFeatured(b) ? 1 : 0;
+    if (aFeat !== bFeat) {
+      return bFeat - aFeat; // Always show featured radios on top first
+    }
+
+    if (sortParam === 'popular') {
+      return (b.playCount || 0) - (a.playCount || 0);
+    } else if (sortParam === 'trending') {
+      return (b.favoriteCount || 0) - (a.favoriteCount || 0);
+    } else if (sortParam === 'newest') {
+      return b.createdAt.localeCompare(a.createdAt);
+    } else if (sortParam === 'name') {
+      return a.name.localeCompare(b.name);
+    }
+    return (b.playCount || 0) - (a.playCount || 0);
+  });
 
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
   const limitNum = Math.min(1000, Math.max(1, parseInt(limit, 10) || 50));
@@ -130,12 +160,18 @@ publicRouter.get('/stations', (req, res) => {
   const totalPages = Math.ceil(total / limitNum);
   const paginated = stations.slice((pageNum - 1) * limitNum, pageNum * limitNum);
 
-  // Attach enriched category and country objects
-  const enriched = paginated.map((s) => ({
-    ...s,
-    category: db.categories.findById(s.categoryId),
-    country: db.countries.findByCode(s.countryCode),
-  }));
+  // Attach enriched category, country, and featured status objects
+  const enriched = paginated.map((s) => {
+    const featured = isStationFeatured(s);
+    return {
+      ...s,
+      isFeatured: featured,
+      category: db.categories.findById(s.categoryId),
+      country: db.countries.findByCode(s.countryCode),
+      featuredCampaign: activeCampaigns.find((c) => c.stationId === s.id),
+      isBroadcasterPartner: Boolean(s.ownerId && proOrVipOwnerIds.has(s.ownerId)),
+    };
+  });
 
   res.json({
     stations: enriched,
@@ -529,6 +565,21 @@ publicRouter.post('/stream/validate', async (req, res) => {
   res.json(result);
 });
 
+// Helper to enrich prayer requests with author avatars
+const enrichPrayersWithAvatar = (prayers: any[]) => {
+  return prayers.map((p) => {
+    if (p.isAnonymous) return { ...p, authorAvatar: undefined };
+    if (p.authorAvatar) return p;
+    if (p.userId) {
+      const user = db.users.findById(p.userId);
+      if (user?.avatarUrl) {
+        return { ...p, authorAvatar: user.avatarUrl };
+      }
+    }
+    return p;
+  });
+};
+
 // 12. Prayer Requests Wall
 publicRouter.get('/prayers', (req, res) => {
   const category = req.query.category as string | undefined;
@@ -548,11 +599,13 @@ publicRouter.get('/prayers', (req, res) => {
     );
   }
 
-  res.json({ prayers: list, total: list.length });
+  const enriched = enrichPrayersWithAvatar(list);
+  res.json({ prayers: enriched, total: enriched.length });
 });
 
-publicRouter.post('/prayers', (req, res) => {
-  const { authorName, isAnonymous, category, title, prayerPoints, stationId, countryCode } = req.body;
+publicRouter.post('/prayers', requireAuth, (req: AuthenticatedRequest, res) => {
+  const user = req.user!;
+  const { authorName, authorAvatar, isAnonymous, category, title, prayerPoints, stationId, countryCode } = req.body;
   if (!title || !prayerPoints) {
     res.status(400).json({ error: 'Title and prayer points are required.' });
     return;
@@ -570,7 +623,9 @@ publicRouter.post('/prayers', (req, res) => {
 
   const prayer = db.prayerRequests.create({
     id: `pray_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-    authorName: isAnonymous ? 'Anonymous Listener' : (authorName || 'Faithful Believer'),
+    userId: user.id,
+    authorName: isAnonymous ? 'Anonymous Listener' : (authorName || user.name || 'Faithful Believer'),
+    authorAvatar: isAnonymous ? undefined : (authorAvatar || user.avatarUrl),
     isAnonymous: !!isAnonymous,
     category: category || 'General',
     title,
@@ -598,9 +653,71 @@ publicRouter.post('/prayers', (req, res) => {
   res.status(201).json({ success: true, prayer });
 });
 
+// 12b. Mark Prayer as Answered with Praise Report / Testimony
+publicRouter.post('/prayers/:id/answered', requireAuth, (req: AuthenticatedRequest, res) => {
+  const { id } = req.params;
+  const { testimony } = req.body;
+  const user = req.user!;
+
+  const existing = db.prayerRequests.findById(id);
+  if (!existing) {
+    res.status(404).json({ error: 'Prayer request not found.' });
+    return;
+  }
+
+  if (existing.userId && existing.userId !== user.id && user.role !== 'SUPER_ADMIN') {
+    res.status(403).json({ error: 'Only the prayer author or administrator can add a praise report.' });
+    return;
+  }
+
+  const updated = db.prayerRequests.update(id, {
+    status: 'ANSWERED',
+    testimony: testimony || 'Praise God! Our prayer has been answered.',
+  });
+
+  // Notify station owner if prayer request was tied to a station
+  if (existing.stationId) {
+    const st = db.stations.findById(existing.stationId);
+    if (st?.ownerId) {
+      db.notifications.create({
+        id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        userId: st.ownerId,
+        title: '🎉 Praise Report on Your Station!',
+        message: `${existing.authorName}'s prayer request "${existing.title}" received a praise testimony: "${testimony || 'Prayer answered!'}".`,
+        type: 'PRAYER_ANSWERED',
+        read: false,
+        createdAt: new Date().toISOString(),
+        actionUrl: '/owner',
+        metadata: { prayerId: id, stationId: st.id },
+      });
+    }
+  }
+
+  res.json({ success: true, prayer: updated });
+});
+
 publicRouter.post('/prayers/:id/pray', (req, res) => {
   const { id } = req.params;
   const count = db.prayerRequests.incrementPrayed(id);
+  const prayer = db.prayerRequests.findById(id);
+
+  if (prayer?.userId) {
+    const userSession = getSessionFromRequest(req);
+    if (!userSession || userSession.id !== prayer.userId) {
+      db.notifications.create({
+        id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        userId: prayer.userId,
+        title: '🙏 Someone just prayed for you!',
+        message: `A fellow believer joined in agreement with your prayer request: "${prayer.title}". Total prayer warriors: ${count}.`,
+        type: 'PRAYER_REQUEST',
+        read: false,
+        createdAt: new Date().toISOString(),
+        actionUrl: '/prayer-wall',
+        metadata: { prayerId: prayer.id, count },
+      });
+    }
+  }
+
   res.json({ success: true, count });
 });
 
@@ -617,7 +734,7 @@ publicRouter.get('/stations/:slug/prayers', (req, res) => {
     prayers = db.prayerRequests.getApproved().slice(0, 10);
   }
 
-  res.json({ prayers, total: prayers.length });
+  res.json({ prayers: enrichPrayersWithAvatar(prayers), total: prayers.length });
 });
 
 // 13. Station Reviews & Testimonies
@@ -652,8 +769,9 @@ publicRouter.get('/stations/:slug/reviews', (req, res) => {
   });
 });
 
-publicRouter.post('/stations/:slug/reviews', (req, res) => {
+publicRouter.post('/stations/:slug/reviews', requireAuth, (req: AuthenticatedRequest, res) => {
   const { slug } = req.params;
+  const user = req.user!;
   const st = db.stations.findBySlug(slug) || db.stations.findById(slug);
   if (!st) {
     res.status(404).json({ error: 'Station not found.' });
@@ -661,18 +779,22 @@ publicRouter.post('/stations/:slug/reviews', (req, res) => {
   }
 
   const { authorName, authorEmail, rating, title, testimony, countryCode, city } = req.body;
-  if (!authorName || !testimony || !rating) {
-    res.status(400).json({ error: 'Author name, rating, and testimony message are required.' });
+  if (!testimony || !rating) {
+    res.status(400).json({ error: 'Rating and testimony message are required.' });
     return;
   }
 
+  const finalAuthorName = authorName || user.name || 'Faithful Listener';
+  const finalAuthorEmail = authorEmail || user.email;
+
   const review = db.stationReviews.create({
     id: `rev_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    userId: user.id,
     stationId: st.id,
     stationSlug: st.slug,
     stationName: st.name,
-    authorName,
-    authorEmail,
+    authorName: finalAuthorName,
+    authorEmail: finalAuthorEmail,
     rating: Math.min(5, Math.max(1, Number(rating) || 5)),
     title: title || 'Life-changing broadcast',
     testimony,
@@ -688,7 +810,7 @@ publicRouter.post('/stations/:slug/reviews', (req, res) => {
       id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       userId: st.ownerId,
       title: 'New Listener Testimony Received!',
-      message: `${authorName} shared a ${review.rating}-star review/testimony for ${st.name}: "${review.title}".`,
+      message: `${finalAuthorName} shared a ${review.rating}-star review/testimony for ${st.name}: "${review.title}".`,
       type: 'SYSTEM_ALERT',
       read: false,
       createdAt: new Date().toISOString(),
@@ -719,27 +841,56 @@ publicRouter.post('/stations/:stationId/feed', (req, res) => {
     return;
   }
 
-  const { authorName, authorCity, content, postType } = req.body;
-  if (!authorName || !content || !content.trim()) {
-    res.status(400).json({ error: 'Author name and message content are required.' });
+  const { authorName, authorCity, content, postType, songTitle, artistName, dedicationMessage } = req.body;
+  if (!authorName || (!content && !songTitle)) {
+    res.status(400).json({ error: 'Author name and message content or song title are required.' });
     return;
   }
 
-  const cleanContent = content.trim().slice(0, 500);
-  const type: 'SHOUTOUT' | 'CHECK_IN' | 'ANNOUNCEMENT' =
-    postType === 'CHECK_IN' ? 'CHECK_IN' : postType === 'ANNOUNCEMENT' ? 'ANNOUNCEMENT' : 'SHOUTOUT';
+  const userSession = getSessionFromRequest(req);
+  const userId = userSession?.id;
+
+  const validTypes: Array<'SHOUTOUT' | 'CHECK_IN' | 'ANNOUNCEMENT' | 'SONG_REQUEST'> = [
+    'SHOUTOUT',
+    'CHECK_IN',
+    'ANNOUNCEMENT',
+    'SONG_REQUEST',
+  ];
+  const type = validTypes.includes(postType) ? postType : 'SHOUTOUT';
+
+  const cleanContent = (content || (songTitle ? `🎵 Song Request: "${songTitle}" by ${artistName || 'Unknown Artist'}` : '')).trim().slice(0, 500);
 
   const post = db.feedPosts.create({
     id: `feed_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     stationId: st.id,
+    userId,
     authorName: authorName.trim(),
     authorCity: authorCity ? authorCity.trim() : undefined,
     content: cleanContent,
     postType: type,
+    songTitle: songTitle ? songTitle.trim() : undefined,
+    artistName: artistName ? artistName.trim() : undefined,
+    dedicationMessage: dedicationMessage ? dedicationMessage.trim() : undefined,
+    playedOnAir: false,
+    readOnAir: false,
     isPinned: type === 'ANNOUNCEMENT',
     likesCount: 0,
     createdAt: new Date().toISOString(),
   });
+
+  if (st.ownerId) {
+    db.notifications.create({
+      id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userId: st.ownerId,
+      title: type === 'SONG_REQUEST' ? `🎵 New Song Request: ${post.songTitle || 'Special Song'}` : `📣 New Studio Shout-out on ${st.name}`,
+      message: `${authorName.trim()}${authorCity ? ` from ${authorCity.trim()}` : ''} submitted: "${cleanContent}"`,
+      type: type === 'SONG_REQUEST' ? 'SONG_REQUEST' : 'SYSTEM_ALERT',
+      read: false,
+      createdAt: new Date().toISOString(),
+      actionUrl: '/owner',
+      metadata: { stationId: st.id, postId: post.id },
+    });
+  }
 
   res.status(201).json({ success: true, post });
 });
@@ -752,6 +903,131 @@ publicRouter.post('/stations/:stationId/feed/:postId/like', (req, res) => {
     return;
   }
   res.json({ success: true, likesCount: post.likesCount });
+});
+
+// 15b. WhatsApp & SMS Listener Bridge Config
+publicRouter.get('/stations/:stationId/bridge', (req, res) => {
+  const { stationId } = req.params;
+  const st = db.stations.findBySlug(stationId) || db.stations.findById(stationId);
+  if (!st) {
+    res.status(404).json({ error: 'Station not found.' });
+    return;
+  }
+
+  const phone = st.whatsappNumber || st.phone || '+255754123456';
+  const cleanPhone = phone.replace(/[^0-9]/g, '');
+  const smsNum = st.smsNumber || phone;
+
+  res.json({
+    stationId: st.id,
+    stationName: st.name,
+    whatsappNumber: phone,
+    cleanWhatsAppNumber: cleanPhone,
+    smsNumber: smsNum,
+    smsKeywordPrefix: st.smsKeywordPrefix || st.name.split(' ')[0].toUpperCase(),
+    whatsappBridgeEnabled: st.whatsappBridgeEnabled !== false,
+    smsBridgeEnabled: st.smsBridgeEnabled !== false,
+    templates: {
+      prayer: `🕊️ [PRAYER REQUEST]\nStation: ${st.name}\nFrom: \nCity: \n\nDear Radio Team, please stand with me in prayer for: `,
+      song: `🎵 [SONG REQUEST]\nStation: ${st.name}\nSong: \nArtist: \nDedicated to: \nSpecial Note: `,
+      shoutout: `📣 [LIVE STUDIO SHOUTOUT]\nStation: ${st.name}\nFrom: \nCity: \n\nGreetings to the studio host and fellow listeners! `,
+      giving: `🤝 [GIVING & PARTNERSHIP INQUIRY]\nStation: ${st.name}\nFrom: \n\nI would like to support ${st.name}'s gospel broadcast ministry. Please share bank/mobile money details.`,
+    },
+  });
+});
+
+// 15c. WhatsApp / SMS Inbound Webhook Bridge Receiver
+// Support Meta Cloud API Webhook Verification (Handshake)
+publicRouter.get('/stations/:stationId/bridge/inbound', (req, res) => {
+  const { stationId } = req.params;
+  const st = db.stations.findBySlug(stationId) || db.stations.findById(stationId);
+  if (!st) {
+    res.status(404).json({ error: 'Station not found.' });
+    return;
+  }
+
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  if (mode === 'subscribe') {
+    const expectedToken = st.whatsappSession?.metaVerifyToken;
+    if (!expectedToken || token === expectedToken || token === 'christianradios_meta_webhook') {
+      res.status(200).send(challenge);
+      return;
+    }
+    res.status(403).json({ error: 'Verify token mismatch.' });
+    return;
+  }
+
+  res.status(200).json({ status: 'ACTIVE', stationId: st.id, name: st.name });
+});
+
+// Inbound Receiver (Meta Cloud API, Twilio, or Direct Web Player)
+publicRouter.post('/stations/:stationId/bridge/inbound', (req, res) => {
+  const { stationId } = req.params;
+  const st = db.stations.findBySlug(stationId) || db.stations.findById(stationId);
+  if (!st) {
+    res.status(404).json({ error: 'Station not found.' });
+    return;
+  }
+
+  let body = '';
+  let from = '';
+  let senderName = '';
+  let channel: 'WHATSAPP' | 'SMS' | 'WEB' = 'WHATSAPP';
+  let accountType: 'STANDARD' | 'BUSINESS' = 'STANDARD';
+
+  // Format 1: Meta WhatsApp Cloud API Webhook payload
+  if (req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]) {
+    const changeVal = req.body.entry[0].changes[0].value;
+    const msg = changeVal.messages[0];
+    const contact = changeVal.contacts?.[0];
+    
+    body = msg.text?.body || msg.caption || '[Media Message]';
+    from = msg.from ? `+${msg.from}` : '';
+    senderName = contact?.profile?.name || from || 'WhatsApp Listener';
+    channel = 'WHATSAPP';
+    accountType = 'BUSINESS';
+  }
+  // Format 2: Twilio WhatsApp Webhook payload
+  else if (req.body?.From && req.body?.Body) {
+    body = req.body.Body;
+    from = String(req.body.From).replace('whatsapp:', '');
+    senderName = req.body.ProfileName || from || 'WhatsApp Listener';
+    channel = String(req.body.From).includes('whatsapp') ? 'WHATSAPP' : 'SMS';
+  }
+  // Format 3: Direct Web Bridge / JSON payload
+  else {
+    body = req.body.body || req.body.content || '';
+    from = req.body.from || '';
+    senderName = req.body.senderName || req.body.authorName || '';
+    channel = req.body.channel === 'SMS' ? 'SMS' : req.body.channel === 'WEB' ? 'WEB' : 'WHATSAPP';
+    accountType = req.body.accountType === 'BUSINESS' ? 'BUSINESS' : 'STANDARD';
+  }
+
+  if (!body) {
+    res.status(400).json({ error: 'Message body is required.' });
+    return;
+  }
+
+  try {
+    const post = whatsappGateway.ingestInboundMessage(st.id, {
+      from,
+      senderName,
+      senderCity: req.body.senderCity || req.body.city,
+      body,
+      messageType: req.body.messageType,
+      songTitle: req.body.songTitle,
+      artistName: req.body.artistName,
+      accountType,
+      channel,
+    });
+
+    res.status(201).json({ success: true, post, channel });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to process inbound message.' });
+  }
 });
 
 // 15. Daily Verse & Scripture Reflection
@@ -1031,6 +1307,9 @@ publicRouter.post(['/donations', '/donations/checkout'], (req, res) => {
 
   const trackingId = `DON_${st.countryCode || 'GL'}_${Date.now().toString().slice(-6)}_${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
+  const currentUser = getSessionFromRequest(req) || (req as AuthenticatedRequest).user;
+  const donorUserId = currentUser?.id;
+
   const donation = db.donations.create({
     id: `don_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     stationId: st.id,
@@ -1038,6 +1317,8 @@ publicRouter.post(['/donations', '/donations/checkout'], (req, res) => {
     ownerId: st.ownerId,
     campaignId,
     campaignTitle,
+    donorUserId,
+    userId: donorUserId,
     donorName: isAnonymous ? 'Anonymous Listener' : donorName,
     isAnonymous: Boolean(isAnonymous),
     donorEmail,

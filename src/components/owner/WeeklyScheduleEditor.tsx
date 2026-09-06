@@ -14,15 +14,13 @@ import {
   AlertCircle,
   CheckCircle2,
   ChevronRight,
-  Info,
-  Download,
-  Upload,
-  RotateCcw,
   UserCheck,
-  Tag,
-  AlignLeft,
   Search,
-  Filter,
+  X,
+  RotateCw,
+  User,
+  Tag,
+  Mic,
 } from 'lucide-react';
 import type { Station, BroadcastScheduleItem } from '../../types';
 import { apiFetch } from '../../lib/api';
@@ -55,7 +53,7 @@ const SHOW_TAGS = [
 const DEFAULT_SCHEDULE_PRESET: BroadcastScheduleItem[] = [
   // Sunday
   { dayOfWeek: 0, startTime: '06:00', endTime: '08:00', programName: 'Sunday Morning Glory & Devotion', presenter: 'Pastor Emmanuel', description: 'Early morning prayers, scriptures, and uplifting praise to start the Lord\'s Day.' },
-  { dayOfWeek: 0, startTime: '08:00', endTime: '11:00', programName: 'Live Sunday Divine Service', presenter: 'Rev. Dr. Grace Mwangi', description: 'Live broadcast of the Sunday worship service, choir anthems, and the Word of God.' },
+  { dayOfWeek: 0, startTime: '08:00', endTime: '11:00', programName: 'Live Sunday Divine Service', presenter: 'Rev. Dr. Grace Mwangi', description: 'Live broadcast of Sunday worship service, choir anthems, and the Word of God.' },
   { dayOfWeek: 0, startTime: '11:00', endTime: '13:00', programName: 'Gospel Celebrations & Praises', presenter: 'Brother Joshua', description: 'Top African & international gospel hits, uplifting testimonies, and listener song requests.' },
   { dayOfWeek: 0, startTime: '13:00', endTime: '15:00', programName: 'Faith & Family Life', presenter: 'Elder & Mrs. Baraka', description: 'Biblical wisdom on Christian family, parenting, marriage, and youth guidance.' },
   { dayOfWeek: 0, startTime: '15:00', endTime: '18:00', programName: 'Gospel Top 20 Weekly Countdown', presenter: 'DJ Faith', description: 'The biggest Christian praise and worship tracks voted by listeners worldwide.' },
@@ -111,9 +109,9 @@ export function WeeklyScheduleEditor({
   const [schedule, setSchedule] = useState<BroadcastScheduleItem[]>([]);
   const [savedScheduleJson, setSavedScheduleJson] = useState<string>('[]');
   const [selectedDayTab, setSelectedDayTab] = useState<number | 'ALL'>('ALL');
-  const [viewMode, setViewMode] = useState<'day' | 'grid'>('day');
 
-  // Form state for creating/editing a show
+  // Form modal state for creating/editing a show
+  const [showProgramModal, setShowProgramModal] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [formDayOfWeek, setFormDayOfWeek] = useState<number>(0);
   const [formProgramName, setFormProgramName] = useState('');
@@ -121,19 +119,19 @@ export function WeeklyScheduleEditor({
   const [formEndTime, setFormEndTime] = useState('10:00');
   const [formPresenter, setFormPresenter] = useState('');
   const [formDescription, setFormDescription] = useState('');
-  const [applyDays, setApplyDays] = useState<number[]>([0]); // For multi-day quick apply
+  const [applyDays, setApplyDays] = useState<number[]>([0]);
 
   // UI state
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showCopyModal, setShowCopyModal] = useState<number | null>(null); // Index of item to copy
+  const [showCopyModal, setShowCopyModal] = useState<number | null>(null);
   const [copyTargetDays, setCopyTargetDays] = useState<number[]>([]);
   const [showJsonModal, setShowJsonModal] = useState(false);
   const [jsonText, setJsonText] = useState('');
 
-  // Sync station schedule on station switch
+  // Sync station schedule on switch
   useEffect(() => {
     if (currentStation) {
       const items = Array.isArray(currentStation.schedule) ? [...currentStation.schedule] : [];
@@ -144,7 +142,6 @@ export function WeeklyScheduleEditor({
     }
   }, [currentStation?.id]);
 
-  // Track if changes exist
   const hasUnsavedChanges = useMemo(() => {
     return JSON.stringify(schedule) !== savedScheduleJson;
   }, [schedule, savedScheduleJson]);
@@ -160,13 +157,20 @@ export function WeeklyScheduleEditor({
     setErrorMessage(null);
   };
 
-  // Duration helper
+  const openNewProgramModal = (defaultDay?: number) => {
+    resetForm();
+    const day = defaultDay !== undefined ? defaultDay : selectedDayTab !== 'ALL' ? selectedDayTab : 0;
+    setFormDayOfWeek(day);
+    setApplyDays([day]);
+    setShowProgramModal(true);
+  };
+
   const calculateDuration = (start: string, end: string) => {
     try {
       const [sh, sm] = start.split(':').map(Number);
       const [eh, em] = end.split(':').map(Number);
       let diffMinutes = (eh * 60 + em) - (sh * 60 + sm);
-      if (diffMinutes <= 0) diffMinutes += 24 * 60; // Overnight show
+      if (diffMinutes <= 0) diffMinutes += 24 * 60;
       const hours = Math.floor(diffMinutes / 60);
       const mins = diffMinutes % 60;
       if (hours === 0) return `${mins}m`;
@@ -177,7 +181,6 @@ export function WeeklyScheduleEditor({
     }
   };
 
-  // Add / Update Show handler
   const handleSaveShow = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -194,7 +197,6 @@ export function WeeklyScheduleEditor({
     }
 
     if (editingIndex !== null) {
-      // Update existing item
       const updated = [...schedule];
       updated[editingIndex] = {
         dayOfWeek: formDayOfWeek,
@@ -205,16 +207,15 @@ export function WeeklyScheduleEditor({
         description: formDescription.trim() || undefined,
       };
 
-      // Sort
       updated.sort((a, b) => {
         if (a.dayOfWeek !== b.dayOfWeek) return a.dayOfWeek - b.dayOfWeek;
         return a.startTime.localeCompare(b.startTime);
       });
 
       setSchedule(updated);
+      setShowProgramModal(false);
       resetForm();
     } else {
-      // Add new show(s) - support multi-day application
       const daysToCreate = applyDays.length > 0 ? applyDays : [formDayOfWeek];
       const newItems: BroadcastScheduleItem[] = daysToCreate.map((d) => ({
         dayOfWeek: d,
@@ -232,11 +233,11 @@ export function WeeklyScheduleEditor({
       });
 
       setSchedule(combined);
+      setShowProgramModal(false);
       resetForm();
     }
   };
 
-  // Edit item
   const handleStartEdit = (index: number) => {
     const item = schedule[index];
     if (!item) return;
@@ -249,9 +250,9 @@ export function WeeklyScheduleEditor({
     setFormPresenter(item.presenter || '');
     setFormDescription(item.description || '');
     setErrorMessage(null);
+    setShowProgramModal(true);
   };
 
-  // Delete item
   const handleDeleteShow = (index: number) => {
     const item = schedule[index];
     if (!item) return;
@@ -264,7 +265,6 @@ export function WeeklyScheduleEditor({
     }
   };
 
-  // Duplicate to other days
   const handleExecuteCopy = () => {
     if (showCopyModal === null) return;
     const sourceItem = schedule[showCopyModal];
@@ -286,11 +286,10 @@ export function WeeklyScheduleEditor({
     setCopyTargetDays([]);
   };
 
-  // Load Preset
   const handleLoadPreset = () => {
     if (
       schedule.length > 0 &&
-      !confirm('This will replace your current schedule with a comprehensive 7-day Christian Radio broadcast lineup template. Continue?')
+      !confirm('Replace your current timetable with a full 7-day Christian Radio programming template?')
     ) {
       return;
     }
@@ -298,7 +297,6 @@ export function WeeklyScheduleEditor({
     resetForm();
   };
 
-  // Clear Schedule
   const handleClearSchedule = () => {
     if (confirm('Are you sure you want to clear all broadcast shows for this station?')) {
       setSchedule([]);
@@ -306,7 +304,6 @@ export function WeeklyScheduleEditor({
     }
   };
 
-  // Save to Backend
   const handleSaveToBackend = async () => {
     if (!currentStation) return;
     setIsSaving(true);
@@ -323,7 +320,7 @@ export function WeeklyScheduleEditor({
       const data = await res.json();
       if (res.ok && data.success) {
         setSavedScheduleJson(JSON.stringify(schedule));
-        setSaveSuccessMsg(`Weekly schedule for "${currentStation.name}" successfully published!`);
+        setSaveSuccessMsg(`Weekly schedule for "${currentStation.name}" published successfully!`);
         if (onSaveSchedule) {
           await onSaveSchedule(currentStation.id, schedule);
         }
@@ -338,7 +335,6 @@ export function WeeklyScheduleEditor({
     }
   };
 
-  // Quick preset duration buttons (+1h, +2h, etc.)
   const handleAdjustEndTime = (hoursToAdd: number) => {
     try {
       const [sh, sm] = formStartTime.split(':').map(Number);
@@ -350,7 +346,6 @@ export function WeeklyScheduleEditor({
     } catch {}
   };
 
-  // Filter shows by tab and search
   const filteredSchedule = useMemo(() => {
     return schedule.filter((item) => {
       const matchesDay = selectedDayTab === 'ALL' || item.dayOfWeek === selectedDayTab;
@@ -363,244 +358,390 @@ export function WeeklyScheduleEditor({
     });
   }, [schedule, selectedDayTab, searchQuery]);
 
-  // Shows grouped by day
-  const showsByDay = useMemo(() => {
-    const map: Record<number, BroadcastScheduleItem[]> = {
-      0: [],
-      1: [],
-      2: [],
-      3: [],
-      4: [],
-      5: [],
-      6: [],
-    };
-    schedule.forEach((item) => {
-      if (map[item.dayOfWeek]) {
-        map[item.dayOfWeek].push(item);
-      }
-    });
-    return map;
-  }, [schedule]);
-
-  if (!stations || stations.length === 0) {
-    return (
-      <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-8 text-center space-y-4">
-        <Radio className="w-12 h-12 text-slate-500 mx-auto" />
-        <h3 className="text-base font-bold text-white">No Radio Stations Registered</h3>
-        <p className="text-xs text-slate-400 max-w-md mx-auto">
-          Please create a radio station first before setting up weekly broadcast schedules and programming timetables.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      {/* Header & Station Selector */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xl space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-sky-400">
-              <Calendar className="w-4 h-4" />
-              Weekly Broadcast Programming Schedule
-            </div>
-            <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
-              Manage Radio Show Lineup & Timetables
-            </h2>
-            <p className="text-xs text-slate-400 max-w-2xl">
-              Configure daily shows, host names, on-air time slots, and show descriptions. Your listeners can view this live in your station profile.
-            </p>
-          </div>
-
-          {/* Station Switcher Dropdown */}
-          <div className="flex items-center gap-3 shrink-0">
-            {stations.length > 1 && (
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                  Select Station:
-                </label>
-                <select
-                  value={selectedStationId}
-                  onChange={(e) => setSelectedStationId(e.target.value)}
-                  className="bg-slate-950 border border-slate-700 text-white font-semibold text-xs rounded-xl px-3.5 py-2 focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                >
-                  {stations.map((st) => (
-                    <option key={st.id} value={st.id}>
-                      {st.name} ({st.city || st.countryCode})
-                    </option>
-                  ))}
-                </select>
+      {/* 1. TOP CONTROL BAR */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-sky-950/30 border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5 min-w-0">
+            {currentStation?.logoUrl ? (
+              <img
+                src={currentStation.logoUrl}
+                alt={currentStation.name}
+                className="w-12 h-12 rounded-2xl object-cover bg-slate-950 border border-slate-800 shrink-0 shadow-md"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0">
+                <Calendar className="w-6 h-6" />
               </div>
             )}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-lg sm:text-xl font-extrabold text-white tracking-tight truncate">
+                  {currentStation?.name || 'Radio Broadcast Lineup'}
+                </h2>
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                  {schedule.length} Shows
+                </span>
+                {hasUnsavedChanges && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                    Unsaved Changes
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Configure your 7-day program schedule, on-air hosts, and show descriptions visible to your listeners.
+              </p>
+            </div>
+          </div>
+
+          {/* Station Switcher & Actions */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {stations.length > 1 && (
+              <select
+                value={selectedStationId}
+                onChange={(e) => setSelectedStationId(e.target.value)}
+                className="bg-slate-950 border border-slate-700 text-white font-semibold text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-sky-500"
+              >
+                {stations.map((st) => (
+                  <option key={st.id} value={st.id}>
+                    {st.name} ({st.city || st.countryCode})
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <button
+              type="button"
+              onClick={handleLoadPreset}
+              className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+              title="Populate standard 7-day Christian Radio template"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+              <span>Load Template</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setJsonText(JSON.stringify(schedule, null, 2));
+                setShowJsonModal(true);
+              }}
+              className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+              title="Import or Export Schedule JSON"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>JSON</span>
+            </button>
+
+            {schedule.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearSchedule}
+                className="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-rose-950/40 text-rose-400 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                title="Clear all shows"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Clear</span>
+              </button>
+            )}
+
+            {/* Publish Changes Button */}
+            <button
+              type="button"
+              onClick={handleSaveToBackend}
+              disabled={isSaving || !hasUnsavedChanges}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg cursor-pointer ${
+                hasUnsavedChanges
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30 animate-pulse'
+                  : 'bg-slate-800 text-slate-400 opacity-60 cursor-default'
+              }`}
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>{isSaving ? 'Saving...' : hasUnsavedChanges ? 'Publish Changes' : 'Saved'}</span>
+            </button>
 
             {isModal && onClose && (
               <button
                 onClick={onClose}
-                className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 text-xs font-bold"
+                className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 text-xs font-bold cursor-pointer"
               >
-                Close
+                <X className="w-4 h-4" />
               </button>
             )}
           </div>
         </div>
 
-        {/* Selected Station Banner & Quick Actions */}
-        {currentStation && (
-          <div className="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5 min-w-0">
-              <img
-                src={currentStation.logoUrl}
-                alt={currentStation.name}
-                className="w-12 h-12 rounded-2xl object-cover bg-slate-950 border border-slate-800 shrink-0"
-              />
-              <div className="space-y-0.5 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-white truncate">{currentStation.name}</h3>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                    {schedule.length} Shows Scheduled
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400 truncate">
-                  {currentStation.genre} • Timezone: <span className="text-slate-200">{currentStation.timezone || 'Africa/Dar_es_Salaam'}</span>
-                </p>
-              </div>
-            </div>
-
-            {/* Top Toolbar Actions */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={handleLoadPreset}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition"
-                title="Populate with standard 7-day Christian Radio shows"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-                Load Template
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setJsonText(JSON.stringify(schedule, null, 2));
-                  setShowJsonModal(true);
-                }}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition"
-                title="Import or Export JSON"
-              >
-                <Layers className="w-3.5 h-3.5" />
-                JSON
-              </button>
-
-              {schedule.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleClearSchedule}
-                  className="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-rose-950/40 text-rose-400 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition"
-                  title="Clear all shows"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  Clear All
-                </button>
-              )}
-
-              {/* Save Button */}
-              <button
-                type="button"
-                onClick={handleSaveToBackend}
-                disabled={isSaving || !hasUnsavedChanges}
-                className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg ${
-                  hasUnsavedChanges
-                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20 ring-2 ring-emerald-400/40 animate-pulse'
-                    : 'bg-slate-800 text-slate-400 cursor-default'
-                }`}
-              >
-                <Save className="w-4 h-4" />
-                {isSaving ? 'Saving Schedule...' : hasUnsavedChanges ? 'Publish Changes' : 'Schedule Saved'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Feedback Banners */}
+        {/* Feedback Alerts */}
         {saveSuccessMsg && (
-          <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2.5 animate-fadeIn">
+          <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <span className="font-semibold">{saveSuccessMsg}</span>
           </div>
         )}
 
         {errorMessage && (
-          <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2.5 animate-fadeIn">
+          <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2 animate-in fade-in">
             <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
             <span>{errorMessage}</span>
           </div>
         )}
       </div>
 
-      {/* Main Grid: Left Side = Show Editor Form, Right Side = Interactive Weekly Schedule Viewer */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column (5 Cols): Program Entry / Edit Form */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-5 sticky top-24">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                {editingIndex !== null ? (
-                  <>
-                    <Edit2 className="w-4 h-4 text-sky-400" />
-                    Edit Show Program
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4 text-emerald-400" />
-                    Add Broadcast Program
-                  </>
-                )}
-              </h3>
-              {editingIndex !== null && (
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded-lg hover:bg-slate-800 font-semibold"
+      {/* 2. DAY SELECTOR TABS & SEARCH */}
+      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-3.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        {/* Day of Week Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+          <button
+            type="button"
+            onClick={() => setSelectedDayTab('ALL')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+              selectedDayTab === 'ALL'
+                ? 'bg-sky-500 text-white shadow-md shadow-sky-500/20'
+                : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+            }`}
+          >
+            All Days ({schedule.length})
+          </button>
+
+          {DAY_SHORT.map((dayName, idx) => {
+            const count = schedule.filter((s) => s.dayOfWeek === idx).length;
+            const isSelected = selectedDayTab === idx;
+            return (
+              <button
+                key={dayName}
+                type="button"
+                onClick={() => setSelectedDayTab(idx)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                  isSelected
+                    ? 'bg-sky-500 text-white shadow-md shadow-sky-500/20'
+                    : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                <span>{dayName}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                    isSelected ? 'bg-sky-400/30 text-white' : 'bg-slate-800 text-slate-400'
+                  }`}
                 >
-                  Cancel Edit
-                </button>
-              )}
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Search & Add Show Button */}
+        <div className="flex items-center gap-2.5">
+          <div className="relative flex-1 sm:w-48">
+            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search programs..."
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => openNewProgramModal()}
+            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 transition cursor-pointer shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Show</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 3. SHOWS LIST TIMETABLE */}
+      {filteredSchedule.length === 0 ? (
+        <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-14 text-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-slate-800/80 border border-slate-700/80 flex items-center justify-center text-slate-500 mx-auto">
+            <Calendar className="w-7 h-7" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-white">No Programs Scheduled</h3>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+              {searchQuery
+                ? `No shows match "${searchQuery}".`
+                : selectedDayTab !== 'ALL'
+                ? `No shows configured for ${DAY_NAMES[selectedDayTab]}.`
+                : 'Your radio station has not published a weekly programming schedule yet.'}
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => openNewProgramModal()}
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add First Program</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleLoadPreset}
+              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-400 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Load Preset Template</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredSchedule.map((item, idx) => {
+            const originalIndex = schedule.findIndex((s) => s === item);
+            const duration = calculateDuration(item.startTime, item.endTime);
+
+            return (
+              <div
+                key={`${item.dayOfWeek}-${item.startTime}-${item.programName}-${idx}`}
+                className="bg-slate-900/80 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 sm:p-5 transition flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"
+              >
+                {/* Left Side: Time Badge & Program Info */}
+                <div className="flex items-start gap-4 min-w-0">
+                  {/* Time Badge */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-center shrink-0 w-24">
+                    <div className="text-xs font-mono font-bold text-white">
+                      {item.startTime}
+                    </div>
+                    <div className="text-[10px] font-mono text-slate-500">
+                      to {item.endTime}
+                    </div>
+                    {duration && (
+                      <span className="inline-block mt-1 text-[9px] font-bold text-sky-400 bg-sky-500/10 px-1.5 py-0.2 rounded">
+                        {duration}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Program Info */}
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+                        {DAY_SHORT[item.dayOfWeek]}
+                      </span>
+                      <h4 className="text-sm font-bold text-white truncate">
+                        {item.programName}
+                      </h4>
+                    </div>
+
+                    {item.presenter && (
+                      <div className="flex items-center gap-1.5 text-xs text-sky-400 font-semibold">
+                        <Mic className="w-3 h-3 text-sky-400" />
+                        <span>Host: {item.presenter}</span>
+                      </div>
+                    )}
+
+                    {item.description && (
+                      <p className="text-xs text-slate-400 line-clamp-1 leading-relaxed">
+                        {item.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Side: Quick Action Buttons */}
+                <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCopyModal(originalIndex);
+                      setCopyTargetDays([1, 2, 3, 4, 5]);
+                    }}
+                    className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-sky-300 transition text-xs flex items-center gap-1 cursor-pointer"
+                    title="Duplicate show to other days"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span className="hidden md:inline text-[11px] font-medium">Duplicate</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleStartEdit(originalIndex)}
+                    className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition text-xs flex items-center gap-1 cursor-pointer"
+                    title="Edit program"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    <span className="hidden md:inline text-[11px] font-medium">Edit</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteShow(originalIndex)}
+                    className="p-2 rounded-xl bg-slate-800/80 hover:bg-rose-900/30 text-slate-400 hover:text-rose-400 transition text-xs cursor-pointer"
+                    title="Delete program"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 4. PROGRAM ENTRY / EDIT MODAL */}
+      {showProgramModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 text-slate-100 shadow-2xl relative space-y-5 animate-in fade-in zoom-in-95 duration-150 my-8">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400">
+                  {editingIndex !== null ? <Edit2 className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    {editingIndex !== null ? 'Edit Broadcast Program' : 'Add Broadcast Program'}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Configure program name, broadcast times, host, and summary.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowProgramModal(false)}
+                className="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             <form onSubmit={handleSaveShow} className="space-y-4 text-xs">
               {/* Show Name */}
               <div>
-                <label className="block font-semibold text-slate-300 mb-1.5">
-                  Show / Program Name <span className="text-rose-400">*</span>
+                <label className="block font-semibold text-slate-300 mb-1">
+                  Program Title <span className="text-rose-400">*</span>
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Morning Glory & Devotions"
+                  placeholder="e.g. Sunday Morning Glory & Worship"
                   value={formProgramName}
                   onChange={(e) => setFormProgramName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 placeholder:text-slate-600 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
                 />
               </div>
 
-              {/* Quick Preset Show Names */}
+              {/* Tag Suggestions */}
               <div>
-                <span className="text-[11px] font-semibold text-slate-400 block mb-1.5">
-                  Popular Themes & Tags:
+                <span className="text-[11px] font-semibold text-slate-400 block mb-1">
+                  Common Themes:
                 </span>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1">
                   {SHOW_TAGS.slice(0, 5).map((tag) => (
                     <button
                       key={tag}
                       type="button"
                       onClick={() => {
-                        if (!formProgramName) {
-                          setFormProgramName(tag);
-                        } else {
-                          setFormDescription((prev) => (prev ? `${prev}\nFocus: ${tag}` : `Focus: ${tag}`));
-                        }
+                        if (!formProgramName) setFormProgramName(tag);
+                        else setFormDescription((prev) => (prev ? `${prev} • ${tag}` : tag));
                       }}
-                      className="text-[10px] px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
+                      className="text-[10px] px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition cursor-pointer"
                     >
                       +{tag}
                     </button>
@@ -608,9 +749,9 @@ export function WeeklyScheduleEditor({
                 </div>
               </div>
 
-              {/* Day of Week Selector */}
+              {/* Day Selection */}
               <div>
-                <label className="block font-semibold text-slate-300 mb-1.5">
+                <label className="block font-semibold text-slate-300 mb-1">
                   Day of the Week <span className="text-rose-400">*</span>
                 </label>
                 <div className="grid grid-cols-7 gap-1">
@@ -620,14 +761,12 @@ export function WeeklyScheduleEditor({
                       type="button"
                       onClick={() => {
                         setFormDayOfWeek(idx);
-                        if (editingIndex === null) {
-                          setApplyDays([idx]);
-                        }
+                        if (editingIndex === null) setApplyDays([idx]);
                       }}
-                      className={`py-2 rounded-xl text-center text-xs font-bold transition ${
+                      className={`py-2 rounded-xl text-center text-xs font-bold transition cursor-pointer ${
                         formDayOfWeek === idx
                           ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
-                          : 'bg-slate-950 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
+                          : 'bg-slate-950 border border-slate-800 text-slate-400 hover:text-white'
                       }`}
                     >
                       {dayName}
@@ -636,20 +775,20 @@ export function WeeklyScheduleEditor({
                 </div>
               </div>
 
-              {/* Multi-Day Apply Options (When Creating New Show) */}
+              {/* Multi-Day Repeat Selector (Only for new shows) */}
               {editingIndex === null && (
-                <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800/80 space-y-2">
-                  <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">
+                <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
+                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">
                     Quick Repeat Across Days:
                   </span>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <button
                       type="button"
                       onClick={() => setApplyDays([1, 2, 3, 4, 5])}
-                      className={`text-[10px] px-2.5 py-1 rounded-lg font-semibold border transition ${
+                      className={`text-[10px] px-2.5 py-1 rounded-lg font-semibold border transition cursor-pointer ${
                         applyDays.length === 5 && applyDays.every((d) => [1, 2, 3, 4, 5].includes(d))
                           ? 'bg-sky-500/20 border-sky-500 text-sky-300'
-                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                          : 'bg-slate-900 border-slate-800 text-slate-400'
                       }`}
                     >
                       Weekdays (Mon-Fri)
@@ -657,10 +796,10 @@ export function WeeklyScheduleEditor({
                     <button
                       type="button"
                       onClick={() => setApplyDays([0, 6])}
-                      className={`text-[10px] px-2.5 py-1 rounded-lg font-semibold border transition ${
+                      className={`text-[10px] px-2.5 py-1 rounded-lg font-semibold border transition cursor-pointer ${
                         applyDays.length === 2 && applyDays.includes(0) && applyDays.includes(6)
                           ? 'bg-sky-500/20 border-sky-500 text-sky-300'
-                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                          : 'bg-slate-900 border-slate-800 text-slate-400'
                       }`}
                     >
                       Weekends (Sat-Sun)
@@ -668,10 +807,10 @@ export function WeeklyScheduleEditor({
                     <button
                       type="button"
                       onClick={() => setApplyDays([0, 1, 2, 3, 4, 5, 6])}
-                      className={`text-[10px] px-2.5 py-1 rounded-lg font-semibold border transition ${
+                      className={`text-[10px] px-2.5 py-1 rounded-lg font-semibold border transition cursor-pointer ${
                         applyDays.length === 7
                           ? 'bg-sky-500/20 border-sky-500 text-sky-300'
-                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                          : 'bg-slate-900 border-slate-800 text-slate-400'
                       }`}
                     >
                       Daily (All 7 Days)
@@ -679,10 +818,10 @@ export function WeeklyScheduleEditor({
                     <button
                       type="button"
                       onClick={() => setApplyDays([formDayOfWeek])}
-                      className={`text-[10px] px-2.5 py-1 rounded-lg font-semibold border transition ${
+                      className={`text-[10px] px-2.5 py-1 rounded-lg font-semibold border transition cursor-pointer ${
                         applyDays.length === 1 && applyDays[0] === formDayOfWeek
                           ? 'bg-sky-500/20 border-sky-500 text-sky-300'
-                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                          : 'bg-slate-900 border-slate-800 text-slate-400'
                       }`}
                     >
                       Single Day ({DAY_SHORT[formDayOfWeek]})
@@ -691,456 +830,153 @@ export function WeeklyScheduleEditor({
                 </div>
               )}
 
-              {/* Time Slots (Start Time & End Time) */}
+              {/* Time Slots */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1.5">
-                    Start Time (24h) <span className="text-rose-400">*</span>
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    Start Time <span className="text-rose-400">*</span>
                   </label>
-                  <div className="relative">
-                    <input
-                      type="time"
-                      required
-                      value={formStartTime}
-                      onChange={(e) => setFormStartTime(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 font-mono focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                    />
-                  </div>
+                  <input
+                    type="time"
+                    required
+                    value={formStartTime}
+                    onChange={(e) => setFormStartTime(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono focus:outline-none focus:border-sky-500"
+                  />
                 </div>
-
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1.5">
-                    End Time (24h) <span className="text-rose-400">*</span>
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    End Time <span className="text-rose-400">*</span>
                   </label>
-                  <div className="relative">
-                    <input
-                      type="time"
-                      required
-                      value={formEndTime}
-                      onChange={(e) => setFormEndTime(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 font-mono focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                    />
-                  </div>
+                  <input
+                    type="time"
+                    required
+                    value={formEndTime}
+                    onChange={(e) => setFormEndTime(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono focus:outline-none focus:border-sky-500"
+                  />
                 </div>
               </div>
 
-              {/* Quick Duration Buttons & Indicator */}
               <div className="flex items-center justify-between text-[11px] text-slate-400">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-slate-500">Duration:</span>
-                  <span className="font-mono font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-md border border-sky-500/20">
-                    {calculateDuration(formStartTime, formEndTime)}
-                  </span>
-                </div>
-
+                <span>Duration: <strong className="text-sky-400">{calculateDuration(formStartTime, formEndTime)}</strong></span>
                 <div className="flex items-center gap-1">
-                  <span className="text-slate-500 mr-1">Presets:</span>
                   <button
                     type="button"
                     onClick={() => handleAdjustEndTime(1)}
-                    className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px]"
+                    className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] cursor-pointer"
                   >
                     +1 hr
                   </button>
                   <button
                     type="button"
                     onClick={() => handleAdjustEndTime(2)}
-                    className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px]"
+                    className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] cursor-pointer"
                   >
                     +2 hrs
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAdjustEndTime(3)}
-                    className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px]"
-                  >
-                    +3 hrs
                   </button>
                 </div>
               </div>
 
-              {/* Presenter / Host */}
+              {/* Presenter */}
               <div>
-                <label className="block font-semibold text-slate-300 mb-1.5">
-                  Host / Presenter / Pastor (Optional)
+                <label className="block font-semibold text-slate-300 mb-1">
+                  Host / Presenter (Optional)
                 </label>
                 <div className="relative">
+                  <Mic className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     placeholder="e.g. Pastor Emmanuel & Sister Mary"
                     value={formPresenter}
                     onChange={(e) => setFormPresenter(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 placeholder:text-slate-600 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
                   />
                 </div>
               </div>
 
-              {/* Show Description */}
+              {/* Description */}
               <div>
-                <label className="block font-semibold text-slate-300 mb-1.5">
-                  Program Synopsis & Highlights (Optional)
+                <label className="block font-semibold text-slate-300 mb-1">
+                  Show Description / Scripture Focus (Optional)
                 </label>
                 <textarea
-                  rows={3}
-                  placeholder="Summary of gospel topics, scripture readings, call-in segments, prayer sessions, and music style..."
+                  rows={2}
+                  placeholder="e.g. Live worship songs, intercessory prayer, and devotional study."
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 placeholder:text-slate-600 focus:ring-2 focus:ring-sky-500 focus:outline-none resize-none"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
                 />
               </div>
 
-              {/* Submit Button */}
-              <div className="pt-2">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowProgramModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition cursor-pointer"
+                >
+                  Cancel
+                </button>
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-sky-600/20 transition-all"
+                  className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-lg shadow-sky-600/20 transition cursor-pointer"
                 >
-                  {editingIndex !== null ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      Update Show Program
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-4 h-4" />
-                      {applyDays.length > 1
-                        ? `Add Show to ${applyDays.length} Selected Days`
-                        : `Add Show to ${DAY_NAMES[formDayOfWeek]}`}
-                    </>
-                  )}
+                  {editingIndex !== null ? 'Save Changes' : 'Add to Schedule'}
                 </button>
               </div>
             </form>
           </div>
         </div>
+      )}
 
-        {/* Right Column (7 Cols): Schedule Visualizer & Interactive Show List */}
-        <div className="lg:col-span-7 space-y-4">
-          <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-5">
-            {/* Top Toolbar: Search & Day Filters & View Mode */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              {/* Search */}
-              <div className="relative flex-1">
-                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Filter shows by title, host, or keyword..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                />
-              </div>
-
-              {/* View Switcher */}
-              <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setViewMode('day')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                    viewMode === 'day'
-                      ? 'bg-sky-600 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Daily List
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('grid')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                    viewMode === 'grid'
-                      ? 'bg-sky-600 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  7-Day Grid
-                </button>
-              </div>
-            </div>
-
-            {/* Day Tabs */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-              <button
-                type="button"
-                onClick={() => setSelectedDayTab('ALL')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition flex items-center gap-1.5 ${
-                  selectedDayTab === 'ALL'
-                    ? 'bg-sky-600 text-white'
-                    : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
-                }`}
-              >
-                <span>All Days</span>
-                <span className="text-[10px] bg-slate-900/60 px-1.5 py-0.2 rounded-full font-mono">
-                  {schedule.length}
-                </span>
-              </button>
-
-              {DAY_NAMES.map((name, idx) => {
-                const count = showsByDay[idx]?.length || 0;
-                return (
-                  <button
-                    key={name}
-                    type="button"
-                    onClick={() => setSelectedDayTab(idx)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition flex items-center gap-1.5 ${
-                      selectedDayTab === idx
-                        ? 'bg-sky-600 text-white shadow-sm'
-                        : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
-                    }`}
-                  >
-                    <span>{name}</span>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                        count > 0 ? 'bg-sky-500/20 text-sky-300' : 'bg-slate-800 text-slate-500'
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* VIEW 1: DAILY LIST VIEW */}
-            {viewMode === 'day' && (
-              <div className="space-y-3">
-                {filteredSchedule.length > 0 ? (
-                  <div className="space-y-2.5">
-                    {filteredSchedule.map((item, originalIdx) => {
-                      // Find actual index in `schedule`
-                      const actualIdx = schedule.findIndex((s) => s === item);
-                      const isEditing = editingIndex === actualIdx;
-
-                      return (
-                        <div
-                          key={`${item.dayOfWeek}-${item.startTime}-${item.programName}-${actualIdx}`}
-                          className={`p-4 rounded-2xl border transition-all ${
-                            isEditing
-                              ? 'bg-sky-950/30 border-sky-500 ring-1 ring-sky-500'
-                              : 'bg-slate-950/70 border-slate-800 hover:border-slate-700'
-                          }`}
-                        >
-                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                            <div className="space-y-1 min-w-0 flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-800 text-slate-300">
-                                  {DAY_NAMES[item.dayOfWeek]}
-                                </span>
-                                <span className="text-xs font-mono font-bold text-sky-400 bg-sky-500/10 px-2.5 py-0.5 rounded-md border border-sky-500/20">
-                                  {item.startTime} - {item.endTime}
-                                </span>
-                                <span className="text-[10px] font-mono text-slate-500">
-                                  ({calculateDuration(item.startTime, item.endTime)})
-                                </span>
-                              </div>
-
-                              <h4 className="text-sm font-bold text-white tracking-tight">
-                                {item.programName}
-                              </h4>
-
-                              {item.presenter && (
-                                <p className="text-xs text-sky-300 flex items-center gap-1 font-medium">
-                                  <UserCheck className="w-3 h-3 text-sky-400" />
-                                  Host: {item.presenter}
-                                </p>
-                              )}
-
-                              {item.description && (
-                                <p className="text-xs text-slate-400 line-clamp-2 pt-0.5 leading-relaxed">
-                                  {item.description}
-                                </p>
-                              )}
-                            </div>
-
-                            {/* Action Buttons */}
-                            <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => handleStartEdit(actualIdx)}
-                                className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl transition"
-                                title="Edit Show"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setShowCopyModal(actualIdx);
-                                  setCopyTargetDays([]);
-                                }}
-                                className="p-2 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-xl transition"
-                                title="Duplicate / Copy to other days"
-                              >
-                                <Copy className="w-3.5 h-3.5" />
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteShow(actualIdx)}
-                                className="p-2 bg-slate-800 hover:bg-rose-950/50 text-rose-400 rounded-xl transition"
-                                title="Delete Show"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="p-12 text-center bg-slate-950/40 rounded-3xl border border-slate-800/60 space-y-3">
-                    <Clock className="w-8 h-8 text-slate-600 mx-auto" />
-                    <h4 className="text-xs font-bold text-slate-300">
-                      No broadcast shows scheduled for {selectedDayTab === 'ALL' ? 'this station' : DAY_NAMES[selectedDayTab]}.
-                    </h4>
-                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                      Use the form on the left to add shows, or click "Load Template" above to pre-fill a complete 7-day gospel radio schedule.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleLoadPreset}
-                      className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs inline-flex items-center gap-2 shadow-md transition"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" /> Load Christian Radio Template
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* VIEW 2: 7-DAY MATRIX GRID VIEW */}
-            {viewMode === 'grid' && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-7 gap-3 overflow-x-auto pb-4">
-                  {DAY_NAMES.map((dayName, dayIdx) => {
-                    const dayShows = showsByDay[dayIdx] || [];
-                    return (
-                      <div
-                        key={dayName}
-                        className="bg-slate-950 rounded-2xl border border-slate-800/90 p-3 space-y-2.5 min-w-[150px]"
-                      >
-                        <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                          <span className="text-xs font-bold text-white">{DAY_SHORT[dayIdx]}</span>
-                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-slate-900 text-sky-400">
-                            {dayShows.length}
-                          </span>
-                        </div>
-
-                        <div className="space-y-2">
-                          {dayShows.length > 0 ? (
-                            dayShows.map((item, idx) => (
-                              <div
-                                key={idx}
-                                className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 text-xs space-y-1 group relative"
-                              >
-                                <div className="text-[10px] font-mono font-semibold text-sky-400">
-                                  {item.startTime} - {item.endTime}
-                                </div>
-                                <div className="font-bold text-slate-100 text-[11px] line-clamp-2">
-                                  {item.programName}
-                                </div>
-                                {item.presenter && (
-                                  <div className="text-[10px] text-slate-400 truncate">
-                                    {item.presenter}
-                                  </div>
-                                )}
-                              </div>
-                            ))
-                          ) : (
-                            <div className="py-6 text-center text-[10px] text-slate-600">
-                              No shows
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* MODAL 1: Copy / Duplicate Show to Other Days */}
+      {/* 5. DUPLICATE SHOW MODAL */}
       {showCopyModal !== null && schedule[showCopyModal] && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 text-slate-100 shadow-2xl space-y-5">
-            <div>
-              <h3 className="text-base font-bold text-white">Duplicate Show Program</h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Copy "{schedule[showCopyModal].programName}" to other broadcast days.
-              </p>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-1 text-xs">
-              <div className="font-bold text-sky-400">{schedule[showCopyModal].programName}</div>
-              <div className="text-slate-400">
-                Time: {schedule[showCopyModal].startTime} - {schedule[showCopyModal].endTime}
-              </div>
-              {schedule[showCopyModal].presenter && (
-                <div className="text-slate-400">Host: {schedule[showCopyModal].presenter}</div>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-2">
-                Select Destination Days:
-              </label>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                {DAY_NAMES.map((name, idx) => {
-                  const isChecked = copyTargetDays.includes(idx);
-                  return (
-                    <button
-                      key={name}
-                      type="button"
-                      onClick={() => {
-                        if (isChecked) {
-                          setCopyTargetDays(copyTargetDays.filter((d) => d !== idx));
-                        } else {
-                          setCopyTargetDays([...copyTargetDays, idx]);
-                        }
-                      }}
-                      className={`p-2.5 rounded-xl border text-left font-semibold flex items-center justify-between ${
-                        isChecked
-                          ? 'bg-sky-500/20 border-sky-500 text-sky-300'
-                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <span>{name}</span>
-                      {isChecked && <Check className="w-3.5 h-3.5 text-sky-400" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Quick Bulk Presets */}
-            <div className="flex items-center gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => setCopyTargetDays([1, 2, 3, 4, 5])}
-                className="text-[11px] text-sky-400 hover:underline"
-              >
-                All Weekdays (Mon-Fri)
-              </button>
-              <span className="text-slate-600">•</span>
-              <button
-                type="button"
-                onClick={() => setCopyTargetDays([0, 1, 2, 3, 4, 5, 6])}
-                className="text-[11px] text-sky-400 hover:underline"
-              >
-                All 7 Days
-              </button>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 text-slate-100 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Copy className="w-4 h-4 text-sky-400" />
+                <span>Duplicate Show to Other Days</span>
+              </h3>
               <button
                 type="button"
                 onClick={() => setShowCopyModal(null)}
-                className="px-4 py-2 text-xs text-slate-400 hover:text-white font-semibold"
+                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400">
+              Copy <strong className="text-white">"{schedule[showCopyModal].programName}"</strong> ({schedule[showCopyModal].startTime}-{schedule[showCopyModal].endTime}) to which days?
+            </p>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              {DAY_NAMES.map((name, idx) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => {
+                    setCopyTargetDays((prev) =>
+                      prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx]
+                    );
+                  }}
+                  className={`p-2.5 rounded-xl border font-bold text-center transition cursor-pointer ${
+                    copyTargetDays.includes(idx)
+                      ? 'bg-sky-500/20 border-sky-500 text-sky-300'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  {name.slice(0, 3)}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowCopyModal(null)}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold"
               >
                 Cancel
               </button>
@@ -1148,76 +984,68 @@ export function WeeklyScheduleEditor({
                 type="button"
                 onClick={handleExecuteCopy}
                 disabled={copyTargetDays.length === 0}
-                className="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs disabled:opacity-50 shadow-lg shadow-sky-600/20"
+                className="px-4 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition disabled:opacity-50"
               >
-                Copy to {copyTargetDays.length} Days
+                Duplicate to {copyTargetDays.length} Day(s)
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL 2: JSON Import / Export */}
+      {/* 6. JSON MODAL */}
       {showJsonModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 text-slate-100 shadow-2xl space-y-4">
-            <div>
-              <h3 className="text-base font-bold text-white">Import / Export Broadcast Schedule</h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Export your timetable backup or paste JSON data to import multiple shows at once.
-              </p>
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Layers className="w-4 h-4 text-sky-400" />
+                <span>Import / Export Schedule JSON</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowJsonModal(false)}
+                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div>
-              <textarea
-                rows={12}
-                value={jsonText}
-                onChange={(e) => setJsonText(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 font-mono text-xs text-sky-300 focus:ring-2 focus:ring-sky-500 focus:outline-none"
-              />
-            </div>
+            <textarea
+              rows={12}
+              value={jsonText}
+              onChange={(e) => setJsonText(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 font-mono text-xs text-white focus:outline-none focus:border-sky-500"
+            />
 
-            <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowJsonModal(false)}
+                className="px-4 py-2 text-xs text-slate-400 hover:text-white"
+              >
+                Cancel
+              </button>
               <button
                 type="button"
                 onClick={() => {
-                  navigator.clipboard?.writeText(jsonText);
-                  alert('Schedule JSON copied to clipboard!');
-                }}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300"
-              >
-                Copy JSON
-              </button>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowJsonModal(false)}
-                  className="px-4 py-2 text-xs text-slate-400 hover:text-white"
-                >
-                  Close
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    try {
-                      const parsed = JSON.parse(jsonText);
-                      if (Array.isArray(parsed)) {
-                        setSchedule(parsed);
-                        setShowJsonModal(false);
-                        alert(`Successfully loaded ${parsed.length} shows!`);
-                      } else {
-                        alert('Invalid JSON: Must be an array of schedule items.');
-                      }
-                    } catch {
-                      alert('Invalid JSON syntax.');
+                  try {
+                    const parsed = JSON.parse(jsonText);
+                    if (Array.isArray(parsed)) {
+                      setSchedule(parsed);
+                      setShowJsonModal(false);
+                      alert(`Loaded ${parsed.length} shows!`);
+                    } else {
+                      alert('Must be an array of schedule items.');
                     }
-                  }}
-                  className="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs"
-                >
-                  Apply JSON Schedule
-                </button>
-              </div>
+                  } catch {
+                    alert('Invalid JSON.');
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs"
+              >
+                Apply JSON
+              </button>
             </div>
           </div>
         </div>

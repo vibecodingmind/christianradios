@@ -7,10 +7,10 @@ import type { PaymentMethod } from '../types.js';
 export const paymentsRouter = Router();
 
 // 1. Create Checkout Order (for Subscription or Featured Placement)
-paymentsRouter.post('/create-checkout', requireAuth, async (req: AuthenticatedRequest, res) => {
+paymentsRouter.post(['/create-checkout', '/checkout'], requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const user = req.user!;
-    const { planId, featuredCampaignId, paymentMethod = 'MPESA', billingInterval = 'MONTHLY' } = req.body;
+    const { planId, featuredCampaignId, paymentMethod = 'PESAPAL', billingInterval = 'MONTHLY' } = req.body;
 
     let amount = 0;
     let currency = 'USD';
@@ -43,7 +43,7 @@ paymentsRouter.post('/create-checkout', requireAuth, async (req: AuthenticatedRe
       ownerId: user.id,
       userEmail: user.email,
       userName: user.name,
-      userPhone: user.phone || '255700000000',
+      userPhone: user.phone || req.body.phoneNumber || '255700000000',
       amount,
       currency,
       description,
@@ -53,6 +53,28 @@ paymentsRouter.post('/create-checkout', requireAuth, async (req: AuthenticatedRe
       paymentMethod: paymentMethod as PaymentMethod,
       callbackUrl: `${process.env.APP_URL || 'http://localhost:3000'}/owner/subscriptions?verify_tracking_id=`,
     });
+
+    // If sandbox / simulated payment requested, finalize atomically right away
+    if (req.body.simulateInstant || paymentMethod === 'SIMULATED') {
+      const finalized = await finalizePaymentTransaction(
+        order.orderTrackingId,
+        'COMPLETED',
+        paymentMethod as PaymentMethod
+      );
+      res.json({
+        success: true,
+        orderTrackingId: order.orderTrackingId,
+        redirectUrl: order.redirectUrl,
+        paymentId: order.paymentId,
+        amount,
+        currency,
+        description,
+        isCompleted: true,
+        payment: finalized.payment,
+        invoice: finalized.invoice,
+      });
+      return;
+    }
 
     res.json({
       success: true,
@@ -240,7 +262,9 @@ paymentsRouter.post('/subscribe-station', requireAuth, async (req: Authenticated
     if (referral && referral.referrerId !== user.id) {
       const settings = db.settings.get();
       const commRate = settings.referralCommissionListenerPercentage || 10;
-      const commAmount = Math.floor(price * (commRate / 100));
+      // Convert USD subscription price to TZS (1 USD = ~2600 TZS)
+      const priceInTzs = Math.round(price * 2600);
+      const commAmount = Math.round(priceInTzs * (commRate / 100));
 
       if (commAmount > 0) {
         db.referralCommissions.create({
@@ -250,13 +274,28 @@ paymentsRouter.post('/subscribe-station', requireAuth, async (req: Authenticated
           referredUserId: user.id,
           sourcePaymentId: sub.id,
           paymentType: 'PREMIUM_RADIO_SUBSCRIPTION',
-          grossAmountTzs: price,
+          grossAmountTzs: priceInTzs,
           commissionPercentage: commRate,
           commissionAmountTzs: commAmount,
           status: 'SETTLED',
           settlesAt: new Date().toISOString(),
           createdAt: new Date().toISOString(),
         });
+
+        // Mark referral as QUALIFIED
+        db.referrals.update(referral.id, { status: 'QUALIFIED' });
+
+        // Notify referrer
+        db.notifications.create({
+          id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          userId: referral.referrerId,
+          title: 'Referral Commission Earned! 💰',
+          message: `You earned TZS ${commAmount.toLocaleString()} (${commRate}%) from a subscriber you invited to Christian Radios!`,
+          type: 'PAYMENT_SUCCESS',
+          read: false,
+          createdAt: new Date().toISOString(),
+        });
+
         console.log(`[Referral System] Commission TZS ${commAmount} awarded to referrer ${referral.referrerId} for listener ${user.id} subscription to ${station.name}`);
       }
     }
@@ -281,5 +320,252 @@ paymentsRouter.post('/subscribe-station', requireAuth, async (req: Authenticated
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Subscription failed';
     res.status(500).json({ error: message });
+  }
+});
+
+// 6. Stripe PaymentIntent Creation Endpoint
+paymentsRouter.post('/stripe/create-intent', async (req, res) => {
+  try {
+    const { amount, currency = 'USD', description, metadata = {}, ownerId, planId, billingInterval = 'MONTHLY' } = req.body;
+
+    if (!amount || amount <= 0) {
+      res.status(400).json({ error: 'Valid amount is required' });
+      return;
+    }
+
+    const settings = db.settings.get();
+    const trackingId = `STRIPE_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+    // Record pending transaction
+    const payment = db.payments.create({
+      id: `pay_str_${Date.now()}`,
+      trackingId,
+      ownerId: ownerId || 'platform',
+      subscriptionId: planId || undefined,
+      billingInterval: billingInterval as any,
+      amount: Number(amount),
+      currency: currency.toUpperCase(),
+      status: 'PENDING',
+      provider: 'STRIPE',
+      paymentMethod: 'CARD',
+      description: description || 'Christian Radios Offering / Subscription',
+      createdAt: new Date().toISOString(),
+    });
+
+    let clientSecret = `pi_mock_${Date.now()}_secret_${Math.random().toString(36).substring(2, 8)}`;
+
+    // If Stripe Secret Key is configured, attempt real Stripe REST API PaymentIntent creation
+    if (settings.stripeSecretKey && !settings.stripeSecretKey.startsWith('sk_test_mock')) {
+      try {
+        const stripeRes = await fetch('https://api.stripe.com/v1/payment_intents', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${settings.stripeSecretKey}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            amount: Math.round(Number(amount) * 100).toString(), // convert to cents
+            currency: currency.toLowerCase(),
+            description: description || 'Christian Radios Payment',
+            'metadata[trackingId]': trackingId,
+          }),
+        });
+
+        if (stripeRes.ok) {
+          const stripeData = (await stripeRes.json()) as { client_secret?: string; id?: string };
+          if (stripeData.client_secret) {
+            clientSecret = stripeData.client_secret;
+            db.payments.update(payment.id, { providerRef: stripeData.id });
+          }
+        } else {
+          console.warn('[Stripe API] Live creation warning, continuing with sandbox intent:', await stripeRes.text());
+        }
+      } catch (err) {
+        console.warn('[Stripe API] Direct request error, fallback to sandbox intent:', err);
+      }
+    }
+
+    res.json({
+      success: true,
+      clientSecret,
+      trackingId,
+      paymentId: payment.id,
+      publishableKey: settings.stripePublishableKey || 'pk_test_cr_demo_sandbox',
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Stripe initialization failed';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// 6b. Stripe Webhook & Verification Receiver
+paymentsRouter.post('/stripe/webhook', async (req, res) => {
+  try {
+    const event = req.body;
+    if (event.type === 'payment_intent.succeeded') {
+      const intent = event.data?.object;
+      const trackingId = intent?.metadata?.trackingId;
+      if (trackingId) {
+        await finalizePaymentTransaction(trackingId, 'COMPLETED', 'CARD');
+        console.log(`[Stripe Webhook] Successfully finalized transaction: ${trackingId}`);
+      }
+    }
+    res.json({ received: true });
+  } catch (err) {
+    console.error('[Stripe Webhook Error]:', err);
+    res.status(400).json({ error: 'Webhook handling failed' });
+  }
+});
+
+// 6c. Stripe Client Confirmation Endpoint
+paymentsRouter.post('/stripe/confirm-intent', async (req, res) => {
+  try {
+    const { trackingId, paymentIntentId } = req.body;
+    if (!trackingId) {
+      res.status(400).json({ error: 'trackingId is required' });
+      return;
+    }
+
+    const result = await finalizePaymentTransaction(trackingId, 'COMPLETED', 'CARD');
+    if (!result.success) {
+      res.status(404).json({ error: 'Transaction reference not found' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: 'Card payment confirmed and subscription activated successfully!',
+      payment: result.payment,
+      invoice: result.invoice,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Stripe confirmation failed';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// 7. PayPal Orders v2 Creation Endpoint
+paymentsRouter.post('/paypal/create-order', async (req, res) => {
+  try {
+    const { amount, currency = 'USD', description, ownerId, planId, billingInterval = 'MONTHLY' } = req.body;
+
+    if (!amount || amount <= 0) {
+      res.status(400).json({ error: 'Valid amount is required' });
+      return;
+    }
+
+    const settings = db.settings.get();
+    const trackingId = `PP_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+    const payment = db.payments.create({
+      id: `pay_pp_${Date.now()}`,
+      trackingId,
+      ownerId: ownerId || 'platform',
+      subscriptionId: planId || undefined,
+      billingInterval: billingInterval as any,
+      amount: Number(amount),
+      currency: currency.toUpperCase(),
+      status: 'PENDING',
+      provider: 'PAYPAL',
+      paymentMethod: 'PAYPAL',
+      description: description || 'Christian Radios Giving / Subscription',
+      createdAt: new Date().toISOString(),
+    });
+
+    const mockOrderId = `PAYPAL_ORD_${Date.now()}_${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    let orderId = mockOrderId;
+    let approveUrl = `https://www.sandbox.paypal.com/checkoutnow?token=${orderId}`;
+
+    // If real PayPal API credentials configured
+    if (settings.paypalClientId && settings.paypalClientSecret) {
+      try {
+        const authBase = settings.paypalEnv === 'live'
+          ? 'https://api-m.paypal.com'
+          : 'https://api-m.sandbox.paypal.com';
+
+        const basicAuth = Buffer.from(`${settings.paypalClientId}:${settings.paypalClientSecret}`).toString('base64');
+        const tokenRes = await fetch(`${authBase}/v1/oauth2/token`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${basicAuth}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: 'grant_type=client_credentials',
+        });
+
+        if (tokenRes.ok) {
+          const tokenData = (await tokenRes.json()) as { access_token?: string };
+          if (tokenData.access_token) {
+            const ppOrderRes = await fetch(`${authBase}/v2/checkout/orders`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${tokenData.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                intent: 'CAPTURE',
+                purchase_units: [
+                  {
+                    reference_id: trackingId,
+                    description: description || 'Christian Radios Offering',
+                    amount: {
+                      currency_code: currency.toUpperCase(),
+                      value: Number(amount).toFixed(2),
+                    },
+                  },
+                ],
+              }),
+            });
+
+            if (ppOrderRes.ok) {
+              const ppOrderData = (await ppOrderRes.json()) as {
+                id?: string;
+                links?: Array<{ rel: string; href: string }>;
+              };
+              if (ppOrderData.id) {
+                orderId = ppOrderData.id;
+                const link = ppOrderData.links?.find((l) => l.rel === 'approve');
+                if (link?.href) approveUrl = link.href;
+                db.payments.update(payment.id, { providerRef: orderId });
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[PayPal API] Order creation warning, continuing with sandbox:', err);
+      }
+    }
+
+    res.json({
+      success: true,
+      orderId,
+      trackingId,
+      approveUrl,
+      paymentId: payment.id,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'PayPal initialization failed';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// 7b. PayPal Order Capture Endpoint
+paymentsRouter.post('/paypal/capture-order', async (req, res) => {
+  try {
+    const { orderId, trackingId } = req.body;
+    if (!trackingId) {
+      res.status(400).json({ error: 'trackingId is required' });
+      return;
+    }
+
+    const result = await finalizePaymentTransaction(trackingId, 'COMPLETED', 'PAYPAL');
+    res.json({
+      success: result.success,
+      payment: result.payment,
+      invoice: result.invoice,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'PayPal capture failed';
+    res.status(500).json({ error: msg });
   }
 });

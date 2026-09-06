@@ -31,6 +31,7 @@ import type {
   WithdrawalRequest,
   LedgerEntry,
 } from '../../types';
+import { PayoutRequestModal } from '../payout/PayoutRequestModal';
 
 interface DonationsLedgerProps {
   stations: Station[];
@@ -219,38 +220,18 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
   return (
     <div className="space-y-6">
       {/* 1. TOP HEADER & FINANCIAL CARDS */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-900/90 to-amber-950/30 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-rose-400 mb-1">
-              <HeartHandshake className="w-4 h-4" />
-              Broadcaster Ministry Giving & Support
-            </div>
-            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-              Giving, Tithes & Payout Center
-            </h2>
-            <p className="text-xs text-slate-400 mt-1">
-              Receive direct listener contributions, launch gospel fundraising campaigns, and disburse payouts directly to Mobile Money or Bank.
-            </p>
+      <div className="bg-gradient-to-br from-slate-900 via-slate-900/90 to-amber-950/30 border border-slate-800 rounded-3xl p-6 sm:p-7 space-y-6">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-rose-400 mb-1">
+            <HeartHandshake className="w-4 h-4" />
+            Kingdom Giving & Ministry Support
           </div>
-
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <button
-              onClick={() => setShowCampaignModal(true)}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center gap-1.5 transition border border-slate-700"
-            >
-              <PlusCircle className="w-4 h-4 text-amber-400" />
-              <span>Launch Campaign</span>
-            </button>
-
-            <button
-              onClick={() => setShowWithdrawalModal(true)}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/20 flex items-center gap-1.5 transition"
-            >
-              <ArrowUpRight className="w-4 h-4" />
-              <span>Request Payout</span>
-            </button>
-          </div>
+          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+            Donations, Tithes & Ministry Ledger
+          </h2>
+          <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
+            Monitor listener tithes and offerings, track station fundraising progress, and review financial ledgers.
+          </p>
         </div>
 
         {/* Financial Overview Metrics */}
@@ -696,106 +677,19 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
       )}
 
       {/* 4. WITHDRAWAL REQUEST MODAL */}
-      {showWithdrawalModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 sm:p-8 relative shadow-2xl">
-            <h3 className="text-xl font-bold text-white mb-1">Request Broadcaster Payout</h3>
-            <p className="text-xs text-slate-400 mb-5">
-              Available Balance: <strong className="text-emerald-400">{balance.currency || 'USD'} {Number(balance.availableBalance || 0).toLocaleString()}</strong>
-            </p>
-
-            {withdrawError && (
-              <div className="p-3 mb-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
-                {withdrawError}
-              </div>
-            )}
-
-            <form onSubmit={handleCreateWithdrawal} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Withdrawal Amount ({balance.currency})
-                </label>
-                <input
-                  type="number"
-                  min="10"
-                  max={balance.availableBalance}
-                  required
-                  value={withdrawAmount}
-                  onChange={(e) => setWithdrawAmount(Number(e.target.value))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-bold text-sm focus:outline-none focus:border-emerald-500"
-                />
-                <span className="text-[10px] text-slate-500 mt-1 block">Minimum payout threshold: $10 USD</span>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Payout Channel</label>
-                <select
-                  value={payoutMethod}
-                  onChange={(e) => {
-                    const m = e.target.value as any;
-                    setPayoutMethod(m);
-                    if (m === 'MPESA') setPayoutBankOrProvider('Vodacom M-Pesa');
-                    else if (m === 'TIGO_PESA') setPayoutBankOrProvider('Tigo Pesa');
-                    else if (m === 'AIRTEL_MONEY') setPayoutBankOrProvider('Airtel Money');
-                    else setPayoutBankOrProvider('CRDB Bank');
-                  }}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                >
-                  <option value="MPESA">Vodacom M-Pesa</option>
-                  <option value="TIGO_PESA">Tigo Pesa (Mixx)</option>
-                  <option value="AIRTEL_MONEY">Airtel Money</option>
-                  <option value="BANK_TRANSFER">Direct Bank Transfer (EFT / TISS)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Recipient Account / Phone Number
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={payoutAccountNumber}
-                  onChange={(e) => setPayoutAccountNumber(e.target.value)}
-                  placeholder="e.g. 0754XXXXXX or Account Number"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Registered Account / Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={payoutAccountName}
-                  onChange={(e) => setPayoutAccountName(e.target.value)}
-                  placeholder="e.g. Radio Sauti Ya Tumaini Ministry"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setShowWithdrawalModal(false)}
-                  className="px-4 py-2 text-xs text-slate-400 hover:text-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingWithdrawal || withdrawAmount > balance.availableBalance}
-                  className="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition disabled:opacity-50"
-                >
-                  {isSubmittingWithdrawal ? 'Submitting...' : 'Submit Payout Request'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <PayoutRequestModal
+        isOpen={showWithdrawalModal}
+        onClose={() => setShowWithdrawalModal(false)}
+        userRole="RADIO_OWNER"
+        availableBalance={balance.availableBalance}
+        currency={balance.currency || 'USD'}
+        stationId={stations[0]?.id}
+        stationName={stations[0]?.name}
+        onSuccess={async () => {
+          setShowWithdrawalModal(false);
+          await loadGivingData();
+        }}
+      />
 
       {/* 5. CREATE CAMPAIGN MODAL */}
       {showCampaignModal && (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Heart,
   X,
@@ -15,8 +15,11 @@ import {
   Coins,
   Globe,
   Zap,
+  LogIn,
 } from 'lucide-react';
 import type { Station, DonationCampaign } from '../../types';
+import { useAuth } from '../../context/AuthContext';
+import { apiFetch } from '../../lib/api';
 
 interface DonationModalProps {
   isOpen: boolean;
@@ -24,6 +27,7 @@ interface DonationModalProps {
   station: Station;
   campaign?: DonationCampaign;
   onDonationSuccess?: (trackingId: string) => void;
+  onOpenAuth?: (tab?: 'login' | 'register') => void;
 }
 
 export function DonationModal({
@@ -32,19 +36,30 @@ export function DonationModal({
   station,
   campaign,
   onDonationSuccess,
+  onOpenAuth,
 }: DonationModalProps) {
+  const { user } = useAuth();
+
   const [amount, setAmount] = useState<number>(25);
   const currency = 'USD';
   const [fundType, setFundType] = useState<string>(campaign ? 'CAMPAIGN' : 'GOSPEL_OUTREACH');
   const [paymentGateway, setPaymentGateway] = useState<'PESAPAL' | 'PAYPAL' | 'STRIPE'>('PESAPAL');
-  const [donorName, setDonorName] = useState('');
+  const [donorName, setDonorName] = useState(user?.name || '');
   const [isAnonymous, setIsAnonymous] = useState(false);
-  const [donorEmail, setDonorEmail] = useState('');
-  const [donorPhone, setDonorPhone] = useState('');
+  const [donorEmail, setDonorEmail] = useState(user?.email || '');
+  const [donorPhone, setDonorPhone] = useState(user?.phone || '');
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [completedDonation, setCompletedDonation] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user && isOpen) {
+      if (user.name && !donorName) setDonorName(user.name);
+      if (user.email && !donorEmail) setDonorEmail(user.email);
+      if (user.phone && !donorPhone) setDonorPhone(user.phone);
+    }
+  }, [user, isOpen]);
 
   if (!isOpen) return null;
 
@@ -56,7 +71,7 @@ export function DonationModal({
     setIsSubmitting(true);
 
     try {
-      const res = await fetch('/api/public/donations', {
+      const res = await apiFetch('/api/public/donations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -123,6 +138,31 @@ export function DonationModal({
                 )}
               </div>
             </div>
+
+            {/* Member / Guest Giving Banner */}
+            {user ? (
+              <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-medium">
+                <UserCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="truncate">
+                  Giving as <strong>{user.name}</strong> • Linked to your member account
+                </span>
+              </div>
+            ) : onOpenAuth ? (
+              <div className="mb-4 flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-400">
+                <span>Giving as Guest. Have an account?</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenAuth('login');
+                  }}
+                  className="text-rose-400 hover:text-rose-300 font-bold underline inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <LogIn className="w-3 h-3" />
+                  Sign In
+                </button>
+              </div>
+            ) : null}
 
             {error && (
               <div className="p-3 mb-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
@@ -373,6 +413,22 @@ export function DonationModal({
               </div>
             </div>
 
+            {!user && onOpenAuth && (
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-left">
+                <span>Want to track your kingdom seeds and download annual tax statements?</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenAuth('register');
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 font-bold hover:bg-rose-500/25 transition whitespace-nowrap cursor-pointer"
+                >
+                  Create Account
+                </button>
+              </div>
+            )}
+
             <div className="flex items-center justify-center gap-3 pt-2">
               <a
                 href={`/?receipt=${completedDonation.trackingId}`}
@@ -383,7 +439,7 @@ export function DonationModal({
               </a>
               <button
                 onClick={onClose}
-                className="px-5 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-slate-950 text-xs font-bold transition"
+                className="px-5 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-slate-950 text-xs font-bold transition cursor-pointer"
               >
                 Done
               </button>

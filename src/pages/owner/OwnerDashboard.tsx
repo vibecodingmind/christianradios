@@ -29,23 +29,42 @@ import {
   ChevronRight,
   ChevronLeft,
   HeartHandshake,
+  Heart,
   DownloadCloud,
   Layers,
   LayoutGrid,
   List,
   ArrowLeft,
   LogOut,
+  Mic2,
+  Music,
+  Play,
+  Pause,
+  PlayCircle,
+  PauseCircle,
+  StopCircle,
+  ArrowRight,
+  Lock,
+  Smartphone,
+  Zap,
 } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import { useAuth } from '../../context/AuthContext';
 import { useAudioPlayer } from '../../context/AudioPlayerContext';
 import { apiFetch } from '../../lib/api';
 import { WeeklyScheduleEditor } from '../../components/owner/WeeklyScheduleEditor';
 import { StreamHealthDashboard } from '../../components/owner/StreamHealthDashboard';
 import { DonationsLedger } from '../../components/owner/DonationsLedger';
+import { OwnerPrayerInbox } from '../../components/owner/OwnerPrayerInbox';
+import { OwnerStudioDesk } from '../../components/owner/OwnerStudioDesk';
+import { LiveListenerMap } from '../../components/analytics/LiveListenerMap';
 import { RadioImportModal } from '../../components/owner/RadioImportModal';
 import { StationClaimsTab } from '../../components/owner/StationClaimsTab';
+import { StationWizardModal } from '../../components/owner/StationWizardModal';
 import { ClaimStationModal } from '../../components/station/ClaimStationModal';
 import { OwnerKYCForm } from '../../components/kyc/OwnerKYCForm';
+import { OwnerSupportDesk } from '../../components/owner/OwnerSupportDesk';
+import { NotificationBell } from '../../components/notifications/NotificationBell';
 import { WORLDWIDE_COUNTRIES } from '../../data/worldwideCountries';
 import type {
   Station,
@@ -77,6 +96,8 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
     | 'schedule'
     | 'health'
     | 'donations'
+    | 'prayers'
+    | 'studio'
     | 'analytics'
     | 'billing'
     | 'promotion'
@@ -87,6 +108,14 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
     if (initialParam === 'add-station') {
       setActiveTab('stations');
       setShowStationModal(true);
+    } else if (initialParam === 'prayers' || initialParam === 'prayer-inbox') {
+      setActiveTab('prayers');
+    } else if (initialParam === 'studio' || initialParam === 'song-requests') {
+      setActiveTab('studio');
+    } else if (initialParam === 'billing' || initialParam === 'subscription') {
+      setActiveTab('billing');
+    } else if (initialParam === 'donations' || initialParam === 'withdraw') {
+      setActiveTab('donations');
     } else if (initialParam?.startsWith('claim-station')) {
       setActiveTab('claims');
       const stId = initialParam.split(':')[1];
@@ -186,14 +215,24 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
   const [extractPageUrl, setExtractPageUrl] = useState('');
   const [showExtractorInput, setShowExtractorInput] = useState(false);
 
-  // Billing Modal State
+  // Billing & In-Place Checkout Modal State
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [selectedPlanForCheckout, setSelectedPlanForCheckout] = useState<SubscriptionPlan | null>(null);
   const [billingInterval, setBillingInterval] = useState<'MONTHLY' | 'ANNUAL'>('MONTHLY');
-  const [paymentMethod, setPaymentMethod] = useState<'PESAPAL' | 'PAYPAL' | 'STRIPE' | 'MPESA' | 'TIGO_PESA' | 'AIRTEL_MONEY' | 'CARD'>('PESAPAL');
+  const [checkoutGateway, setCheckoutGateway] = useState<'PESAPAL' | 'PAYPAL' | 'STRIPE'>('PESAPAL');
+  const [pesapalMethod, setPesapalMethod] = useState<'MPESA' | 'TIGO_PESA' | 'AIRTEL_MONEY' | 'CARD'>('MPESA');
   const [checkoutPhone, setCheckoutPhone] = useState('255754123456');
+  const [cardNumber, setCardNumber] = useState('4242 •••• •••• 4242');
+  const [cardExpiry, setCardExpiry] = useState('12/28');
+  const [cardCvc, setCardCvc] = useState('123');
+  const [cardName, setCardName] = useState('Kingdom Broadcaster');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [checkoutSuccessData, setCheckoutSuccessData] = useState<{
+    payment?: Payment;
+    invoice?: Invoice;
+  } | null>(null);
 
   // Schedule Editor Modal
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -206,6 +245,14 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
   const [ticketMessage, setTicketMessage] = useState('');
   const [ticketPriority, setTicketPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM');
   const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
+
+  // Promotion Campaign State
+  const [showPromoteModal, setShowPromoteModal] = useState(false);
+  const [promoteStationId, setPromoteStationId] = useState('');
+  const [promotePlacement, setPromotePlacement] = useState<'HOMEPAGE_HERO' | 'CATEGORY_TOP'>('HOMEPAGE_HERO');
+  const [promoteDurationDays, setPromoteDurationDays] = useState(30);
+  const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
+  const [campaignActionLoading, setCampaignActionLoading] = useState<string | null>(null);
 
   // Sidebar navigation state
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -414,38 +461,127 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
     } catch {}
   };
 
-  // Process Subscription Checkout via PesaPal
+  // Process Subscription In-Place Checkout
   const handleProcessCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPlanForCheckout) return;
 
     setIsProcessingPayment(true);
-    try {
-      const res = await apiFetch('/api/payments/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          planId: selectedPlanForCheckout.id,
-          billingInterval,
-          paymentMethod,
-          phoneNumber: checkoutPhone,
-        }),
-      });
+    setCheckoutError(null);
 
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setPaymentSuccess(true);
-        await refreshUser();
-        await loadOwnerData();
-        setTimeout(() => {
-          setShowCheckoutModal(false);
-          setPaymentSuccess(false);
-        }, 2000);
-      } else {
-        alert(data.error || 'Payment failed');
+    const isAnnual = billingInterval === 'ANNUAL';
+    const priceUsd = isAnnual
+      ? (selectedPlanForCheckout.annualPriceUsd || (selectedPlanForCheckout.monthlyPriceUsd ? Math.round(selectedPlanForCheckout.monthlyPriceUsd * 10) : 0))
+      : (selectedPlanForCheckout.monthlyPriceUsd || 0);
+
+    try {
+      if (checkoutGateway === 'PESAPAL') {
+        const res = await apiFetch('/api/payments/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            planId: selectedPlanForCheckout.id,
+            billingInterval,
+            paymentMethod: pesapalMethod,
+            phoneNumber: checkoutPhone,
+            simulateInstant: true,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'PesaPal payment processing failed.');
+        }
+
+        setCheckoutSuccessData({
+          payment: data.payment,
+          invoice: data.invoice,
+        });
+      } else if (checkoutGateway === 'PAYPAL') {
+        const createRes = await apiFetch('/api/payments/paypal/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: priceUsd,
+            currency: 'USD',
+            description: `${selectedPlanForCheckout.name} Broadcaster Plan (${billingInterval})`,
+            ownerId: user?.id,
+            planId: selectedPlanForCheckout.id,
+            billingInterval,
+          }),
+        });
+
+        const createData = await createRes.json();
+        if (!createRes.ok) throw new Error(createData.error || 'PayPal order creation failed.');
+
+        const capRes = await apiFetch('/api/payments/paypal/capture-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: createData.orderId,
+            trackingId: createData.trackingId,
+          }),
+        });
+
+        const capData = await capRes.json();
+        if (!capRes.ok || !capData.success) {
+          throw new Error(capData.error || 'PayPal transaction capture failed.');
+        }
+
+        setCheckoutSuccessData({
+          payment: capData.payment,
+          invoice: capData.invoice,
+        });
+      } else if (checkoutGateway === 'STRIPE') {
+        const intentRes = await apiFetch('/api/payments/stripe/create-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: priceUsd,
+            currency: 'USD',
+            description: `${selectedPlanForCheckout.name} Broadcaster Subscription (${billingInterval})`,
+            ownerId: user?.id,
+            planId: selectedPlanForCheckout.id,
+            billingInterval,
+          }),
+        });
+
+        const intentData = await intentRes.json();
+        if (!intentRes.ok) throw new Error(intentData.error || 'Stripe intent creation failed.');
+
+        const confirmRes = await apiFetch('/api/payments/stripe/confirm-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            trackingId: intentData.trackingId,
+            paymentIntentId: intentData.clientSecret,
+          }),
+        });
+
+        const confirmData = await confirmRes.json();
+        if (!confirmRes.ok || !confirmData.success) {
+          throw new Error(confirmData.error || 'Card payment confirmation failed.');
+        }
+
+        setCheckoutSuccessData({
+          payment: confirmData.payment,
+          invoice: confirmData.invoice,
+        });
       }
-    } catch {
-      alert('Payment processing error');
+
+      setPaymentSuccess(true);
+      await refreshUser();
+      await loadOwnerData();
+
+      try {
+        confetti({
+          particleCount: 85,
+          spread: 70,
+          origin: { y: 0.6 },
+        });
+      } catch {}
+    } catch (err: any) {
+      setCheckoutError(err.message || 'Payment processing failed. Please verify your details.');
     } finally {
       setIsProcessingPayment(false);
     }
@@ -479,6 +615,82 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
     }
   };
 
+  // Launch Promotion Campaign
+  const handleLaunchCampaign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!promoteStationId) {
+      alert('Please select a station to promote');
+      return;
+    }
+    setIsCreatingCampaign(true);
+    try {
+      const res = await apiFetch('/api/owner/featured-campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stationId: promoteStationId,
+          placement: promotePlacement,
+          durationDays: promoteDurationDays,
+          status: 'ACTIVE',
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setShowPromoteModal(false);
+        await loadOwnerData();
+      } else {
+        alert(data.error || 'Failed to launch promotion campaign');
+      }
+    } catch {
+      alert('Error launching promotion campaign');
+    } finally {
+      setIsCreatingCampaign(false);
+    }
+  };
+
+  // Pause / Resume Promotion Campaign
+  const handleUpdateCampaignStatus = async (campaignId: string, status: 'ACTIVE' | 'PAUSED') => {
+    setCampaignActionLoading(campaignId);
+    try {
+      const res = await apiFetch(`/api/owner/featured-campaigns/${campaignId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        await loadOwnerData();
+      } else {
+        const json = await res.json();
+        alert(json.error || 'Failed to update campaign');
+      }
+    } catch {
+      alert('Failed to update campaign status');
+    } finally {
+      setCampaignActionLoading(null);
+    }
+  };
+
+  // Cancel / Delete Promotion Campaign
+  const handleDeleteCampaign = async (campaignId: string) => {
+    if (!confirm('Are you sure you want to cancel and remove this promotional campaign?')) return;
+    setCampaignActionLoading(campaignId);
+    try {
+      const res = await apiFetch(`/api/owner/featured-campaigns/${campaignId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        await loadOwnerData();
+      } else {
+        const json = await res.json();
+        alert(json.error || 'Failed to cancel campaign');
+      }
+    } catch {
+      alert('Failed to cancel campaign');
+    } finally {
+      setCampaignActionLoading(null);
+    }
+  };
+
   interface OwnerMenuItem {
     id: typeof activeTab;
     label: string;
@@ -507,6 +719,8 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
       title: 'Growth & Ministry',
       items: [
         { id: 'analytics', label: 'Listener Analytics', icon: BarChart3 },
+        { id: 'studio', label: 'Song Requests', icon: Mic2, badge: 'Live Show', badgeColor: 'bg-sky-500/20 text-sky-300' },
+        { id: 'prayers', label: 'Prayer Requests', icon: Heart, badge: 'Live', badgeColor: 'bg-amber-500/20 text-amber-300' },
         { id: 'donations', label: 'Donations & Tithes', icon: HeartHandshake },
         { id: 'promotion', label: 'Featured Promotion', icon: Sparkles, badge: campaigns.length || undefined, badgeColor: 'bg-amber-500/20 text-amber-300' },
       ],
@@ -516,12 +730,12 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
       items: [
         {
           id: 'verification',
-          label: 'Verification & Compliance',
+          label: 'Verification (KYC)',
           icon: ShieldCheck,
           badge: ownerProfile?.verified ? '✓ Verified' : 'Pending',
           badgeColor: ownerProfile?.verified ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300',
         },
-        { id: 'billing', label: 'Plan & Billing', icon: CreditCard },
+        { id: 'billing', label: 'Subscriptions', icon: CreditCard },
         { id: 'support', label: 'Support Desk', icon: LifeBuoy, badge: tickets.length || undefined, badgeColor: 'bg-sky-500/20 text-sky-300' },
       ],
     },
@@ -531,75 +745,6 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
 
   return (
     <div className="space-y-6 pb-20">
-      {/* Broadcaster Hub Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/40 border border-slate-800 rounded-3xl p-6 sm:p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-5 shadow-xl">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-400">
-            <Radio className="w-4 h-4" />
-            Broadcaster SaaS Hub
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            {ownerProfile?.organizationName || 'Broadcaster Workspace'}
-          </h1>
-          <p className="text-xs text-slate-400 flex items-center gap-2">
-            <span>Account: {user?.email}</span>
-            <span>•</span>
-            <span className="text-sky-400 font-semibold">{plan?.name || 'Starter Tier'}</span>
-            <span>•</span>
-            <span className="text-emerald-400 flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Broadcaster Active
-            </span>
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 flex-wrap">
-          <button
-            onClick={() => onNavigate('home')}
-            className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 border border-slate-700 transition-all cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4 text-emerald-400" />
-            <span>Back to Christian Radios</span>
-          </button>
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
-          >
-            <Sparkles className="w-4 h-4" /> Import Radio Station
-          </button>
-          <button
-            onClick={() => {
-              setEditingStation(null);
-              setFormData({
-                name: '',
-                tagline: '',
-                description: '',
-                logoUrl: '',
-                coverUrl: '',
-                countryCode: 'TZ',
-                city: 'Dar es Salaam',
-                language: 'Swahili',
-                genre: 'Gospel & Praise',
-                categoryId: 'cat_gospel_music',
-                denomination: '',
-                websiteUrl: '',
-                email: '',
-                phone: '',
-                streamUrl: '',
-                backupStreamUrl: '',
-                streamType: 'MP3',
-                bitrateKbps: 128,
-                timezone: 'Africa/Dar_es_Salaam',
-              });
-              setStreamTestResult(null);
-              setShowStationModal(true);
-            }}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
-          >
-            <PlusCircle className="w-4 h-4" /> Add New Station
-          </button>
-        </div>
-      </div>
-
       {/* Mobile Drawer Navigation Button & Bar */}
       <div className="md:hidden flex items-center justify-between p-3.5 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-lg">
         <div className="flex items-center gap-3">
@@ -621,9 +766,12 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
           </div>
         </div>
 
-        <span className="text-[11px] font-bold text-slate-400 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">
-          Menu
-        </span>
+        <div className="flex items-center gap-2">
+          <NotificationBell onNavigate={onNavigate} />
+          <span className="text-[11px] font-bold text-slate-400 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">
+            Menu
+          </span>
+        </div>
       </div>
 
       {/* Mobile Slide-Over Drawer */}
@@ -1001,20 +1149,23 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
       {/* Tab 2: Stations Management */}
       {activeTab === 'stations' && (
         <div className="space-y-6">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-slate-900/40 p-4 rounded-2xl border border-slate-800/80">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-slate-900/60 p-5 rounded-3xl border border-slate-800/80 shadow-md">
             <div>
-              <h2 className="text-xl font-bold text-white">Your Radio Stations</h2>
-              <p className="text-xs text-slate-400">
-                Manage your broadcast fleet, schedule, external stream sync, or claim existing stations.
+              <h2 className="text-xl font-bold text-white flex items-center gap-2.5">
+                <Radio className="w-5 h-5 text-emerald-400" />
+                My Broadcast Stations
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Manage your audio streams, weekly programming schedules, live broadcast metrics, and promotion campaigns.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none flex-nowrap shrink-0">
               {/* View Mode Switcher */}
-              <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1 mr-2">
+              <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1 shrink-0">
                 <button
                   type="button"
                   onClick={() => setViewMode('grid')}
-                  className={`p-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                     viewMode === 'grid'
                       ? 'bg-amber-500 text-slate-950 shadow-md font-extrabold'
                       : 'text-slate-400 hover:text-white'
@@ -1022,12 +1173,12 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
                   title="Card Grid View"
                 >
                   <LayoutGrid className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Grid</span>
+                  <span>Grid</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setViewMode('table')}
-                  className={`p-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                     viewMode === 'table'
                       ? 'bg-amber-500 text-slate-950 shadow-md font-extrabold'
                       : 'text-slate-400 hover:text-white'
@@ -1035,56 +1186,24 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
                   title="Dense Table View"
                 >
                   <List className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Table</span>
+                  <span>Table</span>
                 </button>
               </div>
 
               <button
-                onClick={() => {
-                  setClaimingStationInfo(null);
-                  setShowClaimModal(true);
-                }}
-                className="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-sm"
-              >
-                <ShieldCheck className="w-4 h-4 text-indigo-400" /> Claim Existing Station
-              </button>
-              <button
                 onClick={() => setShowImportModal(true)}
-                className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+                className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-sm shrink-0 whitespace-nowrap"
               >
                 <Sparkles className="w-4 h-4 text-amber-400" /> Import Radio
               </button>
               <button
                 onClick={() => {
                   setEditingStation(null);
-                  setFormData({
-                    name: '',
-                    tagline: '',
-                    description: '',
-                    logoUrl: '',
-                    coverUrl: '',
-                    countryCode: 'TZ',
-                    city: 'Dar es Salaam',
-                    language: 'Swahili',
-                    genre: 'Gospel & Praise',
-                    categoryId: 'cat_gospel',
-                    categoryIds: ['cat_gospel'],
-                    denomination: '',
-                    websiteUrl: '',
-                    email: '',
-                    phone: '',
-                    streamUrl: '',
-                    backupStreamUrl: '',
-                    streamType: 'MP3',
-                    bitrateKbps: 128,
-                    timezone: 'Africa/Dar_es_Salaam',
-                  });
-                  setStreamTestResult(null);
                   setShowStationModal(true);
                 }}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition cursor-pointer"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 transition cursor-pointer shrink-0 whitespace-nowrap"
               >
-                <PlusCircle className="w-4 h-4" /> Add Station
+                <PlusCircle className="w-4 h-4" /> Add New Station
               </button>
             </div>
           </div>
@@ -1114,7 +1233,7 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
                   </div>
                   <h4 className="text-sm font-bold text-white group-hover:text-emerald-400 transition">Create from Scratch</h4>
                   <p className="text-[11px] text-slate-400">
-                    Enter your station details, cover graphics, and Shoutcast/Icecast/HLS stream URL directly.
+                    Use our 5-step wizard to setup your station profile, cover graphics, and stream feed.
                   </p>
                 </div>
 
@@ -1132,70 +1251,68 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
                 </div>
 
                 <div
-                  onClick={() => {
-                    setClaimingStationInfo(null);
-                    setShowClaimModal(true);
-                  }}
+                  onClick={() => setActiveTab('claims')}
                   className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-indigo-500/40 transition cursor-pointer group space-y-2"
                 >
                   <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
                     <ShieldCheck className="w-4 h-4" />
                   </div>
-                  <h4 className="text-sm font-bold text-white group-hover:text-indigo-400 transition">Claim Existing Station</h4>
+                  <h4 className="text-sm font-bold text-white group-hover:text-indigo-400 transition">Claim Existing Radio</h4>
                   <p className="text-[11px] text-slate-400">
-                    Is your station already in our global directory? Verify your ministry credentials to take ownership.
+                    Search already listed Christian stations on our platform and claim verified ownership.
                   </p>
                 </div>
               </div>
             </div>
           ) : viewMode === 'table' ? (
-            /* Broadcaster Dense Table View */
-            <div className="bg-slate-900/80 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
-              <div className="overflow-x-auto custom-scrollbar">
-                <table className="w-full text-left text-xs min-w-[850px]">
+            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl overflow-hidden shadow-lg">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase tracking-wider text-[11px] font-semibold">
-                      <th className="py-3.5 px-4">Station & Stream Endpoint</th>
-                      <th className="py-3.5 px-4">Location & Genre</th>
-                      <th className="py-3.5 px-4">Stream Status</th>
-                      <th className="py-3.5 px-4">Format & Bitrate</th>
-                      <th className="py-3.5 px-4">Total Plays</th>
-                      <th className="py-3.5 px-4 text-right">Actions</th>
+                    <tr className="border-b border-slate-800 bg-slate-950/60 text-slate-400">
+                      <th className="py-3 px-4 font-bold">Station</th>
+                      <th className="py-3 px-4 font-bold">Location</th>
+                      <th className="py-3 px-4 font-bold">Stream Health</th>
+                      <th className="py-3 px-4 font-bold">Format & Bitrate</th>
+                      <th className="py-3 px-4 font-bold">Total Plays</th>
+                      <th className="py-3 px-4 font-bold text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60">
+                  <tbody className="divide-y divide-slate-800/80 text-slate-300">
                     {stations.map((st) => (
-                      <tr key={st.id} className="hover:bg-slate-800/40 transition-colors">
+                      <tr key={st.id} className="hover:bg-slate-800/30 transition">
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-3">
                             <img
                               src={st.logoUrl}
-                              alt=""
-                              className="w-10 h-10 rounded-xl object-cover bg-slate-800 shrink-0 border border-slate-700"
+                              alt={st.name}
+                              className="w-10 h-10 rounded-xl object-cover border border-slate-700 bg-slate-800 shrink-0"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src =
+                                  'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=100&h=100&fit=crop';
+                              }}
                             />
-                            <div className="min-w-0">
-                              <div className="font-bold text-white text-sm flex items-center gap-2">
-                                <span>{st.name}</span>
-                                {st.sourceType && st.sourceType !== 'MANUAL' && (
-                                  <span className="text-[10px] font-semibold text-amber-300 bg-amber-500/10 px-1.5 py-0.2 rounded">
-                                    {st.sourceType}
+                            <div>
+                              <div className="font-bold text-white flex items-center gap-1.5">
+                                {st.name}
+                                {st.isFeatured && (
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                    ⭐ FEATURED
                                   </span>
                                 )}
                               </div>
-                              <div className="text-[11px] font-mono text-slate-400 truncate max-w-xs">
+                              <div className="text-[11px] text-slate-400 font-mono truncate max-w-[200px]">
                                 {st.streamUrl}
                               </div>
                             </div>
                           </div>
                         </td>
-
                         <td className="py-3.5 px-4">
                           <div className="space-y-0.5">
                             <div className="font-medium text-slate-200">{st.city}, {st.countryCode}</div>
                             <div className="text-[11px] text-slate-400">{st.genre}</div>
                           </div>
                         </td>
-
                         <td className="py-3.5 px-4">
                           {st.streamStatus === 'ONLINE' ? (
                             <span className="inline-flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
@@ -1208,24 +1325,21 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
                             </span>
                           )}
                         </td>
-
                         <td className="py-3.5 px-4">
                           <span className="font-semibold text-slate-200">
                             {st.streamType} • {st.bitrateKbps || 128} kbps
                           </span>
                         </td>
-
                         <td className="py-3.5 px-4">
                           <span className="font-bold text-sky-400">
                             {(st.playCount || 0).toLocaleString()}
                           </span>
                         </td>
-
                         <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               onClick={() => playStation(st)}
-                              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-xl text-xs font-semibold transition"
+                              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-xl text-xs font-semibold transition cursor-pointer"
                             >
                               Play
                             </button>
@@ -1234,7 +1348,7 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
                                 setScheduleStation(st);
                                 setActiveTab('schedule');
                               }}
-                              className="p-1.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white transition"
+                              className="p-1.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white transition cursor-pointer"
                               title="Edit Schedule"
                             >
                               <Calendar className="w-4 h-4" />
@@ -1242,32 +1356,9 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
                             <button
                               onClick={() => {
                                 setEditingStation(st);
-                                setFormData({
-                                  name: st.name,
-                                  tagline: st.tagline || '',
-                                  description: st.description,
-                                  logoUrl: st.logoUrl,
-                                  coverUrl: st.coverUrl || '',
-                                  countryCode: st.countryCode,
-                                  city: st.city,
-                                  language: st.language,
-                                  genre: st.genre,
-                                  categoryId: st.categoryId,
-                                  categoryIds: st.categoryIds && st.categoryIds.length > 0 ? st.categoryIds : [st.categoryId],
-                                  denomination: st.denomination || '',
-                                  websiteUrl: st.websiteUrl || '',
-                                  email: st.email || '',
-                                  phone: st.phone || '',
-                                  streamUrl: st.streamUrl,
-                                  backupStreamUrl: st.backupStreamUrl || '',
-                                  streamType: st.streamType,
-                                  bitrateKbps: st.bitrateKbps || 128,
-                                  timezone: st.timezone || 'Africa/Dar_es_Salaam',
-                                });
-                                setStreamTestResult(null);
                                 setShowStationModal(true);
                               }}
-                              className="p-1.5 rounded-xl bg-slate-800 text-slate-300 hover:text-amber-400 transition"
+                              className="p-1.5 rounded-xl bg-slate-800 text-slate-300 hover:text-amber-400 transition cursor-pointer"
                               title="Edit Station"
                             >
                               <Edit3 className="w-4 h-4" />
@@ -1282,150 +1373,157 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {stations.map((st) => (
-              <div
-                key={st.id}
-                className="bg-slate-900/60 border border-slate-800 rounded-3xl p-5 flex flex-col justify-between space-y-4 shadow-lg"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <img
-                      src={st.logoUrl}
-                      alt={st.name}
-                      className="w-14 h-14 rounded-2xl object-cover bg-slate-800 border border-slate-700 shadow-md"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="flex flex-col items-end gap-1">
-                      {st.streamStatus === 'ONLINE' ? (
-                        <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                          Online
-                        </span>
-                      ) : (
-                        <span className="text-[11px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full">
-                          Offline
-                        </span>
-                      )}
-                      {st.sourceType && st.sourceType !== 'MANUAL' && (
-                        <span className="text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.2 rounded">
-                          {st.sourceType}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+              {stations.map((st) => (
+                <div
+                  key={st.id}
+                  className="bg-slate-900 border border-slate-800 hover:border-slate-700/80 rounded-3xl overflow-hidden flex flex-col justify-between shadow-xl transition-all duration-200 group"
+                >
+                  {/* Top Cover Banner */}
+                  <div className="relative h-28 w-full bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 overflow-hidden">
+                    {st.coverUrl ? (
+                      <img
+                        src={st.coverUrl}
+                        alt={st.name}
+                        className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition duration-500"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-sky-950/40 via-slate-900 to-emerald-950/30" />
+                    )}
 
-                  <h3 className="font-bold text-base text-white">{st.name}</h3>
-                  <p className="text-xs text-sky-400 italic mb-2">"{st.tagline || st.genre}"</p>
-                  <p className="text-xs text-slate-400 line-clamp-2">{st.description}</p>
-                </div>
+                    {/* Gradient Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-black/40" />
 
-                <div className="pt-4 border-t border-slate-800 space-y-2 text-xs">
-                  <div className="text-slate-400 flex items-center justify-between">
-                    <span>Stream Format:</span>
-                    <span className="text-slate-200 font-semibold">
-                      {st.streamType} • {st.bitrateKbps || 128} kbps
-                    </span>
-                  </div>
+                    {/* Top Status & Featured Badges */}
+                    <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+                      <div>
+                        {st.isFeatured && (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-500 text-slate-950 shadow-md flex items-center gap-1">
+                            ⭐ FEATURED
+                          </span>
+                        )}
+                      </div>
 
-                  {st.sourceType && st.sourceType !== 'MANUAL' && (
-                    <div className="text-slate-400 flex items-center justify-between">
-                      <span>External Source:</span>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-amber-300 font-medium text-[11px]">{st.sourceType}</span>
-                        <button
-                          onClick={() => handleSyncStation(st.id)}
-                          disabled={syncingStationId === st.id}
-                          className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-300 transition"
-                          title="Sync from external provider now"
-                        >
-                          <RotateCw className={`w-3 h-3 ${syncingStationId === st.id ? 'animate-spin text-amber-400' : ''}`} />
-                        </button>
+                        {st.streamStatus === 'ONLINE' ? (
+                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 backdrop-blur-md flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            Live ({st.responseLatencyMs || 60}ms)
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 backdrop-blur-md">
+                            Offline
+                          </span>
+                        )}
                       </div>
                     </div>
-                  )}
-
-                  <div className="text-slate-400 flex items-center justify-between">
-                    <span>Backup Failover:</span>
-                    <span className="text-slate-200 font-semibold">
-                      {st.backupStreamUrl ? 'Enabled' : 'Disabled'}
-                    </span>
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 pt-2">
-                    <button
-                      onClick={() => playStation(st)}
-                      className="flex-1 bg-slate-800 hover:bg-slate-700 text-sky-400 font-semibold py-1.5 px-3 rounded-xl transition-colors"
-                    >
-                      Preview Audio
-                    </button>
+                  {/* Station Info Content */}
+                  <div className="p-5 pt-0 relative flex-1 flex flex-col justify-between space-y-4">
+                    <div>
+                      {/* Logo overlapping banner */}
+                      <div className="-mt-10 mb-3 flex items-end justify-between">
+                        <img
+                          src={st.logoUrl}
+                          alt={st.name}
+                          className="w-16 h-16 rounded-2xl object-cover bg-slate-800 border-2 border-slate-900 shadow-xl"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src =
+                              'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=120&h=120&fit=crop';
+                          }}
+                        />
+                        <span className="px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 text-[11px] font-semibold text-slate-300">
+                          {st.genre}
+                        </span>
+                      </div>
 
-                    <button
-                      onClick={() => {
-                        setEditingStation(st);
-                        setFormData({
-                          name: st.name,
-                          tagline: st.tagline || '',
-                          description: st.description,
-                          logoUrl: st.logoUrl,
-                          coverUrl: st.coverUrl || '',
-                          countryCode: st.countryCode,
-                          city: st.city,
-                          language: st.language,
-                          genre: st.genre,
-                          categoryId: st.categoryId,
-                          categoryIds: st.categoryIds && st.categoryIds.length > 0 ? st.categoryIds : [st.categoryId],
-                          denomination: st.denomination || '',
-                          websiteUrl: st.websiteUrl || '',
-                          email: st.email || '',
-                          phone: st.phone || '',
-                          socialLinks: {
-                            facebook: st.socialLinks?.facebook || '',
-                            twitter: st.socialLinks?.twitter || '',
-                            instagram: st.socialLinks?.instagram || '',
-                            youtube: st.socialLinks?.youtube || '',
-                            whatsapp: st.socialLinks?.whatsapp || '',
-                            tiktok: st.socialLinks?.tiktok || '',
-                            linkedin: st.socialLinks?.linkedin || '',
-                          },
-                          streamUrl: st.streamUrl,
-                          backupStreamUrl: st.backupStreamUrl || '',
-                          streamType: st.streamType,
-                          bitrateKbps: st.bitrateKbps || 128,
-                          timezone: st.timezone || 'Africa/Dar_es_Salaam',
-                        });
-                        setShowStationModal(true);
-                      }}
-                      className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl"
-                      title="Edit Station"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                    </button>
+                      <h3 className="font-extrabold text-base text-white tracking-tight leading-snug">
+                        {st.name}
+                      </h3>
+                      {st.tagline && (
+                        <p className="text-xs text-sky-400 italic mt-0.5 truncate">"{st.tagline}"</p>
+                      )}
+                      <p className="text-xs text-slate-400 line-clamp-2 mt-2 leading-relaxed">
+                        {st.description}
+                      </p>
+                    </div>
 
-                    <button
-                      onClick={() => {
-                        setScheduleStation(st);
-                        setActiveTab('schedule');
-                      }}
-                      className="p-2 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-xl transition"
-                      title="Broadcast Timetable & Shows"
-                    >
-                      <Calendar className="w-3.5 h-3.5" />
-                    </button>
+                    {/* Stats bar */}
+                    <div className="grid grid-cols-3 gap-2 py-2.5 px-3 bg-slate-950/70 border border-slate-800/80 rounded-2xl text-center text-xs">
+                      <div>
+                        <span className="text-[10px] text-slate-500 block uppercase font-bold">Plays</span>
+                        <span className="font-extrabold text-white">{(st.playCount || 0).toLocaleString()}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 block uppercase font-bold">Format</span>
+                        <span className="font-extrabold text-sky-400">{st.streamType}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 block uppercase font-bold">Bitrate</span>
+                        <span className="font-extrabold text-emerald-400">{st.bitrateKbps || 128}k</span>
+                      </div>
+                    </div>
 
-                    <button
-                      onClick={() => handleDeleteStation(st.id, st.name)}
-                      className="p-2 bg-slate-800 hover:bg-rose-900/30 text-rose-400 rounded-xl"
-                      title="Delete Station"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {/* Actions Toolbar */}
+                    <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                      <button
+                        onClick={() => playStation(st)}
+                        className="flex-1 bg-slate-800 hover:bg-slate-700 text-sky-400 hover:text-sky-300 font-bold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                      >
+                        <Play className="w-3.5 h-3.5 fill-current" /> Preview
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setEditingStation(st);
+                          setShowStationModal(true);
+                        }}
+                        className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl transition cursor-pointer"
+                        title="Edit Station Settings"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setScheduleStation(st);
+                          setActiveTab('schedule');
+                        }}
+                        className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl transition cursor-pointer"
+                        title="Weekly Broadcast Timetable"
+                      >
+                        <Calendar className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setPromoteStationId(st.id);
+                          setShowPromoteModal(true);
+                        }}
+                        className="p-2 bg-slate-800 hover:bg-amber-950/40 text-slate-300 hover:text-amber-400 rounded-xl transition cursor-pointer"
+                        title="Promote Station (Top Placement)"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteStation(st.id, st.name)}
+                        className="p-2 bg-slate-800 hover:bg-rose-950/40 text-slate-400 hover:text-rose-400 rounded-xl transition cursor-pointer"
+                        title="Delete Station"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    )}
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tab: Station Ownership Claims */}
       {activeTab === 'claims' && (
@@ -1433,6 +1531,8 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
           ownerEmail={user?.email || ''}
           ownerName={ownerProfile?.contactPerson || ownerProfile?.organizationName || user?.name || ''}
           stations={stations}
+          onNavigateTab={(tab) => setActiveTab(tab)}
+          onStationClaimed={loadOwnerData}
         />
       )}
 
@@ -1460,9 +1560,30 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
         <DonationsLedger stations={stations} />
       )}
 
+      {/* Tab: Broadcaster Prayer Requests Inbox */}
+      {activeTab === 'prayers' && (
+        <OwnerPrayerInbox stations={stations} />
+      )}
+
+      {/* Tab: Broadcaster Studio Song Requests & Shoutouts */}
+      {activeTab === 'studio' && (
+        <OwnerStudioDesk
+          stations={stations}
+          onAddStation={() => {
+            setActiveTab('stations');
+            setShowStationModal(true);
+          }}
+          onStationUpdated={(updated) => {
+            setStations((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+          }}
+        />
+      )}
+
       {/* Tab 3: Listener Analytics */}
       {activeTab === 'analytics' && (
         <div className="space-y-6">
+          {/* Real-time Global Listener Map */}
+          <LiveListenerMap />
           <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
             <h2 className="text-lg font-bold text-white tracking-tight">
               Real-Time Listener Statistics & Engagement
@@ -1523,44 +1644,194 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
         </div>
       )}
 
-      {/* Tab 4: Plans & Billing */}
+      {/* Tab 4: Subscriptions */}
+      {/* Tab 4: Subscriptions */}
       {activeTab === 'billing' && (
         <div className="space-y-8">
           <div>
-            <h2 className="text-xl font-bold text-white">Subscription & Broadcaster Plans</h2>
+            <h2 className="text-xl font-bold text-white">Broadcaster Subscriptions & Plans</h2>
             <p className="text-xs text-slate-400">
-              Upgrade your station limits, stream monitoring frequency, and analytics level.
+              Upgrade your station limits, stream monitoring frequency, and analytics level with instant automated activation.
             </p>
+          </div>
+
+          {/* Current Active Package Card */}
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/30 p-6 sm:p-8 shadow-2xl">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    Current Package
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    Status: <span className="text-emerald-400 font-semibold">{subscription?.status || 'ACTIVE'}</span>
+                  </span>
+                </div>
+                <h3 className="text-2xl font-black text-white flex items-center gap-2.5">
+                  {plan?.name || 'Free Starter Package'}
+                  {plan?.id === 'plan_free' ? (
+                    <span className="text-xs font-semibold text-slate-400 bg-slate-800 px-2.5 py-0.5 rounded-md">
+                      Default Free Broadcaster
+                    </span>
+                  ) : (
+                    <span className="text-xs font-semibold text-sky-400 bg-sky-500/15 border border-sky-500/30 px-2.5 py-0.5 rounded-md">
+                      Premium Ministry
+                    </span>
+                  )}
+                </h3>
+                <p className="text-xs text-slate-300 max-w-xl">
+                  {plan?.description || 'Your default broadcaster package is active with basic station broadcasting tools.'}
+                </p>
+
+                <div className="flex flex-wrap gap-4 pt-2 text-xs text-slate-300">
+                  <div className="flex items-center gap-1.5 bg-slate-950/60 px-3 py-1.5 rounded-xl border border-slate-800">
+                    <Radio className="w-3.5 h-3.5 text-sky-400" />
+                    <span><strong>{stations.length}</strong> of <strong>{plan?.maxStations || 1}</strong> Stations Used</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-slate-950/60 px-3 py-1.5 rounded-xl border border-slate-800">
+                    <Activity className="w-3.5 h-3.5 text-emerald-400" />
+                    <span><strong>{plan?.streamMonitoringIntervalMinutes || 15} min</strong> Monitoring</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-slate-950/60 px-3 py-1.5 rounded-xl border border-slate-800">
+                    <BarChart3 className="w-3.5 h-3.5 text-indigo-400" />
+                    <span><strong>{(plan?.analyticsAccessLevel || (plan?.advancedAnalyticsEnabled ? 'ADVANCED' : 'BASIC')).replace('_', ' ')}</strong> Analytics</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-slate-950/60 px-3 py-1.5 rounded-xl border border-slate-800">
+                    <Clock className="w-3.5 h-3.5 text-amber-400" />
+                    <span>
+                      {subscription?.currentPeriodEnd
+                        ? `Valid until ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}`
+                        : 'Lifetime Free Starter'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {plan?.id === 'plan_free' && (
+                <button
+                  onClick={() => {
+                    const proPlan = plans.find((p) => p.tier === 'PRO' || p.tier === 'PROFESSIONAL') || plans[1] || plans[0];
+                    if (proPlan) {
+                      setSelectedPlanForCheckout(proPlan);
+                      setPaymentSuccess(false);
+                      setCheckoutError(null);
+                      setCheckoutSuccessData(null);
+                      setShowCheckoutModal(true);
+                    }
+                  }}
+                  className="px-6 py-3 rounded-2xl text-xs font-bold bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white shadow-xl shadow-sky-500/20 transition flex items-center gap-2 shrink-0 cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Upgrade to Pro Ministry
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Billing Interval Switcher */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-900/60 border border-slate-800 p-4 rounded-2xl">
+            <div>
+              <h4 className="text-sm font-bold text-white">Choose Billing Cycle</h4>
+              <p className="text-xs text-slate-400">Save 15% when billed annually for any ministry package.</p>
+            </div>
+            <div className="inline-flex items-center bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
+              <button
+                type="button"
+                onClick={() => setBillingInterval('MONTHLY')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  billingInterval === 'MONTHLY'
+                    ? 'bg-sky-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Monthly Plans
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingInterval('ANNUAL')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  billingInterval === 'ANNUAL'
+                    ? 'bg-sky-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <span>Annual Plans</span>
+                <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-emerald-500 text-slate-950">
+                  Save 15%
+                </span>
+              </button>
+            </div>
           </div>
 
           {/* Pricing Tier Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {plans.map((p) => {
               const isCurrent = plan?.id === p.id;
+              const analyticsText = (p.analyticsAccessLevel || (p.advancedAnalyticsEnabled ? 'ADVANCED' : 'BASIC')).replace('_', ' ');
+
+              // Prices based on interval
+              const priceUsd = billingInterval === 'ANNUAL'
+                ? (p.annualPriceUsd || (p.monthlyPriceUsd ? Math.round(p.monthlyPriceUsd * 10) : 0))
+                : (p.monthlyPriceUsd || 0);
+
+              const isFreePackage = p.id === 'plan_free' || p.tier === 'FREE' || (!p.monthlyPriceUsd && !p.annualPriceUsd);
+
+              const priceTzs = billingInterval === 'ANNUAL'
+                ? (p.annualPriceTzs || (p.monthlyPriceTzs ? Math.round(p.monthlyPriceTzs * 10) : 0))
+                : (p.monthlyPriceTzs || 0);
+
               return (
                 <div
                   key={p.id}
                   className={`rounded-3xl p-6 border flex flex-col justify-between transition-all ${
                     isCurrent
-                      ? 'bg-slate-900 border-sky-500 shadow-xl shadow-sky-500/10'
-                      : 'bg-slate-900/50 border-slate-800'
+                      ? 'bg-slate-900 border-sky-500 shadow-xl shadow-sky-500/10 ring-1 ring-sky-500/30'
+                      : isFreePackage
+                      ? 'bg-slate-900/40 border-slate-800/80'
+                      : 'bg-slate-900/50 border-slate-800 hover:border-slate-700'
                   }`}
                 >
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="font-bold text-lg text-white">{p.name}</h3>
-                      {isCurrent && (
-                        <span className="text-[10px] font-bold bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded-full">
+                      {isCurrent ? (
+                        <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/30">
                           Active Plan
                         </span>
-                      )}
+                      ) : isFreePackage ? (
+                        <span className="text-[10px] font-bold bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full border border-slate-700">
+                          Default Free
+                        </span>
+                      ) : null}
                     </div>
 
                     <div>
                       <div className="text-2xl font-extrabold text-white">
-                        ${Number(p.monthlyPriceUsd || 0).toLocaleString()} USD
-                        <span className="text-xs text-slate-400 font-normal"> / month</span>
+                        {isFreePackage ? (
+                          <>
+                            $0 USD
+                            <span className="text-xs text-slate-400 font-normal"> / forever</span>
+                          </>
+                        ) : (
+                          <>
+                            ${Number(priceUsd).toLocaleString()} USD
+                            <span className="text-xs text-slate-400 font-normal">
+                              {' '}/ {billingInterval === 'ANNUAL' ? 'year' : 'month'}
+                            </span>
+                          </>
+                        )}
                       </div>
+                      {!isFreePackage && priceTzs > 0 && (
+                        <div className="text-xs text-slate-400 font-mono mt-0.5">
+                          approx. TZS {Number(priceTzs).toLocaleString()}
+                        </div>
+                      )}
+                      {isFreePackage && (
+                        <div className="text-xs text-slate-500 mt-0.5 font-medium">
+                          Always included for all registered broadcasters
+                        </div>
+                      )}
                     </div>
 
                     <p className="text-xs text-slate-400">{p.description}</p>
@@ -1568,15 +1839,15 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
                     <div className="space-y-2 pt-4 border-t border-slate-800 text-xs">
                       <div className="flex items-center gap-2 text-slate-300">
                         <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <span>Up to {p.maxStations} Stations</span>
+                        <span>Up to {p.maxStations} Station{p.maxStations === 1 ? '' : 's'}</span>
                       </div>
                       <div className="flex items-center gap-2 text-slate-300">
                         <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <span>{p.analyticsAccessLevel.replace('_', ' ')} Analytics</span>
+                        <span>{analyticsText} Analytics</span>
                       </div>
                       <div className="flex items-center gap-2 text-slate-300">
                         <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <span>{p.streamMonitoringIntervalMinutes}-min Health Monitoring</span>
+                        <span>{p.streamMonitoringIntervalMinutes || 15}-min Health Monitoring</span>
                       </div>
                       {p.prioritySupport && (
                         <div className="flex items-center gap-2 text-slate-300">
@@ -1587,20 +1858,44 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => {
-                      setSelectedPlanForCheckout(p);
-                      setShowCheckoutModal(true);
-                    }}
-                    disabled={isCurrent}
-                    className={`w-full mt-6 py-2.5 rounded-xl text-xs font-bold transition-colors ${
-                      isCurrent
-                        ? 'bg-slate-800 text-slate-500 cursor-default'
-                        : 'bg-sky-600 hover:bg-sky-500 text-white shadow-lg shadow-sky-600/20'
-                    }`}
-                  >
-                    {isCurrent ? 'Current Plan' : 'Select Plan'}
-                  </button>
+                  <div className="mt-6 pt-4 border-t border-slate-800/60">
+                    {isFreePackage ? (
+                      <button
+                        type="button"
+                        disabled={true}
+                        className="w-full py-2.5 rounded-xl text-xs font-semibold bg-slate-800/70 text-slate-400 border border-slate-750 cursor-not-allowed opacity-80 select-none flex items-center justify-center gap-1.5"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
+                        <span>{isCurrent ? 'Current Default Plan' : 'Default Free Package'}</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!isCurrent) {
+                            setSelectedPlanForCheckout(p);
+                            setPaymentSuccess(false);
+                            setCheckoutError(null);
+                            setCheckoutSuccessData(null);
+                            setShowCheckoutModal(true);
+                          }
+                        }}
+                        disabled={isCurrent}
+                        className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all ${
+                          isCurrent
+                            ? 'bg-slate-800 text-slate-500 cursor-default opacity-70 border border-slate-700'
+                            : 'bg-sky-600 hover:bg-sky-500 text-white shadow-lg shadow-sky-600/20 cursor-pointer'
+                        }`}
+                      >
+                        {isCurrent ? 'Current Package' : 'Select Plan & Checkout'}
+                      </button>
+                    )}
+                    {isFreePackage && (
+                      <p className="text-[10px] text-slate-500 text-center mt-2">
+                        Free default package is automatically active. Cannot be subscribed as a paid plan.
+                      </p>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -1640,56 +1935,161 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
       {/* Tab 5: Promotion */}
       {activeTab === 'promotion' && (
         <div className="space-y-6">
-          <div className="bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 border border-amber-500/30 rounded-3xl p-6 sm:p-8 space-y-4">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400">
-              <Sparkles className="w-4 h-4" />
-              Grow Your Listener Base
+          <div className="bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 border border-amber-500/30 rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+            <div className="space-y-2 max-w-2xl">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400">
+                <Sparkles className="w-4 h-4" />
+                Grow Your Listener Base
+              </div>
+              <h2 className="text-2xl font-bold text-white">
+                Featured Homepage & Top Placement Campaigns
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                Feature your radio station at the top of Christian Radios to get up to 5x more
+                listeners. Placements include high-visibility homepage hero carousel, top category badges,
+                and prioritized search recommendations.
+              </p>
             </div>
-            <h2 className="text-2xl font-bold text-white">
-              Featured Homepage & Top Placement Campaigns
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-              Feature your radio station at the top of Christian Radios to get up to 5x more
-              listeners. Placement includes high-visibility homepage hero banner, top category badge,
-              and highlighted search suggestions.
-            </p>
+            <button
+              onClick={() => {
+                if (stations.length === 0) {
+                  alert('Please register or claim a station first before launching a promotion.');
+                  return;
+                }
+                setPromoteStationId(stations[0].id);
+                setShowPromoteModal(true);
+              }}
+              className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-bold px-5 py-3 rounded-2xl text-xs flex items-center gap-2 shadow-lg shadow-amber-500/20 transition-all shrink-0 cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4" /> Promote a Station
+            </button>
           </div>
 
           <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 space-y-4">
-            <h3 className="text-base font-bold text-white">Your Promotion Campaigns</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white">Your Promotion Campaigns</h3>
+              <span className="text-xs text-slate-400 font-mono">{campaigns.length} campaigns</span>
+            </div>
+
             {campaigns.length > 0 ? (
               <div className="space-y-3">
-                {campaigns.map((camp) => (
-                  <div
-                    key={camp.id}
-                    className="p-4 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between text-xs"
-                  >
-                    <div>
-                      <div className="font-bold text-white">{camp.placement.replace('_', ' ')}</div>
-                      <div className="text-[11px] text-slate-400">
-                        {new Date(camp.startDate).toLocaleDateString()} -{' '}
-                        {new Date(camp.endDate).toLocaleDateString()}
+                {campaigns.map((camp) => {
+                  const station = stations.find((s) => s.id === camp.stationId);
+                  const isActionLoading = campaignActionLoading === camp.id;
+
+                  return (
+                    <div
+                      key={camp.id}
+                      className="p-5 bg-slate-950 rounded-2xl border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs hover:border-slate-700 transition"
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <img
+                          src={station?.logoUrl || 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=100&h=100&fit=crop'}
+                          alt={station?.name || 'Radio'}
+                          className="w-12 h-12 rounded-xl object-cover border border-slate-800 shrink-0"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src =
+                              'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=100&h=100&fit=crop';
+                          }}
+                        />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-white text-sm truncate">
+                              {station?.name || 'Station Promotion'}
+                            </h4>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                              {camp.placement ? camp.placement.replace('_', ' ') : 'HOMEPAGE HERO'}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 mt-1">
+                            {new Date(camp.startDate).toLocaleDateString()} -{' '}
+                            {new Date(camp.endDate).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-6">
+                        <div>
+                          <span className="text-[10px] text-slate-500 block">Impressions</span>
+                          <span className="font-bold text-white text-sm">{Number(camp.impressions || 0).toLocaleString()}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 block">Clicks</span>
+                          <span className="font-bold text-sky-400 text-sm">{Number(camp.clicks || 0).toLocaleString()}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 block">Status</span>
+                          <span
+                            className={`text-xs font-bold px-2.5 py-1 rounded-full inline-block mt-0.5 ${
+                              camp.status === 'ACTIVE'
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                : camp.status === 'PAUSED'
+                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                                : 'bg-slate-800 text-slate-400'
+                            }`}
+                          >
+                            {camp.status}
+                          </span>
+                        </div>
+
+                        {/* Action Controls: Pause, Resume, Delete */}
+                        <div className="flex items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-slate-800/80 w-full md:w-auto justify-end">
+                          {camp.status === 'ACTIVE' && (
+                            <button
+                              onClick={() => handleUpdateCampaignStatus(camp.id, 'PAUSED')}
+                              disabled={isActionLoading}
+                              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                              title="Pause Campaign"
+                            >
+                              <Pause className="w-3.5 h-3.5" /> Pause
+                            </button>
+                          )}
+
+                          {camp.status === 'PAUSED' && (
+                            <button
+                              onClick={() => handleUpdateCampaignStatus(camp.id, 'ACTIVE')}
+                              disabled={isActionLoading}
+                              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                              title="Resume Campaign"
+                            >
+                              <PlayCircle className="w-3.5 h-3.5" /> Resume
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => handleDeleteCampaign(camp.id)}
+                            disabled={isActionLoading}
+                            className="p-2 rounded-xl bg-slate-800/80 hover:bg-rose-950/40 text-slate-400 hover:text-rose-400 text-xs transition cursor-pointer"
+                            title="Cancel / Stop Campaign"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-6">
-                      <div>
-                        <span className="text-[10px] text-slate-500 block">Impressions</span>
-                        <span className="font-bold text-white">{Number(camp.impressions || 0).toLocaleString()}</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-500 block">Clicks</span>
-                        <span className="font-bold text-sky-400">{Number(camp.clicks || 0).toLocaleString()}</span>
-                      </div>
-                      <span className="text-xs font-bold bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full">
-                        {camp.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
-              <div className="text-center py-8 text-xs text-slate-400">
-                No active promotional campaigns. Contact support to book prime spot placements.
+              <div className="text-center py-10 rounded-2xl bg-slate-950/40 border border-slate-800/60 space-y-3">
+                <Sparkles className="w-8 h-8 text-amber-500/60 mx-auto" />
+                <h4 className="text-sm font-bold text-white">No active promotional campaigns</h4>
+                <p className="text-xs text-slate-400 max-w-md mx-auto">
+                  Launch a homepage placement campaign to get featured on Christian Radios and broadcast to thousands of eager believers.
+                </p>
+                <button
+                  onClick={() => {
+                    if (stations.length === 0) {
+                      alert('Please register or claim a station first before launching a promotion.');
+                      return;
+                    }
+                    setPromoteStationId(stations[0].id);
+                    setShowPromoteModal(true);
+                  }}
+                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs inline-flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> Launch First Promotion
+                </button>
               </div>
             )}
           </div>
@@ -1698,476 +2098,133 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
 
       {/* Tab 6: Support */}
       {activeTab === 'support' && (
-        <div className="space-y-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Left: Submit Support Ticket */}
-            <div className="lg:col-span-6 bg-slate-900/60 border border-slate-800 rounded-3xl p-6 space-y-4">
-              <h2 className="text-lg font-bold text-white">Submit Engineering Ticket</h2>
-              <form onSubmit={handleSubmitTicket} className="space-y-4 text-xs">
-                <div>
-                  <label className="block font-medium text-slate-300 mb-1">Subject</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Icecast SSL mount point connection assistance"
-                    value={ticketSubject}
-                    onChange={(e) => setTicketSubject(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-medium text-slate-300 mb-1">Category</label>
-                    <select
-                      value={ticketCategory}
-                      onChange={(e) => setTicketCategory(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200"
-                    >
-                      <option value="STREAM_SETUP">Stream Setup & Audio</option>
-                      <option value="BILLING">Subscription & Billing</option>
-                      <option value="VERIFICATION">Broadcaster Verification</option>
-                      <option value="OTHER">Other Query</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block font-medium text-slate-300 mb-1">Priority</label>
-                    <select
-                      value={ticketPriority}
-                      onChange={(e) => setTicketPriority(e.target.value as any)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200"
-                    >
-                      <option value="LOW">Low</option>
-                      <option value="MEDIUM">Medium</option>
-                      <option value="HIGH">High</option>
-                      <option value="URGENT">Urgent</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block font-medium text-slate-300 mb-1">Message Description</label>
-                  <textarea
-                    rows={4}
-                    required
-                    placeholder="Please describe your technical requirement or issue..."
-                    value={ticketMessage}
-                    onChange={(e) => setTicketMessage(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isSubmittingTicket}
-                  className="bg-sky-600 hover:bg-sky-500 text-white font-bold px-5 py-2.5 rounded-xl transition-colors disabled:opacity-50"
-                >
-                  {isSubmittingTicket ? 'Submitting...' : 'Submit Support Ticket'}
-                </button>
-              </form>
-            </div>
-
-            {/* Right: Existing Tickets */}
-            <div className="lg:col-span-6 bg-slate-900/60 border border-slate-800 rounded-3xl p-6 space-y-4">
-              <h2 className="text-lg font-bold text-white">Your Support Tickets</h2>
-              {tickets.length > 0 ? (
-                <div className="space-y-3">
-                  {tickets.map((tick) => (
-                    <div
-                      key={tick.id}
-                      className="p-4 bg-slate-950 rounded-2xl border border-slate-800 text-xs space-y-2"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-white">{tick.subject}</span>
-                        <span className="text-[10px] font-bold bg-sky-500/10 text-sky-400 px-2 py-0.5 rounded-full">
-                          {tick.status}
-                        </span>
-                      </div>
-                      <p className="text-slate-400 line-clamp-2">{tick.message}</p>
-                      {tick.responses && tick.responses.length > 0 && (
-                        <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-sky-300">
-                          <span className="font-semibold text-[10px] block">
-                            Latest Reply from Christian Radios Engineering:
-                          </span>
-                          {tick.responses[tick.responses.length - 1].message}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-slate-400">No support tickets created yet.</p>
-              )}
-            </div>
-          </div>
-        </div>
+        <OwnerSupportDesk
+          stations={stations}
+          onOpenStationModal={() => setShowStationModal(true)}
+        />
       )}
         </main>
       </div>
 
-      {/* MODAL 1: Create / Edit Station Modal with Live SSRF Test */}
-      {showStationModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 sm:p-8 text-slate-100 shadow-2xl relative my-8">
-            <h2 className="text-lg font-bold text-white mb-4">
-              {editingStation ? 'Edit Radio Station' : 'Register New Radio Station'}
-            </h2>
+      {/* Progressive Multi-step Station Wizard Modal */}
+      <StationWizardModal
+        isOpen={showStationModal}
+        onClose={() => {
+          setShowStationModal(false);
+          setEditingStation(null);
+        }}
+        onSaved={async () => {
+          await loadOwnerData();
+        }}
+        stationToEdit={editingStation}
+        categories={categories}
+      />
 
-            <form onSubmit={handleSaveStation} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-slate-300 mb-1">Station Name</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Radio Maria Tanzania"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-300 mb-1">Tagline / Slogan</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Sauti ya Kikristo Nyumbani Mwako"
-                    value={formData.tagline}
-                    onChange={(e) => setFormData({ ...formData, tagline: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200"
-                  />
-                </div>
+      {/* Promotion Launch Modal */}
+      {showPromoteModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 text-slate-100 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2 text-amber-400 font-bold text-base">
+                <Sparkles className="w-5 h-5" />
+                Launch Station Promotion
               </div>
+              <button
+                onClick={() => setShowPromoteModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
+            <form onSubmit={handleLaunchCampaign} className="space-y-4 text-xs">
               <div>
-                <label className="block font-medium text-slate-300 mb-1">Description</label>
-                <textarea
-                  rows={3}
+                <label className="block font-medium text-slate-300 mb-1">Select Radio Station</label>
+                <select
+                  value={promoteStationId}
+                  onChange={(e) => setPromoteStationId(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 focus:outline-none cursor-pointer"
                   required
-                  placeholder="Detailed description of your Christian radio station..."
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200"
-                />
+                >
+                  {stations.map((st) => (
+                    <option key={st.id} value={st.id}>
+                      {st.name} ({st.city}, {st.countryCode})
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block font-medium text-slate-300 mb-1">Country</label>
-                  <select
-                    value={formData.countryCode}
-                    onChange={(e) => setFormData({ ...formData, countryCode: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 cursor-pointer"
-                  >
-                    {WORLDWIDE_COUNTRIES.map((c) => (
-                      <option key={c.code} value={c.code}>
-                        {c.flagEmoji} {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-300 mb-1">City / Region</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Dar es Salaam"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-300 mb-1">Language</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Swahili"
-                    value={formData.language}
-                    onChange={(e) => setFormData({ ...formData, language: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200"
-                  />
-                </div>
-              </div>
-
-              {/* Station Contacts & Social Media Links */}
-              <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-sky-400">
-                  Official Station Contact Details & Social Media Links
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                  <div>
-                    <label className="block font-medium text-slate-300 mb-1">Website URL</label>
-                    <input
-                      type="url"
-                      placeholder="https://yourstation.com"
-                      value={formData.websiteUrl}
-                      onChange={(e) => setFormData({ ...formData, websiteUrl: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-medium text-slate-300 mb-1">Station Email</label>
-                    <input
-                      type="email"
-                      placeholder="info@yourstation.com"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-medium text-slate-300 mb-1">Studio Phone / WhatsApp</label>
-                    <input
-                      type="text"
-                      placeholder="+255700000000"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-800/80">
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Social Media Page Links</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                    <div>
-                      <label className="block text-slate-400 mb-1">Facebook URL</label>
-                      <input
-                        type="url"
-                        placeholder="https://facebook.com/yourpage"
-                        value={formData.socialLinks?.facebook || ''}
-                        onChange={(e) => setFormData({ ...formData, socialLinks: { ...formData.socialLinks, facebook: e.target.value } })}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-200"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-400 mb-1">Instagram URL</label>
-                      <input
-                        type="url"
-                        placeholder="https://instagram.com/yourhandle"
-                        value={formData.socialLinks?.instagram || ''}
-                        onChange={(e) => setFormData({ ...formData, socialLinks: { ...formData.socialLinks, instagram: e.target.value } })}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-200"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-400 mb-1">TikTok URL</label>
-                      <input
-                        type="url"
-                        placeholder="https://tiktok.com/@yourhandle"
-                        value={formData.socialLinks?.tiktok || ''}
-                        onChange={(e) => setFormData({ ...formData, socialLinks: { ...formData.socialLinks, tiktok: e.target.value } })}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-200"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-400 mb-1">X (Twitter) URL</label>
-                      <input
-                        type="url"
-                        placeholder="https://x.com/yourhandle"
-                        value={formData.socialLinks?.twitter || ''}
-                        onChange={(e) => setFormData({ ...formData, socialLinks: { ...formData.socialLinks, twitter: e.target.value } })}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-200"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-400 mb-1">LinkedIn URL</label>
-                      <input
-                        type="url"
-                        placeholder="https://linkedin.com/company/yourcompany"
-                        value={formData.socialLinks?.linkedin || ''}
-                        onChange={(e) => setFormData({ ...formData, socialLinks: { ...formData.socialLinks, linkedin: e.target.value } })}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-200"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-400 mb-1">WhatsApp Direct Link / Number</label>
-                      <input
-                        type="text"
-                        placeholder="https://wa.me/255..."
-                        value={formData.socialLinks?.whatsapp || ''}
-                        onChange={(e) => setFormData({ ...formData, socialLinks: { ...formData.socialLinks, whatsapp: e.target.value } })}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-200"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Multi-Category Selector for Radio Owners */}
               <div>
-                <label className="block font-medium text-slate-300 mb-1">
-                  Radio Categories (Select all categories that apply to your radio)
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-2.5 bg-slate-950 border border-slate-800 rounded-xl custom-scrollbar">
-                  {categories.map((cat) => {
-                    const isSelected = (formData.categoryIds || []).includes(cat.id);
-                    return (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => {
-                          const currentIds = formData.categoryIds || [];
-                          let nextCatIds: string[];
-                          if (isSelected) {
-                            nextCatIds = currentIds.filter((id) => id !== cat.id);
-                          } else {
-                            nextCatIds = [...currentIds, cat.id];
-                          }
-                          setFormData({
-                            ...formData,
-                            categoryIds: nextCatIds,
-                            categoryId: nextCatIds[0] || cat.id,
-                          });
-                        }}
-                        className={`p-2 rounded-xl text-[11px] font-semibold text-left flex items-center justify-between border transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-sky-500/20 border-sky-500 text-sky-300 font-bold shadow-sm'
-                            : 'bg-slate-900 border-slate-800/80 text-slate-400 hover:text-slate-200'
-                        }`}
-                      >
-                        <span className="truncate">{cat.name}</span>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-sky-400 shrink-0 ml-1" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Stream URL & Live SSRF Test */}
-              <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-sky-400">
-                    Audio Stream Endpoint Configuration
-                  </span>
+                <label className="block font-medium text-slate-300 mb-1">Placement Tier</label>
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => setShowExtractorInput(!showExtractorInput)}
-                    className="text-xs font-semibold text-amber-400 hover:text-amber-300 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-xl flex items-center gap-1.5 transition-all"
-                  >
-                    <Wand2 className="w-3.5 h-3.5" />
-                    Auto-Extract Stream from Page Source
-                  </button>
-                </div>
-
-                {showExtractorInput && (
-                  <div className="p-3 bg-amber-950/40 border border-amber-500/30 rounded-xl space-y-2 text-xs">
-                    <p className="text-amber-200">
-                      Paste any radio web page URL (e.g. Zeno.fm page, Streema, RadioKing, website player page). We will automatically inspect the page HTML source code and extract the direct audio stream URL!
-                    </p>
-                    <div className="flex gap-2">
-                      <input
-                        type="url"
-                        placeholder="https://zeno.fm/radio/your-radio-page"
-                        value={extractPageUrl}
-                        onChange={(e) => setExtractPageUrl(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white font-mono text-xs"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleExtractStream}
-                        disabled={extractingStream || !extractPageUrl.trim()}
-                        className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1.5 rounded-xl shrink-0 disabled:opacity-50 flex items-center gap-1"
-                      >
-                        {extractingStream ? 'Extracting...' : 'Extract Stream'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block font-medium text-slate-300 mb-1">
-                    Primary Live Stream URL (Icecast / Shoutcast / Direct MP3 / HLS)
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      required
-                      placeholder="https://stream.radiomaria.org/live"
-                      value={formData.streamUrl}
-                      onChange={(e) => setFormData({ ...formData, streamUrl: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleTestStream}
-                      disabled={testingStream || !formData.streamUrl}
-                      className="bg-sky-600 hover:bg-sky-500 text-white font-semibold px-4 py-2 rounded-xl shrink-0 disabled:opacity-50"
-                    >
-                      {testingStream ? 'Testing...' : 'Test Stream'}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block font-medium text-slate-300 mb-1">
-                    Backup Failover Stream URL (Optional)
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="https://backup.radiomaria.org/live"
-                    value={formData.backupStreamUrl}
-                    onChange={(e) => setFormData({ ...formData, backupStreamUrl: e.target.value })}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-slate-200"
-                  />
-                </div>
-
-                {streamTestResult && (
-                  <div
-                    className={`p-3 rounded-xl border text-xs ${
-                      streamTestResult.valid
-                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                        : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                    onClick={() => setPromotePlacement('HOMEPAGE_HERO')}
+                    className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition cursor-pointer ${
+                      promotePlacement === 'HOMEPAGE_HERO'
+                        ? 'bg-amber-500/20 border-amber-500 text-amber-300 font-bold shadow-sm'
+                        : 'bg-slate-950 border-slate-800 text-slate-400'
                     }`}
                   >
-                    {streamTestResult.valid ? (
-                      <span className="flex items-center gap-1.5 font-semibold">
-                        <CheckCircle2 className="w-4 h-4" /> Stream reachable & verified!
-                      </span>
-                    ) : (
-                      <span>{streamTestResult.error || 'Stream validation failed'}</span>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-slate-300 mb-1">Station Logo URL</label>
-                  <input
-                    type="url"
-                    required
-                    placeholder="https://example.com/logo.jpg"
-                    value={formData.logoUrl}
-                    onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-300 mb-1">Cover Artwork URL</label>
-                  <input
-                    type="url"
-                    placeholder="https://example.com/cover.jpg"
-                    value={formData.coverUrl}
-                    onChange={(e) => setFormData({ ...formData, coverUrl: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200"
-                  />
+                    <span className="text-xs">Homepage Hero</span>
+                    <span className="text-[10px] text-slate-400 font-normal mt-1">Top Carousel (TZS 2,500/day)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPromotePlacement('CATEGORY_TOP')}
+                    className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition cursor-pointer ${
+                      promotePlacement === 'CATEGORY_TOP'
+                        ? 'bg-amber-500/20 border-amber-500 text-amber-300 font-bold shadow-sm'
+                        : 'bg-slate-950 border-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <span className="text-xs">Category Spotlight</span>
+                    <span className="text-[10px] text-slate-400 font-normal mt-1">Top category badge (TZS 1,500/day)</span>
+                  </button>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+              <div>
+                <label className="block font-medium text-slate-300 mb-1">Campaign Duration</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[7, 14, 30].map((days) => (
+                    <button
+                      key={days}
+                      type="button"
+                      onClick={() => setPromoteDurationDays(days)}
+                      className={`p-2 rounded-xl border text-center font-semibold transition cursor-pointer ${
+                        promoteDurationDays === days
+                          ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                          : 'bg-slate-950 border-slate-800 text-slate-400'
+                      }`}
+                    >
+                      {days} Days
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-300 flex items-center justify-between font-bold">
+                <span>Estimated Budget:</span>
+                <span className="font-mono text-sm">
+                  TZS {(promoteDurationDays * (promotePlacement === 'HOMEPAGE_HERO' ? 2500 : 1500)).toLocaleString()}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowStationModal(false)}
-                  className="px-4 py-2 text-slate-400 hover:text-white"
+                  onClick={() => setShowPromoteModal(false)}
+                  className="px-4 py-2 text-slate-400 hover:text-white cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="bg-sky-600 hover:bg-sky-500 text-white font-bold px-6 py-2.5 rounded-xl"
+                  disabled={isCreatingCampaign}
+                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-5 py-2.5 rounded-xl flex items-center gap-1.5 shadow-lg shadow-amber-500/20 disabled:opacity-50 cursor-pointer"
                 >
-                  Save Station
+                  {isCreatingCampaign ? 'Activating...' : 'Activate Campaign Now'}
                 </button>
               </div>
             </form>
@@ -2175,130 +2232,452 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
         </div>
       )}
 
-      {/* MODAL 2: PesaPal Plan Checkout Modal */}
-      {showCheckoutModal && selectedPlanForCheckout && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 text-slate-100 shadow-2xl">
-            <h2 className="text-lg font-bold text-white mb-2">Upgrade to {selectedPlanForCheckout.name}</h2>
-            <p className="text-xs text-slate-400 mb-4">
-              Secure subscription payment processing via PesaPal Gateway.
-            </p>
+      {/* MODAL 2: In-Place Broadcaster Subscription Checkout & Activation Modal */}
+      {showCheckoutModal && selectedPlanForCheckout && (() => {
+        const isAnnual = billingInterval === 'ANNUAL';
+        const priceUsd = isAnnual
+          ? (selectedPlanForCheckout.annualPriceUsd || (selectedPlanForCheckout.monthlyPriceUsd ? Math.round(selectedPlanForCheckout.monthlyPriceUsd * 10) : 0))
+          : (selectedPlanForCheckout.monthlyPriceUsd || 0);
 
-            {paymentSuccess ? (
-              <div className="text-center py-8 space-y-3">
-                <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto" />
-                <h3 className="text-base font-bold text-white">Payment Successful!</h3>
-                <p className="text-xs text-slate-300">
-                  Your subscription is now active. Enjoy higher limits and enterprise stream monitoring.
-                </p>
-              </div>
-            ) : (
-              <form onSubmit={handleProcessCheckout} className="space-y-4 text-xs">
-                <div>
-                  <label className="block font-medium text-slate-300 mb-1">Billing Interval</label>
-                  <div className="grid grid-cols-2 gap-2">
+        const priceTzs = isAnnual
+          ? (selectedPlanForCheckout.annualPriceTzs || (selectedPlanForCheckout.monthlyPriceTzs ? Math.round(selectedPlanForCheckout.monthlyPriceTzs * 10) : Math.round(priceUsd * 2600)))
+          : (selectedPlanForCheckout.monthlyPriceTzs || Math.round(priceUsd * 2600));
+
+        const analyticsText = (
+          selectedPlanForCheckout.analyticsAccessLevel ||
+          (selectedPlanForCheckout.advancedAnalyticsEnabled ? 'ADVANCED' : 'BASIC')
+        ).replace('_', ' ');
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 sm:p-7 text-slate-100 shadow-2xl relative my-8">
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isProcessingPayment) {
+                    setShowCheckoutModal(false);
+                    setPaymentSuccess(false);
+                    setCheckoutError(null);
+                    setCheckoutSuccessData(null);
+                  }
+                }}
+                disabled={isProcessingPayment}
+                className="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer disabled:opacity-40"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              {paymentSuccess ? (
+                /* ACTIVATION CELEBRATION SCREEN ("show activations & just back to subscription page") */
+                <div className="text-center py-4 space-y-6">
+                  <div className="relative mx-auto w-20 h-20 rounded-3xl bg-emerald-500/20 border-2 border-emerald-500/40 flex items-center justify-center text-emerald-400 shadow-2xl shadow-emerald-500/25">
+                    <CheckCircle2 className="w-10 h-10 animate-pulse" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold uppercase tracking-wider">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Package Active & Live</span>
+                    </div>
+                    <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                      Welcome to {selectedPlanForCheckout.name}!
+                    </h2>
+                    <p className="text-xs sm:text-sm text-slate-300 max-w-md mx-auto leading-relaxed">
+                      Your payment was successfully received and your broadcaster tier is now activated. Your station quotas, stream monitors, and dashboard privileges have updated immediately.
+                    </p>
+                  </div>
+
+                  {/* Unlocked Capabilities Summary */}
+                  <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-5 text-left text-xs space-y-3 font-mono">
+                    <div className="flex justify-between items-center text-slate-400 pb-2 border-b border-slate-900">
+                      <span>Subscribed Package:</span>
+                      <span className="font-bold text-white">
+                        {selectedPlanForCheckout.name} ({billingInterval})
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-400 pb-2 border-b border-slate-900">
+                      <span>Station Capacity:</span>
+                      <span className="font-bold text-emerald-400">
+                        Up to {selectedPlanForCheckout.maxStations} Station{selectedPlanForCheckout.maxStations === 1 ? '' : 's'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-400 pb-2 border-b border-slate-900">
+                      <span>Health Monitoring:</span>
+                      <span className="font-bold text-sky-400">
+                        Every {selectedPlanForCheckout.streamMonitoringIntervalMinutes || 15} mins
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-400 pb-2 border-b border-slate-900">
+                      <span>Analytics Tier:</span>
+                      <span className="font-bold text-indigo-300">
+                        {analyticsText}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-400 pb-2 border-b border-slate-900">
+                      <span>Gateway Succeeded:</span>
+                      <span className="font-bold text-white">
+                        {checkoutGateway}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-400">
+                      <span>Transaction Reference:</span>
+                      <span className="font-bold text-amber-300 text-[11px]">
+                        {checkoutSuccessData?.payment?.id || `CR-PAY-${Date.now().toString().slice(-6)}`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Back to Subscription Desk Button */}
+                  <div className="pt-2">
                     <button
                       type="button"
-                      onClick={() => setBillingInterval('MONTHLY')}
-                      className={`p-2.5 rounded-xl border font-semibold ${
-                        billingInterval === 'MONTHLY'
-                          ? 'bg-sky-500/20 border-sky-500 text-sky-400'
-                          : 'bg-slate-950 border-slate-800 text-slate-400'
-                      }`}
+                      onClick={() => {
+                        setShowCheckoutModal(false);
+                        setPaymentSuccess(false);
+                        setSelectedPlanForCheckout(null);
+                        setCheckoutSuccessData(null);
+                        setCheckoutError(null);
+                      }}
+                      className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-sm shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2 transition cursor-pointer"
                     >
-                      Monthly (TZS {Number(selectedPlanForCheckout.monthlyPriceTzs || 0).toLocaleString()})
+                      <span>Back to Subscriptions Desk</span>
+                      <ArrowRight className="w-4 h-4" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setBillingInterval('ANNUAL')}
-                      className={`p-2.5 rounded-xl border font-semibold ${
-                        billingInterval === 'ANNUAL'
-                          ? 'bg-sky-500/20 border-sky-500 text-sky-400'
-                          : 'bg-slate-950 border-slate-800 text-slate-400'
-                      }`}
-                    >
-                      Annual (Save 15%)
-                    </button>
+                    <p className="text-[11px] text-slate-500 mt-2.5">
+                      Your subscription is now marked as Active in your Broadcaster Workspace.
+                    </p>
                   </div>
                 </div>
+              ) : (
+                /* IN-PLACE CHECKOUT FORM */
+                <form onSubmit={handleProcessCheckout} className="space-y-5 text-xs">
+                  {/* Modal Header */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 uppercase tracking-wide">
+                        {selectedPlanForCheckout.tier || 'MINISTRY'}
+                      </span>
+                      <span className="text-xs text-slate-400">Broadcaster Checkout</span>
+                    </div>
+                    <h2 className="text-xl font-black text-white">
+                      Upgrade to {selectedPlanForCheckout.name}
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Direct in-panel activation. Choose your cycle and preferred gateway below.
+                    </p>
+                  </div>
 
-                <div>
-                  <label className="block font-medium text-slate-300 mb-1">Select Payment Gateway</label>
-                  <div className="grid grid-cols-3 gap-2">
+                  {/* Pricing Overview & Cycle Picker */}
+                  <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 space-y-3">
+                    <div className="flex items-baseline justify-between">
+                      <div>
+                        <div className="text-2xl font-black text-white">
+                          ${Number(priceUsd).toLocaleString()} USD
+                        </div>
+                        {priceTzs > 0 && (
+                          <div className="text-[11px] text-slate-400 font-mono">
+                            approx. TZS {Number(priceTzs).toLocaleString()}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs text-slate-400">
+                          {isAnnual ? 'Billed annually' : 'Billed monthly'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Cycle Buttons */}
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-800/80">
+                      <button
+                        type="button"
+                        onClick={() => setBillingInterval('MONTHLY')}
+                        className={`p-2.5 rounded-xl border font-bold text-xs transition cursor-pointer ${
+                          billingInterval === 'MONTHLY'
+                            ? 'bg-sky-500/20 border-sky-500 text-sky-400 shadow-sm'
+                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Monthly Billing
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBillingInterval('ANNUAL')}
+                        className={`p-2.5 rounded-xl border font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                          billingInterval === 'ANNUAL'
+                            ? 'bg-sky-500/20 border-sky-500 text-sky-400 shadow-sm'
+                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <span>Annual Billing</span>
+                        <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-500 text-slate-950">
+                          -15%
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Included Features Mini List */}
+                    <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-300 pt-2 border-t border-slate-800/60">
+                      <div className="flex items-center gap-1.5">
+                        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span>Up to {selectedPlanForCheckout.maxStations} Station(s)</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span>{analyticsText} Analytics</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span>{selectedPlanForCheckout.streamMonitoringIntervalMinutes || 15}m Health Checks</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span>Priority Support</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment Gateway Tabs */}
+                  <div>
+                    <label className="block font-bold text-slate-200 mb-2">
+                      Select Payment Gateway
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCheckoutGateway('PESAPAL')}
+                        className={`p-2.5 rounded-2xl border text-left flex flex-col justify-between transition cursor-pointer ${
+                          checkoutGateway === 'PESAPAL'
+                            ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-md ring-1 ring-emerald-500/30'
+                            : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Smartphone className="w-3.5 h-3.5" />
+                          <span className="text-xs font-extrabold">PesaPal</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 leading-tight">
+                          Mobile Money & Cards
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setCheckoutGateway('PAYPAL')}
+                        className={`p-2.5 rounded-2xl border text-left flex flex-col justify-between transition cursor-pointer ${
+                          checkoutGateway === 'PAYPAL'
+                            ? 'bg-sky-500/20 border-sky-500 text-sky-400 shadow-md ring-1 ring-sky-500/30'
+                            : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Globe className="w-3.5 h-3.5" />
+                          <span className="text-xs font-extrabold">PayPal</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 leading-tight">
+                          Express Account
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setCheckoutGateway('STRIPE')}
+                        className={`p-2.5 rounded-2xl border text-left flex flex-col justify-between transition cursor-pointer ${
+                          checkoutGateway === 'STRIPE'
+                            ? 'bg-indigo-500/20 border-indigo-500 text-indigo-400 shadow-md ring-1 ring-indigo-500/30'
+                            : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <CreditCard className="w-3.5 h-3.5" />
+                          <span className="text-xs font-extrabold">Card (Stripe)</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 leading-tight">
+                          Visa / MasterCard
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Gateway Dependent Details */}
+                  {checkoutGateway === 'PESAPAL' && (
+                    <div className="space-y-3 bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 mb-1.5">
+                          Choose Mobile Money Provider
+                        </label>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {(['MPESA', 'TIGO_PESA', 'AIRTEL_MONEY', 'CARD'] as const).map((method) => {
+                            const labels: Record<string, string> = {
+                              MPESA: 'M-Pesa',
+                              TIGO_PESA: 'Tigo Pesa',
+                              AIRTEL_MONEY: 'Airtel',
+                              CARD: 'Bank Card',
+                            };
+                            return (
+                              <button
+                                key={method}
+                                type="button"
+                                onClick={() => setPesapalMethod(method)}
+                                className={`py-1.5 px-2 rounded-xl text-[10px] font-bold border transition cursor-pointer ${
+                                  pesapalMethod === method
+                                    ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                                    : 'bg-slate-900 border-slate-800 text-slate-400'
+                                }`}
+                              >
+                                {labels[method]}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                          Handset Mobile Money Number
+                        </label>
+                        <div className="relative">
+                          <Smartphone className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-500" />
+                          <input
+                            type="tel"
+                            required
+                            placeholder="255754123456"
+                            value={checkoutPhone}
+                            onChange={(e) => setCheckoutPhone(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-1">
+                          Instant USSD push prompt will be sent to your phone to enter your PIN.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {checkoutGateway === 'PAYPAL' && (
+                    <div className="bg-sky-950/20 border border-sky-800/40 rounded-2xl p-4 text-center space-y-2">
+                      <div className="w-10 h-10 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center mx-auto">
+                        <Globe className="w-5 h-5" />
+                      </div>
+                      <h4 className="text-xs font-bold text-white">PayPal Instant Capture</h4>
+                      <p className="text-[11px] text-slate-300 max-w-sm mx-auto">
+                        Seamlessly subscribe with your PayPal balance or attached international debit/credit cards. Activates automatically upon completion.
+                      </p>
+                    </div>
+                  )}
+
+                  {checkoutGateway === 'STRIPE' && (
+                    <div className="space-y-2.5 bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                          Cardholder Name
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={cardName}
+                          onChange={(e) => setCardName(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                          Card Number
+                        </label>
+                        <div className="relative">
+                          <CreditCard className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-500" />
+                          <input
+                            type="text"
+                            required
+                            value={cardNumber}
+                            onChange={(e) => setCardNumber(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                            Expiry (MM/YY)
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={cardExpiry}
+                            onChange={(e) => setCardExpiry(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                            CVC
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={cardCvc}
+                            onChange={(e) => setCardCvc(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Error Notification */}
+                  {checkoutError && (
+                    <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      <span>{checkoutError}</span>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-800">
                     <button
                       type="button"
-                      onClick={() => setPaymentMethod('PESAPAL')}
-                      className={`p-2.5 rounded-xl border text-left flex flex-col justify-between ${
-                        paymentMethod === 'PESAPAL' || paymentMethod === 'MPESA'
-                          ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
-                          : 'bg-slate-950 border-slate-800 text-slate-400'
-                      }`}
+                      disabled={isProcessingPayment}
+                      onClick={() => {
+                        setShowCheckoutModal(false);
+                        setPaymentSuccess(false);
+                        setCheckoutError(null);
+                        setCheckoutSuccessData(null);
+                      }}
+                      className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/60 font-semibold transition cursor-pointer disabled:opacity-50"
                     >
-                      <span className="text-xs font-bold">PesaPal</span>
-                      <span className="text-[10px] text-slate-400">Mobile Money / Cards</span>
+                      Cancel
                     </button>
                     <button
-                      type="button"
-                      onClick={() => setPaymentMethod('PAYPAL')}
-                      className={`p-2.5 rounded-xl border text-left flex flex-col justify-between ${
-                        paymentMethod === 'PAYPAL'
-                          ? 'bg-sky-500/20 border-sky-500 text-sky-400'
-                          : 'bg-slate-950 border-slate-800 text-slate-400'
-                      }`}
+                      type="submit"
+                      disabled={isProcessingPayment}
+                      className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold py-3 px-5 rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50"
                     >
-                      <span className="text-xs font-bold">PayPal</span>
-                      <span className="text-[10px] text-slate-400">PayPal Account</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('STRIPE')}
-                      className={`p-2.5 rounded-xl border text-left flex flex-col justify-between ${
-                        paymentMethod === 'STRIPE'
-                          ? 'bg-purple-500/20 border-purple-500 text-purple-400'
-                          : 'bg-slate-950 border-slate-800 text-slate-400'
-                      }`}
-                    >
-                      <span className="text-xs font-bold">Stripe</span>
-                      <span className="text-[10px] text-slate-400">Visa / MasterCard</span>
+                      {isProcessingPayment ? (
+                        <>
+                          <RotateCw className="w-4 h-4 animate-spin" />
+                          <span>Processing Payment...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-4 h-4" />
+                          <span>Pay ${Number(priceUsd).toLocaleString()} USD & Activate</span>
+                        </>
+                      )}
                     </button>
                   </div>
-                </div>
 
-                <div>
-                  <label className="block font-medium text-slate-300 mb-1">
-                    Mobile Money / Notification Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="2557XXXXXXXX"
-                    value={checkoutPhone}
-                    onChange={(e) => setCheckoutPhone(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200"
-                  />
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => setShowCheckoutModal(false)}
-                    className="px-4 py-2 text-slate-400 hover:text-white"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isProcessingPayment}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-xl disabled:opacity-50"
-                  >
-                    {isProcessingPayment ? 'Processing PesaPal...' : 'Pay & Activate'}
-                  </button>
-                </div>
-              </form>
-            )}
+                  {/* Security Assurance */}
+                  <div className="flex items-center justify-center gap-2 text-[10px] text-slate-500 pt-1">
+                    <Lock className="w-3 h-3 text-emerald-400" />
+                    <span>256-Bit SSL Encrypted • Instant Automatic Activation • No Delays</span>
+                  </div>
+                </form>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Radio Import Modal */}
       <RadioImportModal

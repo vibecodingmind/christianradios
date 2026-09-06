@@ -175,6 +175,7 @@ export async function createPesaPalOrder(
     provider: 'PESAPAL',
     providerRef: merchantReference,
     paymentMethod: params.paymentMethod || 'MPESA',
+    billingInterval: params.billingInterval || 'MONTHLY',
     description: params.description,
     createdAt: new Date().toISOString(),
   };
@@ -277,24 +278,39 @@ export async function finalizePaymentTransaction(
     if (updatedPayment.subscriptionId) {
       const plan = db.plans.findById(updatedPayment.subscriptionId);
       if (plan) {
-        const intervalDays = 30; // monthly standard
+        const isAnnual = updatedPayment.billingInterval === 'ANNUAL';
+        const intervalDays = isAnnual ? 365 : 30;
         const currentPeriodStart = new Date().toISOString();
         const currentPeriodEnd = new Date(Date.now() + intervalDays * 86400000).toISOString();
 
-        const newSub: Subscription = {
-          id: `sub_${Date.now()}`,
-          ownerId: updatedPayment.ownerId,
-          planId: plan.id,
-          status: 'ACTIVE',
-          billingInterval: 'MONTHLY',
-          currentPeriodStart,
-          currentPeriodEnd,
-          cancelAtPeriodEnd: false,
-          autoRenew: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        db.subscriptions.create(newSub);
+        const existingSub = db.subscriptions.findByOwnerId(updatedPayment.ownerId);
+        let newSub: Subscription;
+        if (existingSub) {
+          newSub = db.subscriptions.update(existingSub.id, {
+            planId: plan.id,
+            status: 'ACTIVE',
+            billingInterval: isAnnual ? 'ANNUAL' : 'MONTHLY',
+            currentPeriodStart,
+            currentPeriodEnd,
+            cancelAtPeriodEnd: false,
+            autoRenew: true,
+            updatedAt: new Date().toISOString(),
+          })!;
+        } else {
+          newSub = db.subscriptions.create({
+            id: `sub_${Date.now()}`,
+            ownerId: updatedPayment.ownerId,
+            planId: plan.id,
+            status: 'ACTIVE',
+            billingInterval: isAnnual ? 'ANNUAL' : 'MONTHLY',
+            currentPeriodStart,
+            currentPeriodEnd,
+            cancelAtPeriodEnd: false,
+            autoRenew: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        }
 
         // 2. Generate immutable invoice
         const invCount = db.invoices.getAll().length + 1;
@@ -308,7 +324,7 @@ export async function finalizePaymentTransaction(
           amount: updatedPayment.amount,
           currency: updatedPayment.currency,
           taxAmount: 0,
-          billingPeriod: `1 Month (${plan.name})`,
+          billingPeriod: isAnnual ? `1 Year (${plan.name})` : `1 Month (${plan.name})`,
           status: 'PAID',
           issuedAt: new Date().toISOString(),
           planName: plan.name,
@@ -347,6 +363,9 @@ export async function finalizePaymentTransaction(
               settlesAt: new Date().toISOString(),
               createdAt: new Date().toISOString(),
             });
+
+            // Mark referral as QUALIFIED
+            db.referrals.update(referral.id, { status: 'QUALIFIED' });
 
             // Record ledger credit for referrer
             const currentBal = db.getUserFinancialSummary(referral.referrerId);

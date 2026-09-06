@@ -16,6 +16,7 @@ import {
   Check,
   Zap,
   Sparkles,
+  Coins,
 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import type { PlatformSettings } from '../../types';
@@ -930,6 +931,66 @@ export function AdminSettingsTab() {
                 placeholder="e.g. Join the 24/7 Global Praise & Fasting stream starting this Friday! 🕊️"
                 className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200"
               />
+            </div>
+
+            {/* Referral & Commission Rules */}
+            <div className="p-5 bg-slate-950 border border-slate-800 rounded-xl space-y-4">
+              <div>
+                <h4 className="text-sm font-bold text-sky-400 flex items-center gap-2">
+                  <Coins className="w-4 h-4 text-sky-400" />
+                  Referral & Commission Program Rules
+                </h4>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Configure commission percentages awarded to broadcasters and listeners when their invited users subscribe.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Broadcaster Referral Commission (%)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={50}
+                    value={settings.referralCommissionOwnerPercentage ?? 10}
+                    onChange={(e) => updateSetting('referralCommissionOwnerPercentage', Number(e.target.value))}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-slate-200"
+                  />
+                  <span className="text-[10px] text-slate-500">Awarded on owner plan upgrades</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Listener Referral Commission (%)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={50}
+                    value={settings.referralCommissionListenerPercentage ?? 10}
+                    onChange={(e) => updateSetting('referralCommissionListenerPercentage', Number(e.target.value))}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-slate-200"
+                  />
+                  <span className="text-[10px] text-slate-500">Awarded on premium radio subscriptions</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Attribution Window (Days)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={settings.referralAttributionWindowDays ?? 30}
+                    onChange={(e) => updateSetting('referralAttributionWindowDays', Number(e.target.value))}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-slate-200"
+                  />
+                  <span className="text-[10px] text-slate-500">Referral cookie / tracking duration</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

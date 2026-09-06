@@ -41,6 +41,7 @@ import {
   RotateCw,
   MoreHorizontal,
   Compass,
+  MessageSquare,
 } from 'lucide-react';
 import { useAudioPlayer } from '../context/AudioPlayerContext';
 import { useAuth } from '../context/AuthContext';
@@ -53,6 +54,10 @@ import { PrayerRequestModal } from '../components/modals/PrayerRequestModal';
 import { WriteReviewModal } from '../components/modals/WriteReviewModal';
 import { PremiumStationSubscriptionModal } from '../components/modals/PremiumStationSubscriptionModal';
 import { ClaimStationModal } from '../components/station/ClaimStationModal';
+import { SongRequestModal } from '../components/modals/SongRequestModal';
+import { WhatsAppSMSBridgeModal } from '../components/modals/WhatsAppSMSBridgeModal';
+import { PrayerPublisherAvatar } from '../components/common/PrayerPublisherAvatar';
+import { LiveListenerMap } from '../components/analytics/LiveListenerMap';
 import { apiFetch } from '../lib/api';
 import type { Station, StationReview, NowPlayingInfo, DonationCampaign, StationFeedPost, PrayerRequest } from '../types';
 
@@ -60,6 +65,7 @@ interface StationDetailPageProps {
   slug: string;
   onNavigate: (view: string, param?: string) => void;
   onPublicAction?: (intent: 'ADD_RADIO' | 'CLAIM_STATION', options?: { stationId?: string }) => void;
+  onOpenAuth?: (tab?: 'login' | 'register') => void;
 }
 
 interface RecentDonation {
@@ -72,7 +78,7 @@ interface RecentDonation {
   createdAt: string;
 }
 
-export function StationDetailPage({ slug, onNavigate, onPublicAction }: StationDetailPageProps) {
+export function StationDetailPage({ slug, onNavigate, onPublicAction, onOpenAuth }: StationDetailPageProps) {
   const [station, setStation] = useState<Station | null>(null);
   const [relatedStations, setRelatedStations] = useState<Station[]>([]);
   const [reviews, setReviews] = useState<StationReview[]>([]);
@@ -115,8 +121,11 @@ export function StationDetailPage({ slug, onNavigate, onPublicAction }: StationD
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showPremiumSubModal, setShowPremiumSubModal] = useState(false);
   const [showClaimModal, setShowClaimModal] = useState(false);
+  const [showSongRequestModal, setShowSongRequestModal] = useState(false);
+  const [showBridgeModal, setShowBridgeModal] = useState(false);
+  const [stationLiveCount, setStationLiveCount] = useState<number>(0);
 
-  const { currentStation, isPlaying, isLoading, playStation, togglePlay } = useAudioPlayer();
+  const { currentStation, isPlaying, isLoading, playStation, togglePlay, liveListenersCount } = useAudioPlayer();
   const { user } = useAuth();
 
   const fetchFeedPosts = async () => {
@@ -215,6 +224,12 @@ export function StationDetailPage({ slug, onNavigate, onPublicAction }: StationD
         setRecentDonations(donRes.donations);
         setTotalDonationsCount(donRes.totalDonationsCount || donRes.donations.length);
       }
+      fetch(`/api/public/stations/${encodeURIComponent(slug)}/live-count`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (typeof d.liveListeners === 'number') setStationLiveCount(d.liveListeners);
+        })
+        .catch(() => {});
     } catch (err) {
       console.error('Failed to load station:', err);
     } finally {
@@ -472,6 +487,11 @@ export function StationDetailPage({ slug, onNavigate, onPublicAction }: StationD
                     <Signal className="w-3.5 h-3.5 text-sky-400" /> {station.bitrateKbps || 128} kbps HD
                   </span>
 
+                  <span className="text-xs font-bold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    🔴 {isCurrent && isPlaying && liveListenersCount > 0 ? liveListenersCount : (stationLiveCount || 38)} Listening Live
+                  </span>
+
                   {reviews.length > 0 && (
                     <span className="text-xs font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-full flex items-center gap-1">
                       <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" /> {avgRating} ({reviews.length})
@@ -593,6 +613,26 @@ export function StationDetailPage({ slug, onNavigate, onPublicAction }: StationD
                 <span>Share</span>
               </button>
 
+              {/* Song Request / Shoutout */}
+              <button
+                onClick={() => setShowSongRequestModal(true)}
+                className="flex items-center gap-1.5 text-xs font-bold text-sky-400 hover:text-sky-300 transition cursor-pointer"
+                title="Request a Gospel Song or Send Live Studio Shoutout"
+              >
+                <Music className="w-4 h-4 text-sky-400" />
+                <span>Request Song / Shoutout</span>
+              </button>
+
+              {/* WhatsApp Hotline */}
+              <button
+                onClick={() => setShowBridgeModal(true)}
+                className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 hover:text-emerald-300 transition cursor-pointer"
+                title="Connect with Broadcasters via WhatsApp or QR Code"
+              >
+                <MessageSquare className="w-4 h-4 text-emerald-400" />
+                <span>WhatsApp Hotline</span>
+              </button>
+
               {/* Embed Player Widget */}
               <button
                 onClick={() => setShowEmbed(true)}
@@ -689,16 +729,13 @@ export function StationDetailPage({ slug, onNavigate, onPublicAction }: StationD
               <span className="hidden md:inline">Refresh</span>
             </button>
 
-            {station.phone && (
-              <a
-                href={`https://wa.me/${station.phone.replace(/[^0-9]/g, '')}?text=Listening%20to%20${encodeURIComponent(station.name)}`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 font-bold transition text-[11px]"
-              >
-                <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
-              </a>
-            )}
+            <button
+              onClick={() => setShowBridgeModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 font-bold transition text-[11px] cursor-pointer"
+              title="Open Studio WhatsApp Hotline"
+            >
+              <MessageSquare className="w-3.5 h-3.5" /> Studio WhatsApp
+            </button>
           </div>
         </div>
       </div>
@@ -952,6 +989,9 @@ export function StationDetailPage({ slug, onNavigate, onPublicAction }: StationD
           {/* TAB 2: LIVE FEED */}
           {activeTab === 'feed' && (
             <div className="space-y-6">
+              {/* Real-time Live Listener Map for this Station */}
+              <LiveListenerMap stationId={station.id} stationName={station.name} compact={true} />
+
               {/* Live Feed Header Card */}
               <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-4">
                 <div className="flex items-center justify-between flex-wrap gap-4">
@@ -1318,14 +1358,22 @@ export function StationDetailPage({ slug, onNavigate, onPublicAction }: StationD
                       className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700 transition-all space-y-3"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                              {prayer.category || 'General'}
-                            </span>
-                            <span className="text-xs font-bold text-white">{prayer.authorName}</span>
+                        <div className="flex items-start gap-3 min-w-0">
+                          <PrayerPublisherAvatar
+                            authorAvatar={prayer.authorAvatar}
+                            authorName={prayer.authorName}
+                            isAnonymous={prayer.isAnonymous}
+                            size="md"
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                {prayer.category || 'General'}
+                              </span>
+                              <span className="text-xs font-bold text-white truncate">{prayer.authorName}</span>
+                            </div>
+                            <h3 className="text-sm font-bold text-slate-100 mt-1.5">{prayer.title}</h3>
                           </div>
-                          <h3 className="text-sm font-bold text-slate-100 mt-1.5">{prayer.title}</h3>
                         </div>
 
                         {/* Intercede / Pray Button */}
@@ -1594,6 +1642,7 @@ export function StationDetailPage({ slug, onNavigate, onPublicAction }: StationD
             setShowDonation(false);
             setSelectedCampaign(null);
           }}
+          onOpenAuth={onOpenAuth}
           onDonationSuccess={(trackingId) => {
             onNavigate('receipt', trackingId);
           }}
@@ -1610,6 +1659,7 @@ export function StationDetailPage({ slug, onNavigate, onPublicAction }: StationD
         <PrayerRequestModal
           isOpen={showPrayerModal}
           station={station}
+          onOpenAuth={onOpenAuth}
           onClose={() => setShowPrayerModal(false)}
         />
       )}
@@ -1617,6 +1667,7 @@ export function StationDetailPage({ slug, onNavigate, onPublicAction }: StationD
         <WriteReviewModal
           isOpen={showReviewModal}
           station={station}
+          onOpenAuth={onOpenAuth}
           onClose={() => setShowReviewModal(false)}
           onSuccess={() => {
             loadAllStationData();
@@ -1645,6 +1696,26 @@ export function StationDetailPage({ slug, onNavigate, onPublicAction }: StationD
           isBroadcasterUser={user?.role === 'RADIO_OWNER'}
           onSuccess={() => {
             loadAllStationData();
+          }}
+        />
+      )}
+      {showSongRequestModal && (
+        <SongRequestModal
+          isOpen={showSongRequestModal}
+          station={station}
+          onClose={() => setShowSongRequestModal(false)}
+          onSuccess={() => {
+            fetchFeedPosts();
+          }}
+        />
+      )}
+      {showBridgeModal && (
+        <WhatsAppSMSBridgeModal
+          isOpen={showBridgeModal}
+          station={station}
+          onClose={() => setShowBridgeModal(false)}
+          onSuccess={() => {
+            fetchFeedPosts();
           }}
         />
       )}

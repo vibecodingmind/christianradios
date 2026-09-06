@@ -326,6 +326,189 @@ class DatabaseEngine {
         this.data.categories.unshift(catAwr);
       }
 
+      if (!Array.isArray(this.data.notifications) || this.data.notifications.length === 0) {
+        this.data.notifications = [
+          {
+            id: 'notif_init_01',
+            userId: 'usr_owner_01',
+            title: '🎵 New Song Request: "Nimekubali"',
+            message: 'Sarah from Arusha requested "Nimekubali" by Christina Shusho on Radio Maria Tanzania.',
+            type: 'SONG_REQUEST',
+            read: false,
+            actionUrl: '/owner',
+            createdAt: new Date(Date.now() - 15 * 60000).toISOString(),
+          },
+          {
+            id: 'notif_init_02',
+            userId: 'usr_owner_01',
+            title: '🙏 New Prayer Request Submitted',
+            message: 'A listener submitted a prayer request for healing for their family on Radio Maria.',
+            type: 'PRAYER_REQUEST',
+            read: false,
+            actionUrl: '/owner',
+            createdAt: new Date(Date.now() - 2 * 3600000).toISOString(),
+          },
+          {
+            id: 'notif_init_03',
+            userId: 'usr_owner_01',
+            title: '💳 PesaPal Payment Confirmed',
+            message: 'Your Broadcaster Growth Plan subscription has been renewed successfully.',
+            type: 'PAYMENT_SUCCESS',
+            read: true,
+            actionUrl: '/owner',
+            createdAt: new Date(Date.now() - 24 * 3600000).toISOString(),
+          },
+          {
+            id: 'notif_init_04',
+            userId: 'usr_listener_01',
+            title: '🎵 Your Song Request Was Played On-Air!',
+            message: 'Radio Maria Tanzania just aired your song request "Nimekubali" live on broadcast!',
+            type: 'SONG_REQUEST',
+            read: false,
+            actionUrl: '/prayer-wall',
+            createdAt: new Date(Date.now() - 30 * 60000).toISOString(),
+          },
+          {
+            id: 'notif_init_05',
+            userId: 'usr_listener_01',
+            title: '🙏 Someone just prayed for you!',
+            message: 'A fellow believer joined in agreement with your prayer request: "Guidance for new ministry work".',
+            type: 'PRAYER_REQUEST',
+            read: false,
+            actionUrl: '/prayer-wall',
+            createdAt: new Date(Date.now() - 4 * 3600000).toISOString(),
+          },
+        ];
+      }
+
+      if (!Array.isArray(this.data.plans) || this.data.plans.length === 0) {
+        this.data.plans = [
+          {
+            id: 'plan_free',
+            name: 'Free Starter',
+            tier: 'FREE',
+            description: 'Basic single-station directory listing for Christian radio stations.',
+            monthlyPriceTzs: 0,
+            annualPriceTzs: 0,
+            monthlyPriceUsd: 0,
+            annualPriceUsd: 0,
+            currency: 'USD',
+            maxStations: 1,
+            featuredMonthlyQuota: 0,
+            maxActiveFeatured: 0,
+            donationCampaignLimit: 0,
+            givingEnabled: false,
+            withdrawalsEnabled: false,
+            analyticsRetentionDays: 7,
+            advancedAnalyticsEnabled: false,
+            multiStationAnalyticsEnabled: false,
+            exportsEnabled: false,
+            advancedBrandingEnabled: false,
+            prioritySupport: false,
+            featuredPlacementPriority: 'NONE',
+            streamMonitoringIntervalMinutes: 60,
+            analyticsAccessLevel: 'BASIC',
+            isActive: true,
+            featuresList: [
+              '1 Radio Station listing',
+              '24/7 Live Stream Player (up to 128kbps)',
+              'Normal directory placement',
+              'Basic station profile (Logo & Tagline)',
+              '7 days analytics history',
+              'Community support',
+            ],
+          },
+          {
+            id: 'plan_pro',
+            name: 'Pro Ministry',
+            tier: 'PRO',
+            description: 'Ideal for growing Christian radio stations, ministries & dioceses.',
+            monthlyPriceTzs: 47500,
+            annualPriceTzs: 475000,
+            monthlyPriceUsd: 19,
+            annualPriceUsd: 190,
+            currency: 'USD',
+            maxStations: 3,
+            featuredMonthlyQuota: 1,
+            maxActiveFeatured: 1,
+            donationCampaignLimit: 3,
+            givingEnabled: true,
+            withdrawalsEnabled: true,
+            analyticsRetentionDays: 90,
+            advancedAnalyticsEnabled: true,
+            multiStationAnalyticsEnabled: true,
+            exportsEnabled: true,
+            advancedBrandingEnabled: true,
+            prioritySupport: true,
+            featuredPlacementPriority: 'HIGH',
+            streamMonitoringIntervalMinutes: 15,
+            analyticsAccessLevel: 'ADVANCED',
+            isPopular: true,
+            isActive: true,
+            featuresList: [
+              'Up to 3 Radio Stations',
+              'HD Audio Stream & Backup Stream URL',
+              'Sow a Seed & Donation System (3 Campaigns)',
+              'Listener Premium Subscriptions Gating',
+              '1 Free Featured Directory Badge (3 days/mo)',
+              '90 days analytics & CSV report exports',
+              'Up to 3 Pinned Announcements in Live Feed',
+              'Priority email support (24h turnaround)',
+            ],
+          },
+          {
+            id: 'plan_vip',
+            name: 'Kingdom Network',
+            tier: 'VIP',
+            description: 'Ultimate enterprise broadcast suite for multi-station Christian networks.',
+            monthlyPriceTzs: 122500,
+            annualPriceTzs: 1225000,
+            monthlyPriceUsd: 49,
+            annualPriceUsd: 490,
+            currency: 'USD',
+            maxStations: 10,
+            featuredMonthlyQuota: 3,
+            maxActiveFeatured: 3,
+            donationCampaignLimit: 100,
+            givingEnabled: true,
+            withdrawalsEnabled: true,
+            analyticsRetentionDays: 365,
+            advancedAnalyticsEnabled: true,
+            multiStationAnalyticsEnabled: true,
+            exportsEnabled: true,
+            advancedBrandingEnabled: true,
+            prioritySupport: true,
+            featuredPlacementPriority: 'HIGHEST',
+            streamMonitoringIntervalMinutes: 5,
+            analyticsAccessLevel: 'FULL_ENTERPRISE',
+            isActive: true,
+            featuresList: [
+              'Up to 10 Radio Stations',
+              'Multi-Region Backup Stream Failover',
+              'Unlimited Giving & Crowdfunding (0% fee)',
+              'Full Multi-Station Premium Access Gating',
+              '3 Free Featured Directory Badges (7 days/mo)',
+              '365 days full enterprise analytics & telemetry',
+              'Unlimited Pinned Announcements in Live Feed',
+              '5-min stream health checks & instant alerts',
+              'Dedicated Account Manager & 24/7 Priority Support',
+            ],
+          },
+        ];
+      }
+
+      // Guarantee each plan in this.data.plans has required analyticsAccessLevel & streamMonitoringIntervalMinutes
+      if (Array.isArray(this.data.plans)) {
+        this.data.plans = this.data.plans.map((p) => ({
+          ...p,
+          analyticsAccessLevel:
+            p.analyticsAccessLevel ||
+            (p.tier === 'VIP' ? 'FULL_ENTERPRISE' : p.tier === 'PRO' || p.advancedAnalyticsEnabled ? 'ADVANCED' : 'BASIC'),
+          streamMonitoringIntervalMinutes:
+            p.streamMonitoringIntervalMinutes || (p.tier === 'VIP' ? 5 : p.tier === 'PRO' ? 15 : 60),
+        }));
+      }
+
       this.saveImmediately();
       this.isLoaded = true;
 
@@ -927,8 +1110,13 @@ class DatabaseEngine {
   // --- Subscriptions ---
   public subscriptions = {
     getAll: () => this.data.subscriptions,
-    findByOwnerId: (ownerId: string) =>
-      this.data.subscriptions.find((s) => s.ownerId === ownerId),
+    findByOwnerId: (ownerId: string) => {
+      const ownerSubs = this.data.subscriptions.filter((s) => s.ownerId === ownerId);
+      if (ownerSubs.length === 0) return undefined;
+      const active = ownerSubs.find((s) => s.status === 'ACTIVE' || s.status === 'TRIALING');
+      if (active) return active;
+      return [...ownerSubs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    },
     create: (sub: Subscription) => {
       // Deactivate existing subscriptions for this owner
       this.data.subscriptions = this.data.subscriptions.map((s) =>
@@ -996,6 +1184,7 @@ class DatabaseEngine {
     },
     findByOwnerId: (ownerId: string) =>
       this.data.featuredCampaigns.filter((c) => c.ownerId === ownerId),
+    findById: (id: string) => this.data.featuredCampaigns.find((c) => c.id === id),
     create: (campaign: FeaturedCampaign) => {
       this.data.featuredCampaigns.push(campaign);
       this.save();
@@ -1010,6 +1199,10 @@ class DatabaseEngine {
       };
       this.save();
       return this.data.featuredCampaigns[index];
+    },
+    delete: (id: string) => {
+      this.data.featuredCampaigns = this.data.featuredCampaigns.filter((c) => c.id !== id);
+      this.save();
     },
   };
 
@@ -1049,21 +1242,70 @@ class DatabaseEngine {
 
   // --- Notifications ---
   public notifications = {
-    getByUserId: (userId: string) =>
-      this.data.notifications
-        .filter((n) => n.userId === userId)
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    getAll: () => this.data.notifications,
+    getByUserId: (userId: string, filter?: { unreadOnly?: boolean; type?: string; limit?: number }) => {
+      let list = this.data.notifications.filter((n) => n.userId === userId);
+      if (filter?.unreadOnly) {
+        list = list.filter((n) => !n.read);
+      }
+      if (filter?.type && filter.type !== 'ALL') {
+        list = list.filter((n) => n.type === filter.type);
+      }
+      list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      if (filter?.limit && filter.limit > 0) {
+        list = list.slice(0, filter.limit);
+      }
+      return list;
+    },
+    getUnreadCount: (userId: string) => {
+      return this.data.notifications.filter((n) => n.userId === userId && !n.read).length;
+    },
     create: (notif: Notification) => {
       this.data.notifications.push(notif);
       this.save();
       return notif;
     },
     markRead: (id: string, userId: string) => {
-      const n = this.data.notifications.find((item) => item.id === id && item.userId === userId);
+      const n = this.data.notifications.find((item) => item.id === id && (item.userId === userId || userId === 'usr_superadmin'));
       if (n) {
         n.read = true;
         this.save();
+        return true;
       }
+      return false;
+    },
+    markAllRead: (userId: string) => {
+      let count = 0;
+      for (const n of this.data.notifications) {
+        if ((n.userId === userId || userId === 'usr_superadmin') && !n.read) {
+          n.read = true;
+          count++;
+        }
+      }
+      if (count > 0) {
+        this.save();
+      }
+      return count;
+    },
+    delete: (id: string, userId: string) => {
+      const before = this.data.notifications.length;
+      this.data.notifications = this.data.notifications.filter(
+        (n) => !(n.id === id && (n.userId === userId || userId === 'usr_superadmin'))
+      );
+      if (this.data.notifications.length !== before) {
+        this.save();
+        return true;
+      }
+      return false;
+    },
+    clearAll: (userId: string) => {
+      const before = this.data.notifications.length;
+      this.data.notifications = this.data.notifications.filter((n) => n.userId !== userId);
+      const count = before - this.data.notifications.length;
+      if (count > 0) {
+        this.save();
+      }
+      return count;
     },
   };
 
@@ -1152,6 +1394,10 @@ class DatabaseEngine {
     },
     findById: (id: string) =>
       (this.data.prayerRequests || []).find((p) => p.id === id),
+    getByUserId: (userId: string) =>
+      (this.data.prayerRequests || [])
+        .filter((p) => p.userId === userId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     create: (prayer: PrayerRequest) => {
       if (!this.data.prayerRequests) this.data.prayerRequests = [];
       this.data.prayerRequests.unshift(prayer);
@@ -1325,6 +1571,21 @@ class DatabaseEngine {
       post.isPinned = !post.isPinned;
       this.save();
       return post;
+    },
+    findById: (id: string) => {
+      if (!this.data.feedPosts) return null;
+      return this.data.feedPosts.find((p) => p.id === id) || null;
+    },
+    update: (id: string, updates: Partial<StationFeedPost>) => {
+      if (!this.data.feedPosts) return null;
+      const idx = this.data.feedPosts.findIndex((p) => p.id === id);
+      if (idx === -1) return null;
+      this.data.feedPosts[idx] = {
+        ...this.data.feedPosts[idx],
+        ...updates,
+      };
+      this.save();
+      return this.data.feedPosts[idx];
     },
     like: (id: string) => {
       if (!this.data.feedPosts) return null;
@@ -1618,6 +1879,14 @@ class DatabaseEngine {
       this.data.referrals.unshift(referral);
       this.save();
       return referral;
+    },
+    update: (id: string, updates: Partial<Referral>) => {
+      if (!this.data.referrals) return null;
+      const index = this.data.referrals.findIndex((r) => r.id === id);
+      if (index === -1) return null;
+      this.data.referrals[index] = { ...this.data.referrals[index], ...updates };
+      this.save();
+      return this.data.referrals[index];
     },
   };
 

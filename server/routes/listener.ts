@@ -185,6 +185,36 @@ listenerRouter.get('/recently-listened', requireAuth, (req: AuthenticatedRequest
   res.json({ stations });
 });
 
+// Get Authenticated User Prayer Requests
+listenerRouter.get('/prayers', requireAuth, (req: AuthenticatedRequest, res) => {
+  const userId = req.user!.id;
+  const prayers = db.prayerRequests.getByUserId(userId);
+  res.json({ prayers });
+});
+
+// Get Authenticated User Donations & Giving History
+listenerRouter.get('/donations', requireAuth, (req: AuthenticatedRequest, res) => {
+  const user = req.user!;
+  const userEmail = user.email.toLowerCase().trim();
+  const allDonations = db.donations.getAll();
+  const donations = allDonations
+    .filter(
+      (d) =>
+        d.userId === user.id ||
+        d.donorUserId === user.id ||
+        (d.donorEmail && d.donorEmail.toLowerCase().trim() === userEmail)
+    )
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+  const totalAmountUsd = donations.reduce((sum, d) => sum + (d.amount || 0), 0);
+
+  res.json({
+    donations,
+    totalDonationsCount: donations.length,
+    totalAmountUsd,
+  });
+});
+
 // Report Inappropriate Prayer Request
 listenerRouter.post('/prayers/:id/report', requireAuth, (req: AuthenticatedRequest, res) => {
   const { id } = req.params;
@@ -336,7 +366,11 @@ listenerRouter.get('/referrals', requireAuth, (req: AuthenticatedRequest, res) =
   const listenerId = req.user!.id;
   const user = db.users.findById(listenerId);
 
-  const referralCode = user?.referralCode || `REF_${listenerId.substring(0, 8).toUpperCase()}`;
+  let referralCode = user?.referralCode;
+  if (!referralCode) {
+    referralCode = `REF_${listenerId.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8).toUpperCase()}`;
+    db.users.update(listenerId, { referralCode });
+  }
   const referralLink = `${req.protocol}://${req.get('host')}?ref=${referralCode}`;
 
   const referralsList = db.referrals.findByReferrerId(listenerId);
@@ -357,42 +391,79 @@ listenerRouter.get('/referrals', requireAuth, (req: AuthenticatedRequest, res) =
 // Listener Referral Withdrawal Request
 listenerRouter.post('/withdrawals', requireAuth, (req: AuthenticatedRequest, res) => {
   const listenerId = req.user!.id;
-  const { amount, paymentMethod = 'MOBILE_MONEY', paymentDetails } = req.body;
+  const {
+    amount,
+    currency = 'TZS',
+    paymentMethod = 'MOBILE_MONEY',
+    payoutMethod,
+    payoutAccountName,
+    payoutAccountNumber,
+    payoutBankOrProvider,
+    accountDetails,
+    paymentDetails,
+    notes,
+  } = req.body;
 
   const numAmount = parseInt(amount, 10);
   const settings = db.settings.get();
   const minAmount = settings.minWithdrawalAmount || 20000;
 
   if (isNaN(numAmount) || numAmount < minAmount) {
-    res.status(400).json({ error: `Minimum withdrawal amount is TZS ${minAmount.toLocaleString()}` });
+    res.status(400).json({ error: `Minimum withdrawal amount is ${currency} ${minAmount.toLocaleString()}` });
     return;
   }
 
   const financial = db.getUserFinancialSummary(listenerId);
   if (numAmount > financial.availableBalance) {
     res.status(400).json({
-      error: `Insufficient available referral balance. Your available balance is TZS ${financial.availableBalance.toLocaleString()}`,
+      error: `Insufficient available referral balance. Your available balance is ${currency} ${financial.availableBalance.toLocaleString()}`,
     });
     return;
   }
 
+  const finalMethod = payoutMethod || paymentMethod || 'MOBILE_MONEY';
+  const finalAccountName = payoutAccountName || req.user!.fullName || req.user!.name || req.user!.email;
+  const finalAccountNumber = payoutAccountNumber || accountDetails || paymentDetails || 'Primary Account';
+  const finalBankOrProvider = payoutBankOrProvider || finalMethod;
+
+  const feeRate = (settings.withdrawalFeePercentage ?? 1.0) / 100;
+  const fee = Math.round(numAmount * feeRate);
+  const netAmount = numAmount - fee;
+
   const request = db.withdrawalRequests.create({
     id: `wth_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     ownerId: listenerId,
-    ownerName: req.user!.fullName || req.user!.email,
+    ownerName: finalAccountName,
     ownerEmail: req.user!.email,
     amount: numAmount,
-    currency: 'TZS',
+    currency,
+    fee,
+    netAmount,
     status: 'PENDING',
-    payoutMethod: paymentMethod,
-    accountDetails: paymentDetails || 'Mobile Money Account',
+    payoutMethod: finalMethod,
+    payoutAccountName: finalAccountName,
+    payoutAccountNumber: finalAccountNumber,
+    payoutBankOrProvider: finalBankOrProvider,
+    accountDetails: `${finalMethod}: ${finalAccountNumber} (${finalAccountName})`,
+    notes,
     requestedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
 
+  // Notify admins
+  db.notifications.create({
+    id: `notif_${Date.now()}`,
+    userId: 'usr_superadmin',
+    title: `New Referral Payout Request (${currency} ${numAmount.toLocaleString()})`,
+    message: `${req.user!.name} requested a referral payout of ${currency} ${numAmount.toLocaleString()} via ${finalMethod} (${finalAccountNumber}).`,
+    type: 'SYSTEM_ALERT',
+    read: false,
+    createdAt: new Date().toISOString(),
+  });
+
   res.status(201).json({
     success: true,
-    message: 'Withdrawal request submitted successfully.',
+    message: 'Withdrawal request submitted successfully. Our finance team will review and disburse your funds within 24-48 business hours.',
     withdrawal: request,
   });
 });

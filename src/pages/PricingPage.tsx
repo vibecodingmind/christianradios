@@ -25,7 +25,7 @@ interface PricingPageProps {
 }
 
 export function PricingPage({ onNavigate, onOpenAuth, onPublicAction }: PricingPageProps) {
-  const { user } = useAuth();
+  const { user, plan } = useAuth();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [billingInterval, setBillingInterval] = useState<'MONTHLY' | 'ANNUAL'>('MONTHLY');
   const [loading, setLoading] = useState(true);
@@ -247,22 +247,30 @@ export function PricingPage({ onNavigate, onOpenAuth, onPublicAction }: PricingP
             const isPopular = p.tier === 'PROFESSIONAL' || (p.tier as string) === 'PRO';
             const priceUsd = billingInterval === 'MONTHLY' ? p.monthlyPriceUsd : p.annualPriceUsd;
             const formattedPrice = formatPrice(priceUsd, 'USD');
+            const isCurrent = user?.role === 'RADIO_OWNER' && plan?.id === p.id;
 
             return (
               <div
                 key={p.id}
                 className={`relative bg-slate-900 border rounded-3xl p-7 flex flex-col justify-between space-y-6 transition-all shadow-xl hover:shadow-2xl ${
-                  isPopular
+                  isCurrent
+                    ? 'border-emerald-500 shadow-emerald-500/10 ring-1 ring-emerald-500/30'
+                    : isPopular
                     ? 'border-sky-500 shadow-sky-500/10 scale-105 z-10 bg-slate-900/90'
                     : 'border-slate-800 hover:border-slate-700'
                 }`}
               >
-                {isPopular && (
+                {isCurrent ? (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-emerald-500 text-slate-950 font-black text-[10px] uppercase tracking-wider px-3.5 py-1 rounded-full shadow-md flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5" />
+                    Your Current Package
+                  </div>
+                ) : isPopular ? (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-extrabold text-[11px] uppercase tracking-wider px-4 py-1 rounded-full shadow-md flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5" />
                     Most Popular Choice
                   </div>
-                )}
+                ) : null}
 
                 <div className="space-y-4">
                   <div>
@@ -295,25 +303,48 @@ export function PricingPage({ onNavigate, onOpenAuth, onPublicAction }: PricingP
                 </div>
 
                 <div className="pt-4 border-t border-slate-800">
-                  <button
-                    onClick={() => {
-                      if (onPublicAction) {
-                        onPublicAction('ADD_RADIO');
-                      } else if (user) {
-                        onNavigate('owner');
-                      } else {
-                        onOpenAuth('register');
-                      }
-                    }}
-                    className={`w-full py-3 px-4 rounded-xl font-extrabold text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
-                      isPopular
-                        ? 'bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white'
-                        : 'bg-slate-800 hover:bg-slate-700 text-white'
-                    }`}
-                  >
-                    <span>{priceUsd === 0 ? 'Start Free Broadcast' : 'Choose Plan'}</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
+                  {user?.role === 'RADIO_OWNER' && (p.id === 'plan_free' || priceUsd === 0) ? (
+                    <button
+                      type="button"
+                      disabled={true}
+                      className="w-full py-3 px-4 rounded-xl font-bold text-xs bg-slate-800/60 text-slate-400 border border-slate-750 cursor-not-allowed opacity-75 select-none flex items-center justify-center gap-2"
+                    >
+                      <ShieldCheck className="w-4 h-4 text-slate-500" />
+                      <span>{isCurrent ? 'Current Default Plan' : 'Default Free Package'}</span>
+                    </button>
+                  ) : (
+                    <button
+                      disabled={isCurrent}
+                      onClick={() => {
+                        if (isCurrent) return;
+                        if (!user) {
+                          onOpenAuth('register');
+                          return;
+                        }
+                        if (p.id === 'plan_free') {
+                          onNavigate('owner', 'stations');
+                        } else {
+                          onNavigate('checkout', p.id);
+                        }
+                      }}
+                      className={`w-full py-3 px-4 rounded-xl font-extrabold text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
+                        isCurrent
+                          ? 'bg-slate-800 text-slate-500 cursor-default opacity-70'
+                          : isPopular
+                          ? 'bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white'
+                          : 'bg-slate-800 hover:bg-slate-700 text-white'
+                      }`}
+                    >
+                      <span>
+                        {isCurrent
+                          ? 'Active Package'
+                          : priceUsd === 0
+                          ? 'Start Free Broadcast'
+                          : 'Select Plan & Checkout'}
+                      </span>
+                      {!isCurrent && <ArrowRight className="w-4 h-4" />}
+                    </button>
+                  )}
                 </div>
               </div>
             );

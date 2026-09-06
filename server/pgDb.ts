@@ -107,6 +107,18 @@ export class PgDatabaseSync {
             data JSONB NOT NULL,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
           );
+
+          CREATE TABLE IF NOT EXISTS notifications (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            message TEXT NOT NULL,
+            type TEXT NOT NULL,
+            read BOOLEAN DEFAULT FALSE,
+            action_url TEXT,
+            metadata JSONB,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+          );
         `);
 
         this.isConnected = true;

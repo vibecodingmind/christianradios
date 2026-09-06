@@ -18,6 +18,8 @@ import {
   EyeOff,
   Building2,
   Smartphone,
+  Globe,
+  Wallet,
   ChevronRight,
   Sparkles,
 } from 'lucide-react';
@@ -366,9 +368,24 @@ export function AdminGivingTab() {
                             <span className="font-bold text-white text-sm">{w.ownerName}</span>
                             <span className="text-xs text-slate-400 font-mono">({w.ownerEmail})</span>
                           </div>
-                          <div className="text-xs text-slate-300 flex items-center gap-3 pt-1">
-                            <span>Channel: <strong className="text-emerald-400">{w.payoutMethod}</strong></span>
-                            <span>Account: <strong>{w.payoutAccountNumber}</strong> ({w.payoutAccountName})</span>
+                          <div className="text-xs text-slate-300 flex items-center gap-3 pt-1.5 flex-wrap">
+                            {w.payoutMethod === 'MOBILE_MONEY' ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 font-bold text-[11px]">
+                                <Smartphone className="w-3.5 h-3.5" /> Mobile Money ({w.payoutBankOrProvider || 'M-Pesa / Tigo / Airtel'})
+                              </span>
+                            ) : w.payoutMethod === 'PAYPAL' ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-sky-500/15 text-sky-400 border border-sky-500/25 font-bold text-[11px]">
+                                <Globe className="w-3.5 h-3.5" /> PayPal
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-purple-500/15 text-purple-400 border border-purple-500/25 font-bold text-[11px]">
+                                <Building2 className="w-3.5 h-3.5" /> Bank Transfer ({w.payoutBankOrProvider || 'Bank'})
+                              </span>
+                            )}
+                            <span className="text-slate-300">
+                              Account: <strong className="text-white font-mono">{w.payoutAccountNumber}</strong>{' '}
+                              <span className="text-slate-400">({w.payoutAccountName})</span>
+                            </span>
                             <span className="text-slate-500">• {new Date(w.requestedAt).toLocaleString()}</span>
                           </div>
                           {w.adminNotes && (

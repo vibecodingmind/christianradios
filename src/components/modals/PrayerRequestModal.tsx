@@ -1,24 +1,51 @@
-import React, { useState } from 'react';
-import { HeartHandshake, X, Send, Shield, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { HeartHandshake, X, Send, Shield, Sparkles, LogIn, UserCheck, Lock } from 'lucide-react';
 import type { Station } from '../../types';
+import { useAuth } from '../../context/AuthContext';
+import { apiFetch } from '../../lib/api';
+import { PrayerPublisherAvatar } from '../common/PrayerPublisherAvatar';
 
 interface PrayerRequestModalProps {
   isOpen: boolean;
   onClose: () => void;
   station?: Station;
   onSuccess?: () => void;
+  onOpenAuth?: (tab?: 'login' | 'register') => void;
+  initialTitle?: string;
+  initialPrayerPoints?: string;
+  initialCategory?: string;
 }
 
-export function PrayerRequestModal({ isOpen, onClose, station, onSuccess }: PrayerRequestModalProps) {
-  const [title, setTitle] = useState('');
-  const [prayerPoints, setPrayerPoints] = useState('');
-  const [authorName, setAuthorName] = useState('');
+export function PrayerRequestModal({
+  isOpen,
+  onClose,
+  station,
+  onSuccess,
+  onOpenAuth,
+  initialTitle = '',
+  initialPrayerPoints = '',
+  initialCategory = 'Healing',
+}: PrayerRequestModalProps) {
+  const { user } = useAuth();
+
+  const [title, setTitle] = useState(initialTitle);
+  const [prayerPoints, setPrayerPoints] = useState(initialPrayerPoints);
+  const [authorName, setAuthorName] = useState(user?.name || '');
   const [isAnonymous, setIsAnonymous] = useState(false);
-  const [category, setCategory] = useState('Healing');
+  const [category, setCategory] = useState(initialCategory);
   const [countryCode, setCountryCode] = useState('TZ');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (initialTitle) setTitle(initialTitle);
+      if (initialPrayerPoints) setPrayerPoints(initialPrayerPoints);
+      if (initialCategory) setCategory(initialCategory);
+      if (user?.name && !authorName) setAuthorName(user.name);
+    }
+  }, [isOpen, initialTitle, initialPrayerPoints, initialCategory, user]);
 
   if (!isOpen) return null;
 
@@ -30,13 +57,14 @@ export function PrayerRequestModal({ isOpen, onClose, station, onSuccess }: Pray
     setIsSubmitting(true);
 
     try {
-      const res = await fetch('/api/public/prayers', {
+      const res = await apiFetch('/api/public/prayers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title,
           prayerPoints,
-          authorName: isAnonymous ? 'Anonymous' : authorName,
+          authorName: isAnonymous ? 'Anonymous Listener' : (authorName || user?.name || 'Faithful Believer'),
+          authorAvatar: isAnonymous ? undefined : user?.avatarUrl,
           isAnonymous,
           category,
           stationId: station?.id,
@@ -61,12 +89,58 @@ export function PrayerRequestModal({ isOpen, onClose, station, onSuccess }: Pray
       <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 relative shadow-2xl my-8">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
 
-        {!submitted ? (
+        {/* 1. AUTH GATE FOR GUEST USERS */}
+        {!user ? (
+          <div className="text-center py-6 space-y-5">
+            <div className="w-16 h-16 rounded-2xl bg-purple-500/15 border border-purple-500/30 text-purple-400 mx-auto flex items-center justify-center shadow-xl">
+              <Lock className="w-8 h-8" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-white">Sign In to Post a Prayer Request</h3>
+              <p className="text-xs text-slate-300 max-w-sm mx-auto leading-relaxed">
+                To protect our intercession altar from spam and allow pastors and believers to stand in faith with you, prayer submissions require a free listener account.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 text-left space-y-2">
+              <div className="flex items-center gap-2 text-xs text-slate-300 font-medium">
+                <Shield className="w-4 h-4 text-purple-400 shrink-0" />
+                <span>You can still choose to submit <strong>anonymously</strong> on the public wall.</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-slate-300 font-medium">
+                <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Track your requests and share a <strong>Praise Report</strong> when God answers!</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  if (onOpenAuth) onOpenAuth('login');
+                }}
+                className="flex-1 py-3 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 transition cursor-pointer"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Sign In / Register</span>
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs transition cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : !submitted ? (
           <div>
             <div className="flex items-center gap-3 mb-5">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
@@ -78,6 +152,29 @@ export function PrayerRequestModal({ isOpen, onClose, station, onSuccess }: Pray
                 </h3>
                 <p className="text-xs text-slate-400">Join thousands of believers standing in faith with you</p>
               </div>
+            </div>
+
+            {/* Authenticated user indicator */}
+            <div className="mb-4 flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <PrayerPublisherAvatar
+                  authorAvatar={isAnonymous ? undefined : user.avatarUrl}
+                  authorName={isAnonymous ? 'Anonymous Listener' : user.name}
+                  isAnonymous={isAnonymous}
+                  size="sm"
+                />
+                <div className="truncate">
+                  <span className="block text-[10px] text-purple-400 font-semibold">
+                    {isAnonymous ? 'Publishing as Anonymous' : 'Publishing as Registered Member'}
+                  </span>
+                  <span className="text-white font-medium text-xs">
+                    {isAnonymous ? 'Anonymous Listener' : user.name}
+                  </span>
+                </div>
+              </div>
+              <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
+                {user.email}
+              </span>
             </div>
 
             {error && (
@@ -97,7 +194,7 @@ export function PrayerRequestModal({ isOpen, onClose, station, onSuccess }: Pray
                       key={cat}
                       type="button"
                       onClick={() => setCategory(cat)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                         category === cat
                           ? 'bg-purple-500 text-white shadow-sm shadow-purple-500/30'
                           : 'bg-slate-950 border border-slate-800 text-slate-400 hover:text-white'
@@ -181,7 +278,7 @@ export function PrayerRequestModal({ isOpen, onClose, station, onSuccess }: Pray
                   className="w-4 h-4 rounded bg-slate-950 border-slate-700 text-purple-600 focus:ring-0 cursor-pointer"
                 />
                 <label htmlFor="anonymousCheck" className="text-xs text-slate-300 cursor-pointer select-none">
-                  Keep my name anonymous (Show as "Anonymous Listener")
+                  Keep my name anonymous (Show as "Anonymous Listener" on the public wall)
                 </label>
               </div>
 
@@ -193,7 +290,7 @@ export function PrayerRequestModal({ isOpen, onClose, station, onSuccess }: Pray
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-purple-600/30 transition disabled:opacity-50"
+                  className="px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-purple-600/30 transition disabled:opacity-50 cursor-pointer"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>{isSubmitting ? 'Posting...' : 'Submit Prayer'}</span>
@@ -212,7 +309,7 @@ export function PrayerRequestModal({ isOpen, onClose, station, onSuccess }: Pray
             </p>
             <button
               onClick={onClose}
-              className="px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition"
+              className="px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition cursor-pointer"
             >
               Back to Prayer Wall
             </button>

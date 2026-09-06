@@ -14,6 +14,8 @@ import { paymentsRouter } from './server/routes/payments.js';
 import { aiRouter } from './server/routes/ai.js';
 import { kycRouter } from './server/routes/kyc.js';
 import { adminVerificationRouter } from './server/routes/adminVerification.js';
+import { listenerPulseRouter } from './server/routes/listenerPulse.js';
+import { notificationsRouter } from './server/routes/notifications.js';
 
 import { authRateLimiter, sensitiveActionRateLimiter, apiRateLimiter } from './server/rateLimiter.js';
 
@@ -77,6 +79,7 @@ async function bootstrap() {
 
   app.use('/api/auth', authRouter);
   app.use('/api/public', publicRouter);
+  app.use('/api/public', listenerPulseRouter);
   app.use('/api/listener', listenerRouter);
   app.use('/api/owner', ownerRouter);
   app.use('/api/kyc', kycRouter);
@@ -84,6 +87,7 @@ async function bootstrap() {
   app.use('/api/admin', adminRouter);
   app.use('/api/payments', paymentsRouter);
   app.use('/api/ai', aiRouter);
+  app.use('/api/notifications', notificationsRouter);
 
   // Catch-all for unhandled API endpoints to prevent falling through to HTML index
   app.all('/api/*', (req, res) => {

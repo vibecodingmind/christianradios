@@ -9,10 +9,15 @@ import {
   createPasswordResetToken,
   verifyPasswordResetToken,
   consumePasswordResetToken,
+  createEmailVerification,
+  verifyEmailCode,
+  verifyEmailToken,
   type AuthenticatedRequest,
 } from '../auth.js';
+import { sendAuthVerificationEmail, getLatestEmailFor } from '../email.js';
 import { db } from '../db.js';
 import type { User, Role } from '../types.js';
+import { DEFAULT_OFFICIAL_PLANS, PlanEntitlementService } from '../services/entitlement.js';
 
 export const authRouter = Router();
 
@@ -45,7 +50,7 @@ authRouter.post('/register', async (req, res) => {
       passwordHash: hashPassword(data.password),
       role: data.role as Role,
       name: data.name.trim(),
-      emailVerified: true, // Auto-verified for seamless start
+      emailVerified: false, // Requires email authentication
       phone: data.phone,
       referralCode: genReferralCode,
       status: 'ACTIVE',
@@ -58,10 +63,12 @@ authRouter.post('/register', async (req, res) => {
     // Referral System Attribution
     if (data.referralCode) {
       const cleanRef = data.referralCode.trim().toUpperCase();
-      const referrer = db.users.getAll().find(
+      const allUsers = db.users.getAll();
+      const referrer = allUsers.find(
         (u) =>
           (u.referralCode && u.referralCode.toUpperCase() === cleanRef) ||
-          `REF_${u.id.substring(4, 10).toUpperCase()}` === cleanRef
+          u.id.toUpperCase() === cleanRef ||
+          `REF_${u.id.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8).toUpperCase()}` === cleanRef
       );
       if (referrer && referrer.id !== newUser.id) {
         try {
@@ -117,27 +124,33 @@ authRouter.post('/register', async (req, res) => {
       action: 'USER_REGISTERED',
       entityType: 'User',
       entityId: newUser.id,
-      details: `New ${newUser.role} account registered.`,
+      details: `New ${newUser.role} account registered. Email verification required.`,
       ipAddress: req.ip || '127.0.0.1',
     });
 
-    const token = signSessionToken(newUser);
-    res.cookie('cr_session', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+    // Generate email verification code & 1-click token
+    const { code, token: emailToken } = createEmailVerification(newUser.id, newUser.email);
+
+    // Send login authentication by email
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+    const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:3000';
+    const baseUrl = `${protocol}://${host}`;
+
+    await sendAuthVerificationEmail({
+      to: newUser.email,
+      name: newUser.name,
+      code,
+      token: emailToken,
+      role: newUser.role,
+      baseUrl,
     });
 
-    const ownerProfile =
-      newUser.role === 'RADIO_OWNER'
-        ? db.ownerProfiles.findByUserId(newUser.id)
-        : undefined;
-
     res.status(201).json({
-      token,
-      user: sanitizeUser(newUser),
-      ownerProfile,
+      success: true,
+      requiresVerification: true,
+      email: newUser.email,
+      devCode: code,
+      message: 'Account created! Please check your email for the 6-digit authentication code.',
     });
   } catch (err: unknown) {
     if (err instanceof z.ZodError) {
@@ -146,6 +159,130 @@ authRouter.post('/register', async (req, res) => {
     }
     res.status(500).json({ error: 'Registration failed. Please try again.' });
   }
+});
+
+// Verify 6-digit authentication code
+authRouter.post('/verify-code', async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) {
+      res.status(400).json({ error: 'Email and 6-digit authentication code are required.' });
+      return;
+    }
+
+    const verifiedUser = verifyEmailCode(email, code);
+    if (!verifiedUser) {
+      res.status(400).json({ error: 'Invalid or expired authentication code. Please check your email or request a new code.' });
+      return;
+    }
+
+    const token = signSessionToken(verifiedUser);
+    res.cookie('cr_session', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    const ownerProfile =
+      verifiedUser.role === 'RADIO_OWNER'
+        ? db.ownerProfiles.findByUserId(verifiedUser.id)
+        : undefined;
+
+    res.json({
+      success: true,
+      token,
+      user: sanitizeUser(verifiedUser),
+      ownerProfile,
+    });
+  } catch {
+    res.status(500).json({ error: 'Failed to verify authentication code.' });
+  }
+});
+
+// Verify 1-click magic link token
+authRouter.post('/verify-token', async (req, res) => {
+  try {
+    const { email, token: verifyToken } = req.body;
+    if (!email || !verifyToken) {
+      res.status(400).json({ error: 'Email and verification token are required.' });
+      return;
+    }
+
+    const verifiedUser = verifyEmailToken(email, verifyToken);
+    if (!verifiedUser) {
+      res.status(400).json({ error: 'Invalid or expired verification link.' });
+      return;
+    }
+
+    const token = signSessionToken(verifiedUser);
+    res.cookie('cr_session', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    const ownerProfile =
+      verifiedUser.role === 'RADIO_OWNER'
+        ? db.ownerProfiles.findByUserId(verifiedUser.id)
+        : undefined;
+
+    res.json({
+      success: true,
+      token,
+      user: sanitizeUser(verifiedUser),
+      ownerProfile,
+    });
+  } catch {
+    res.status(500).json({ error: 'Failed to verify authentication token.' });
+  }
+});
+
+// Resend authentication code
+authRouter.post('/resend-code', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      res.status(400).json({ error: 'Email address is required.' });
+      return;
+    }
+
+    const user = db.users.findByEmail(email);
+    if (!user) {
+      res.status(404).json({ error: 'No account registered with this email address.' });
+      return;
+    }
+
+    const { code, token: emailToken } = createEmailVerification(user.id, user.email);
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+    const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:3000';
+    const baseUrl = `${protocol}://${host}`;
+
+    await sendAuthVerificationEmail({
+      to: user.email,
+      name: user.name,
+      code,
+      token: emailToken,
+      role: user.role,
+      baseUrl,
+    });
+
+    res.json({
+      success: true,
+      message: 'A fresh 6-digit authentication code has been sent to your email.',
+      devCode: code,
+    });
+  } catch {
+    res.status(500).json({ error: 'Failed to resend authentication code.' });
+  }
+});
+
+// Latest email inspector (for testing / preview convenience)
+authRouter.get('/latest-email', (req, res) => {
+  const email = (req.query.email as string) || '';
+  const latest = getLatestEmailFor(email);
+  res.json({ latest });
 });
 
 const LoginSchema = z.object({
@@ -170,6 +307,30 @@ authRouter.post('/login', async (req, res) => {
     const isValid = verifyPassword(password, user.passwordHash);
     if (!isValid) {
       res.status(401).json({ error: 'Invalid email or password.' });
+      return;
+    }
+
+    // If user's email has not been verified yet, require verification code
+    if (user.emailVerified === false) {
+      const { code, token: emailToken } = createEmailVerification(user.id, user.email);
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+      const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:3000';
+      const baseUrl = `${protocol}://${host}`;
+      await sendAuthVerificationEmail({
+        to: user.email,
+        name: user.name,
+        code,
+        token: emailToken,
+        role: user.role,
+        baseUrl,
+      });
+
+      res.status(200).json({
+        requiresVerification: true,
+        email: user.email,
+        devCode: code,
+        message: 'Please authenticate your email to complete login. A fresh code has been sent.',
+      });
       return;
     }
 
@@ -223,10 +384,35 @@ authRouter.get('/me', (req, res) => {
   }
   const ownerProfile =
     user.role === 'RADIO_OWNER' ? db.ownerProfiles.findByUserId(user.id) : undefined;
-  const subscription =
+  let subscription =
     user.role === 'RADIO_OWNER' ? db.subscriptions.findByOwnerId(user.id) : undefined;
+
+  // By default, radio owners are in the Free package if no active subscription exists
+  if (user.role === 'RADIO_OWNER' && !subscription) {
+    const freePlan =
+      db.plans.getAll().find((p) => p.tier === 'FREE') ||
+      db.plans.findById('plan_free') ||
+      DEFAULT_OFFICIAL_PLANS[0];
+    subscription = db.subscriptions.create({
+      id: `sub_${Date.now()}`,
+      ownerId: user.id,
+      planId: freePlan.id,
+      status: 'ACTIVE',
+      billingInterval: 'MONTHLY',
+      currentPeriodStart: new Date().toISOString(),
+      currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      cancelAtPeriodEnd: false,
+      autoRenew: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
   const plan =
-    subscription ? db.plans.findById(subscription.planId) : undefined;
+    user.role === 'RADIO_OWNER'
+      ? (subscription ? db.plans.findById(subscription.planId) : undefined) ||
+        DEFAULT_OFFICIAL_PLANS[0]
+      : undefined;
 
   res.json({
     user: sanitizeUser(user),
@@ -430,15 +616,22 @@ authRouter.post('/reset-password', (req, res) => {
 // Google Social OAuth Authentication Endpoint
 authRouter.get('/google-config', (req, res) => {
   const settings = db.settings.get();
+  const clientId =
+    process.env.VITE_GOOGLE_CLIENT_ID ||
+    process.env.GOOGLE_CLIENT_ID ||
+    settings.googleClientId ||
+    '';
+
   res.json({
     googleAuthEnabled: settings.googleAuthEnabled ?? true,
-    googleClientId: settings.googleClientId || '891028371900-cradiosoauth.apps.googleusercontent.com',
+    googleClientId: clientId,
+    isConfigured: Boolean(clientId),
   });
 });
 
 authRouter.post('/google', async (req, res) => {
   try {
-    const { email, name, avatarUrl, googleId, credential, role = 'LISTENER' } = req.body;
+    const { email, name, avatarUrl, googleId, credential, role = 'LISTENER', referralCode } = req.body;
 
     // Handle credential payload or decoded user object
     let targetEmail = email;
@@ -448,15 +641,35 @@ authRouter.post('/google', async (req, res) => {
 
     if (credential) {
       try {
-        // Parse Google JWT ID Token payload (base64 part 2)
-        const parts = credential.split('.');
-        if (parts.length === 3) {
-          const payloadJson = Buffer.from(parts[1], 'base64').toString('utf-8');
-          const payload = JSON.parse(payloadJson);
-          targetEmail = payload.email || targetEmail;
-          targetName = payload.name || targetName;
-          targetAvatar = payload.picture || targetAvatar;
-          targetGoogleId = payload.sub || targetGoogleId;
+        // Attempt online tokeninfo verification with Google if reachable
+        try {
+          const verifyRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`, {
+            signal: AbortSignal.timeout(3000),
+          });
+          if (verifyRes.ok) {
+            const googleInfo = await verifyRes.json();
+            if (googleInfo.email) {
+              targetEmail = googleInfo.email;
+              targetName = googleInfo.name || targetName;
+              targetAvatar = googleInfo.picture || targetAvatar;
+              targetGoogleId = googleInfo.sub || targetGoogleId;
+            }
+          }
+        } catch {
+          // Fallback to local JWT parsing if network is unavailable
+        }
+
+        if (!targetEmail) {
+          // Parse Google JWT ID Token payload (base64 part 2)
+          const parts = credential.split('.');
+          if (parts.length === 3) {
+            const payloadJson = Buffer.from(parts[1], 'base64').toString('utf-8');
+            const payload = JSON.parse(payloadJson);
+            targetEmail = payload.email || targetEmail;
+            targetName = payload.name || targetName;
+            targetAvatar = payload.picture || targetAvatar;
+            targetGoogleId = payload.sub || targetGoogleId;
+          }
         }
       } catch (err) {
         console.warn('Failed to parse Google JWT credential payload:', err);
@@ -472,6 +685,8 @@ authRouter.post('/google', async (req, res) => {
     let user = db.users.findByEmail(cleanEmail);
 
     if (!user) {
+      const genReferralCode = `REF_${cleanEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').substring(0, 6).toUpperCase()}_${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
+
       // Create new user account registered via Google OAuth
       const newUser: User = {
         id: `usr_g_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -482,12 +697,42 @@ authRouter.post('/google', async (req, res) => {
         avatarUrl: targetAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(targetName || cleanEmail)}&background=0284c7&color=fff`,
         emailVerified: true,
         status: 'ACTIVE',
+        referralCode: genReferralCode,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
       db.users.create(newUser);
       user = newUser;
+
+      // Google Registration Referral System Attribution
+      if (referralCode) {
+        const cleanRef = String(referralCode).trim().toUpperCase();
+        const allUsers = db.users.getAll();
+        const referrer = allUsers.find(
+          (u) =>
+            (u.referralCode && u.referralCode.toUpperCase() === cleanRef) ||
+            u.id.toUpperCase() === cleanRef ||
+            `REF_${u.id.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8).toUpperCase()}` === cleanRef
+        );
+
+        if (referrer && referrer.id !== newUser.id) {
+          try {
+            db.referrals.create({
+              id: `ref_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              referrerId: referrer.id,
+              referrerRole: referrer.role === 'RADIO_OWNER' ? 'RADIO_OWNER' : 'LISTENER',
+              referredUserId: newUser.id,
+              referralCode: cleanRef,
+              status: 'QUALIFIED',
+              createdAt: new Date().toISOString(),
+            });
+            console.log(`[Referrals Engine] Google user ${newUser.id} registered via code ${cleanRef} from referrer ${referrer.id}`);
+          } catch (refErr: any) {
+            console.warn('[Referrals Engine] Skip duplicate referral creation:', refErr.message);
+          }
+        }
+      }
 
       if (newUser.role === 'RADIO_OWNER') {
         db.ownerProfiles.create({
@@ -516,6 +761,11 @@ authRouter.post('/google', async (req, res) => {
         }
       }
     } else {
+      // Ensure user has a persistent referral code
+      if (!user.referralCode) {
+        const genReferralCode = `REF_${user.id.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8).toUpperCase()}`;
+        user = db.users.update(user.id, { referralCode: genReferralCode }) || user;
+      }
       // Update avatar or name if newly provided from Google
       if (targetAvatar && !user.avatarUrl) {
         user = db.users.update(user.id, { avatarUrl: targetAvatar }) || user;

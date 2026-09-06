@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AudioPlayerProvider, useAudioPlayer } from './context/AudioPlayerContext';
+import { NotificationProvider } from './context/NotificationContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
@@ -28,6 +29,8 @@ import { HowItWorksPage } from './pages/HowItWorksPage';
 import { ListYourRadioPage } from './pages/ListYourRadioPage';
 import { HelpContactPage } from './pages/HelpContactPage';
 import { LegalPage } from './pages/LegalPage';
+import { ReferralsPage } from './pages/ReferralsPage';
+import { SubscriptionCheckoutPage } from './pages/SubscriptionCheckoutPage';
 
 import { OwnerOnboardingModal } from './components/auth/OwnerOnboardingModal';
 import { AIChatDrawer, AIAssistantButton } from './components/ai/AIChatDrawer';
@@ -45,10 +48,23 @@ function MainAppContent() {
   } | null>(null);
   const [ownerOnboardingOpen, setOwnerOnboardingOpen] = useState(false);
 
-  const { user } = useAuth();
-  const { isPlaying, togglePlay, toggleMute, volume, setVolume } = useAudioPlayer();
+  const { user, verifyEmailToken } = useAuth();
+  const { currentStation, isPlaying, togglePlay, toggleMute, volume, setVolume } = useAudioPlayer();
 
   const isEmbedRoute = window.location.pathname.startsWith('/embed') || currentView === 'embed';
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const verifyToken = params.get('verify_token');
+    const verifyEmail = params.get('email');
+    if (verifyToken && verifyEmail) {
+      verifyEmailToken(verifyEmail, verifyToken).then((res) => {
+        if (res.success) {
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      });
+    }
+  }, [verifyEmailToken]);
 
   const parseUrlRoute = () => {
     const pathname = window.location.pathname;
@@ -85,9 +101,18 @@ function MainAppContent() {
       setViewParam(countryCode);
       return;
     }
+    const viewParamQuery = params.get('view');
+    if (viewParamQuery === 'referrals') {
+      setCurrentView('referrals');
+      setViewParam(undefined);
+      return;
+    }
 
     const path = pathname.toLowerCase().replace(/\/$/, '') || '/';
-    if (path === '/radios' || path === '/directory') {
+    if (path === '/referrals' || path === '/earnings') {
+      setCurrentView('referrals');
+      setViewParam(undefined);
+    } else if (path === '/radios' || path === '/directory') {
       setCurrentView('directory');
       setViewParam(undefined);
     } else if (path === '/categories') {
@@ -99,6 +124,10 @@ function MainAppContent() {
     } else if (path === '/pricing') {
       setCurrentView('pricing');
       setViewParam(undefined);
+    } else if (path === '/checkout' || path === '/subscription/checkout') {
+      setCurrentView('checkout');
+      const planParam = params.get('plan') || undefined;
+      setViewParam(planParam);
     } else if (path === '/giving') {
       setCurrentView('giving');
       setViewParam(undefined);
@@ -174,6 +203,10 @@ function MainAppContent() {
     else if (view === 'categories') targetPath = '/categories';
     else if (view === 'countries') targetPath = '/countries';
     else if (view === 'pricing') targetPath = '/pricing';
+    else if (view === 'checkout') {
+      targetPath = '/checkout';
+      if (param) url.searchParams.set('plan', param);
+    }
     else if (view === 'giving') targetPath = '/giving';
     else if (view === 'prayer-wall') targetPath = '/prayer-wall';
     else if (view === 'owner') targetPath = '/owner';
@@ -184,6 +217,7 @@ function MainAppContent() {
     else if (view === 'help' || view === 'contact') targetPath = '/help';
     else if (view === 'legal') targetPath = '/legal';
     else if (view === 'profile') targetPath = '/profile';
+    else if (view === 'referrals' || view === 'earnings') targetPath = '/referrals';
     else if (view === 'favorites') targetPath = '/favorites';
     else if (view === 'following') targetPath = '/following';
     else if (view === 'station' && param) {
@@ -379,6 +413,7 @@ function MainAppContent() {
             slug={viewParam}
             onNavigate={handleNavigate}
             onPublicAction={handlePublicAction}
+            onOpenAuth={handleOpenAuth}
           />
         )}
 
@@ -391,11 +426,11 @@ function MainAppContent() {
         )}
 
         {currentView === 'giving' && (
-          <GivingPage onNavigate={handleNavigate} />
+          <GivingPage onNavigate={handleNavigate} onOpenAuth={handleOpenAuth} />
         )}
 
         {currentView === 'prayer-wall' && (
-          <PrayerWallPage onNavigate={handleNavigate} />
+          <PrayerWallPage onNavigate={handleNavigate} onOpenAuth={handleOpenAuth} />
         )}
 
         {currentView === 'receipt' && viewParam && (
@@ -404,6 +439,10 @@ function MainAppContent() {
 
         {currentView === 'profile' && (
           <ProfileSettingsPage onNavigate={handleNavigate} />
+        )}
+
+        {currentView === 'referrals' && (
+          <ReferralsPage onNavigate={handleNavigate} onOpenAuth={handleOpenAuth} />
         )}
 
         {currentView === 'owner' && (
@@ -419,6 +458,14 @@ function MainAppContent() {
             onNavigate={handleNavigate}
             onOpenAuth={handleOpenAuth}
             onPublicAction={handlePublicAction}
+          />
+        )}
+
+        {currentView === 'checkout' && (
+          <SubscriptionCheckoutPage
+            planId={viewParam}
+            onNavigate={handleNavigate}
+            onOpenAuth={handleOpenAuth}
           />
         )}
 
@@ -462,6 +509,9 @@ function MainAppContent() {
         onPublicAction={handlePublicAction}
       />
 
+      {/* Breathing room spacer when persistent floating player is active */}
+      {currentStation && <div className="h-24 sm:h-28" aria-hidden="true" />}
+
       {/* Docked Persistent Audio Player */}
       <PersistentPlayer />
 
@@ -502,9 +552,11 @@ export function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AudioPlayerProvider>
-          <MainAppContent />
-        </AudioPlayerProvider>
+        <NotificationProvider>
+          <AudioPlayerProvider>
+            <MainAppContent />
+          </AudioPlayerProvider>
+        </NotificationProvider>
       </AuthProvider>
     </ThemeProvider>
   );

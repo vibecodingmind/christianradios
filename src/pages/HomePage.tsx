@@ -35,6 +35,7 @@ import { useAudioPlayer } from '../context/AudioPlayerContext';
 import { useAuth } from '../context/AuthContext';
 import { StationCard } from '../components/station/StationCard';
 import { Carousel } from '../components/common/Carousel';
+import { PrayerPublisherAvatar } from '../components/common/PrayerPublisherAvatar';
 import { AIRadioGuide } from '../components/ai/AIRadioGuide';
 import { apiFetch } from '../lib/api';
 import type { Category, Country, Station, SubscriptionPlan, PrayerRequest, StationReview } from '../types';
@@ -380,17 +381,25 @@ export function HomePage({ onNavigate, onOpenAuth, onPublicAction }: HomePagePro
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {(featuredStations.length >= 24
-            ? featuredStations.slice(0, 24)
-            : [...featuredStations, ...allStations].slice(0, 24)
-          ).map((stn) => (
-            <StationCard
-              key={stn.id}
-              station={stn}
-              variant="featured"
-              onNavigate={onNavigate}
-            />
-          ))}
+          {(() => {
+            const displayed = [...featuredStations];
+            const featuredIds = new Set(featuredStations.map((s) => s.id));
+            for (const stn of allStations) {
+              if (displayed.length >= 24) break;
+              if (!featuredIds.has(stn.id)) {
+                displayed.push(stn);
+                featuredIds.add(stn.id);
+              }
+            }
+            return displayed.map((stn) => (
+              <StationCard
+                key={stn.id}
+                station={stn}
+                variant="featured"
+                onNavigate={onNavigate}
+              />
+            ));
+          })()}
         </div>
       </div>
 
@@ -724,13 +733,21 @@ export function HomePage({ onNavigate, onOpenAuth, onPublicAction }: HomePagePro
                 </p>
               </div>
 
-              <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-400">
-                  {pr.authorName || 'Anonymous Believer'}
-                </span>
+              <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <PrayerPublisherAvatar
+                    authorName={pr.authorName}
+                    authorAvatar={pr.authorAvatar}
+                    isAnonymous={pr.isAnonymous}
+                    size="sm"
+                  />
+                  <span className="text-xs font-semibold text-slate-300 truncate">
+                    {pr.authorName || 'Anonymous Believer'}
+                  </span>
+                </div>
                 <button
                   onClick={(e) => handlePray(pr.id, e)}
-                  className="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5"
+                  className="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 shrink-0"
                 >
                   <span>🙏 I Prayed</span>
                   <span className="bg-indigo-950 text-indigo-300 px-1.5 py-0.5 rounded-md text-[10px]">
