@@ -54,6 +54,7 @@ import { AdminVerificationCenter } from '../../components/admin/AdminVerificatio
 import { AdminStreamHealthTab } from '../../components/admin/AdminStreamHealthTab';
 import { AdminTransactionsTab } from '../../components/admin/AdminTransactionsTab';
 import { AdminSupportDeskTab } from '../../components/admin/AdminSupportDeskTab';
+import { AdminOverviewTab } from '../../components/admin/AdminOverviewTab';
 import type {
   Station,
   User,
@@ -572,324 +573,29 @@ export function AdminDashboard({ onNavigate, initialParam }: AdminDashboardProps
       {/* Verification Center */}
       {activeTab === 'verification' && <AdminVerificationCenter />}
 
-      {/* Tab 1: Executive Metrics & Overview Command Center */}
+      {/* Tab 1: Executive Overview & Command Center */}
       {activeTab === 'metrics' && (
-        <div className="space-y-6">
-          {/* Executive KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-slate-900 to-amber-950/20 border border-slate-800 hover:border-amber-500/40 transition-all p-5 rounded-3xl space-y-2 shadow-lg">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400/90 flex items-center gap-1.5">
-                  <DollarSign className="w-3.5 h-3.5 text-amber-400" /> Platform MRR
-                </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
-                  <TrendingUp className="w-3 h-3" /> +14.8%
-                </span>
-              </div>
-              <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                TZS {(metrics?.mrrTzs ?? 0).toLocaleString()}
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
-                <span>≈ ${(metrics?.mrrUsd ?? 0).toLocaleString()} USD</span>
-                <span className="text-amber-400 font-semibold cursor-pointer hover:underline" onClick={() => setActiveTab('finance')}>
-                  View billing →
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-slate-900 to-sky-950/20 border border-slate-800 hover:border-sky-500/40 transition-all p-5 rounded-3xl space-y-2 shadow-lg">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-sky-400/90 flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-sky-400" /> Broadcaster Fleet
-                </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                  {tenants.filter(t => t.role === 'STATION_OWNER').length || tenants.length} Owners
-                </span>
-              </div>
-              <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                {metrics?.totalTenants ?? tenants.length}
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
-                <span>{stations.length} Registered stations</span>
-                <span className="text-sky-400 font-semibold cursor-pointer hover:underline" onClick={() => setActiveTab('tenants')}>
-                  Manage fleet →
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-slate-900 to-emerald-950/20 border border-slate-800 hover:border-emerald-500/40 transition-all p-5 rounded-3xl space-y-2 shadow-lg">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400/90 flex items-center gap-1.5">
-                  <Activity className="w-3.5 h-3.5 text-emerald-400" /> Stream Health
-                </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  {Math.round(((metrics?.onlineStations ?? stations.filter(s => s.streamStatus === 'ONLINE').length) / Math.max(1, (metrics?.totalStations ?? (stations.length || 1)))) * 100)}% Online
-                </span>
-              </div>
-              <div className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight">
-                {metrics?.onlineStations ?? stations.filter(s => s.streamStatus === 'ONLINE').length} / {metrics?.totalStations ?? stations.length}
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
-                <span>Healthy audio telemetry</span>
-                <span className="text-emerald-400 font-semibold cursor-pointer hover:underline" onClick={() => setActiveTab('streams')}>
-                  Test streams →
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-slate-900 to-purple-950/20 border border-slate-800 hover:border-purple-500/40 transition-all p-5 rounded-3xl space-y-2 shadow-lg">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-purple-400/90 flex items-center gap-1.5">
-                  <Headphones className="w-3.5 h-3.5 text-purple-400" /> Network Reach
-                </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center gap-1">
-                  <Flame className="w-3 h-3 text-purple-400" /> Global
-                </span>
-              </div>
-              <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                {(metrics?.totalPlays ?? 0).toLocaleString()}
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
-                <span>Total station streams</span>
-                <span className="text-purple-400 font-semibold cursor-pointer hover:underline" onClick={() => setActiveTab('taxonomy')}>
-                  Taxonomy →
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Hub & Pending Moderation Queue */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Quick Actions & Stream Scanner */}
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-amber-400" />
-                  <h3 className="text-sm font-bold text-white">Platform Operations Hub</h3>
-                </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300">
-                  Instant Triggers
-                </span>
-              </div>
-
-              <div className="space-y-2.5">
-                <button
-                  onClick={handleTriggerGlobalStreamCheck}
-                  disabled={isCheckingStreams}
-                  className="w-full flex items-center justify-between p-3 rounded-2xl bg-slate-950 border border-slate-800 hover:border-amber-500/50 text-left transition-all hover:bg-slate-800/60 group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold">
-                      <Activity className={`w-4 h-4 ${isCheckingStreams ? 'animate-spin' : ''}`} />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-white group-hover:text-amber-400 transition-colors">
-                        Scan All Stream Endpoints
-                      </div>
-                      <div className="text-[11px] text-slate-400">Pings all {stations.length} streams in parallel</div>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" />
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('stations')}
-                  className="w-full flex items-center justify-between p-3 rounded-2xl bg-slate-950 border border-slate-800 hover:border-amber-500/50 text-left transition-all hover:bg-slate-800/60 group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold">
-                      <Radio className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-white group-hover:text-amber-400 transition-colors">
-                        Station Directory Moderation
-                      </div>
-                      <div className="text-[11px] text-slate-400">Review, verify, and spotlight stations</div>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" />
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('giving')}
-                  className="w-full flex items-center justify-between p-3 rounded-2xl bg-slate-950 border border-slate-800 hover:border-amber-500/50 text-left transition-all hover:bg-slate-800/60 group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center font-bold">
-                      <HeartHandshake className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-white group-hover:text-amber-400 transition-colors">
-                        Ministry Tithes & Payouts Desk
-                      </div>
-                      <div className="text-[11px] text-slate-400">Manage donor contributions & disbursement</div>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" />
-                </button>
-              </div>
-            </div>
-
-            {/* Pending Approvals Triage Queue */}
-            <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-amber-400" />
-                  <h3 className="text-sm font-bold text-white">Pending Approval & Triage Queue</h3>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                    {stations.filter(s => s.status === 'PENDING_APPROVAL').length} Station(s)
-                  </span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">
-                    {tickets.filter(t => t.status === 'OPEN').length} Open Ticket(s)
-                  </span>
-                </div>
-              </div>
-
-              {stations.filter(s => s.status === 'PENDING_APPROVAL').length === 0 ? (
-                <div className="py-8 text-center bg-slate-950/60 rounded-2xl border border-slate-800/80 space-y-2">
-                  <div className="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto">
-                    <CheckCircle2 className="w-5 h-5" />
-                  </div>
-                  <div className="text-xs font-bold text-slate-200">No Pending Station Approvals</div>
-                  <div className="text-[11px] text-slate-500">All broadcaster submissions have been reviewed and processed.</div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {stations.filter(s => s.status === 'PENDING_APPROVAL').slice(0, 3).map((st) => (
-                    <div
-                      key={st.id}
-                      className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-slate-700 transition-all"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-amber-400 font-bold shrink-0">
-                          <Radio className="w-5 h-5" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-white truncate flex items-center gap-2">
-                            {st.name}
-                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                              {st.countryCode} • {st.city}
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-slate-400 font-mono truncate max-w-xs">{st.streamUrl}</div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                        <button
-                          onClick={() => playStation(st)}
-                          className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-bold transition-all"
-                          title="Preview Stream"
-                        >
-                          <Play className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('stations')}
-                          className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold transition-all"
-                        >
-                          Review & Approve
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Fleet Distribution & Country Breakdown */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Top Countries */}
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <div className="flex items-center gap-2">
-                  <Globe className="w-5 h-5 text-amber-400" />
-                  <h3 className="text-sm font-bold text-white">Geographic Footprint</h3>
-                </div>
-                <span className="text-[10px] font-bold text-slate-400">{countries.length} Regions</span>
-              </div>
-
-              <div className="space-y-2.5">
-                {countries.slice(0, 5).map((c) => {
-                  const stationCount = stations.filter(s => s.countryCode?.toUpperCase() === c.code?.toUpperCase()).length;
-                  const percent = Math.round((stationCount / Math.max(1, stations.length)) * 100);
-                  return (
-                    <div key={c.code} className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-300 font-medium flex items-center gap-1.5">
-                          <span>{c.flagEmoji || '🌍'}</span>
-                          <span>{c.name}</span>
-                        </span>
-                        <span className="text-slate-400 font-bold">{stationCount} stations ({percent}%)</span>
-                      </div>
-                      <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
-                        <div className="bg-amber-500 h-1.5 rounded-full transition-all" style={{ width: `${Math.max(5, percent)}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Popular Genres & Languages */}
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <div className="flex items-center gap-2">
-                  <Flame className="w-5 h-5 text-rose-400" />
-                  <h3 className="text-sm font-bold text-white">Ministry Genres</h3>
-                </div>
-                <span className="text-[10px] font-bold text-slate-400">{categories.length} Categories</span>
-              </div>
-
-              <div className="flex flex-wrap gap-2 pt-1">
-                {categories.map((cat) => {
-                  const count = stations.filter(s => s.categoryId === cat.id).length;
-                  return (
-                    <div
-                      key={cat.id}
-                      className="px-3 py-2 rounded-2xl bg-slate-950 border border-slate-800/80 flex items-center gap-2 text-xs"
-                    >
-                      <span className="font-bold text-slate-200">{cat.name}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-800 text-amber-400 font-bold">
-                        {count}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Recent Audit & System Health Feed */}
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-sky-400" />
-                  <h3 className="text-sm font-bold text-white">Recent Operator Activity</h3>
-                </div>
-                <button
-                  onClick={() => setActiveTab('audit')}
-                  className="text-[10px] font-bold text-sky-400 hover:underline"
-                >
-                  Full Audit Trail →
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {auditLogs.slice(0, 4).map((log) => (
-                  <div key={log.id} className="text-xs space-y-0.5 border-l-2 border-slate-700 pl-3 py-0.5">
-                    <div className="font-bold text-slate-200 flex items-center justify-between">
-                      <span className="text-amber-400 uppercase text-[10px] tracking-wider">{log.action}</span>
-                      <span className="text-[10px] text-slate-500">{new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                    <div className="text-[11px] text-slate-400 line-clamp-1">{log.details || log.targetType}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+        <AdminOverviewTab
+          metrics={metrics}
+          stations={stations}
+          tenants={tenants}
+          plans={plans}
+          payments={payments}
+          tickets={tickets}
+          auditLogs={auditLogs}
+          categories={categories}
+          countries={countries}
+          isCheckingStreams={isCheckingStreams}
+          onTriggerStreamCheck={handleTriggerGlobalStreamCheck}
+          onNavigateTab={(tab, param) => {
+            if (param === 'add-station' || param === 'create-station') {
+              setActiveTab('stations');
+            } else {
+              setActiveTab(tab as any);
+            }
+          }}
+          onRefresh={loadAdminData}
+        />
       )}
 
       {/* Tab 2: Stations Management & Moderation */}
