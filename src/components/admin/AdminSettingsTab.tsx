@@ -29,6 +29,7 @@ import {
   Volume2,
   Play,
   Square,
+  Upload,
 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import type { PlatformSettings } from '../../types';
@@ -50,13 +51,77 @@ export function AdminSettingsTab() {
   } | null>(null);
   const [showSecret, setShowSecret] = useState<{ [key: string]: boolean }>({});
   const [testAudioPlaying, setTestAudioPlaying] = useState(false);
+  const [audioUploading, setAudioUploading] = useState(false);
+  const [audioUploadSuccess, setAudioUploadSuccess] = useState('');
+  const [audioPreviewError, setAudioPreviewError] = useState('');
   const testAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const toggleSecret = (key: string) => {
     setShowSecret((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const handleAudioFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 12 * 1024 * 1024) {
+      setErrorMsg('Audio file exceeds maximum 12MB limit.');
+      return;
+    }
+
+    setAudioUploading(true);
+    setErrorMsg('');
+    setAudioUploadSuccess('');
+    setAudioPreviewError('');
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const fileData = reader.result as string;
+          const res = await apiFetch('/api/admin/settings/upload-ident', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fileData, fileName: file.name }),
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            updateSetting('audioIdentUrl', data.audioUrl);
+            setAudioUploadSuccess(`Audio "${file.name}" uploaded successfully!`);
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(
+                new CustomEvent('cr:config_updated', {
+                  detail: { audioIdent: { url: data.audioUrl } },
+                })
+              );
+            }
+            setTimeout(() => setAudioUploadSuccess(''), 6000);
+          } else {
+            const err = await res.json();
+            setErrorMsg(err.error || 'Failed to upload audio file.');
+          }
+        } catch (err: any) {
+          setErrorMsg(err.message || 'Error processing audio file upload.');
+        } finally {
+          setAudioUploading(false);
+          if (audioFileInputRef.current) audioFileInputRef.current.value = '';
+        }
+      };
+      reader.onerror = () => {
+        setErrorMsg('Failed to read selected audio file.');
+        setAudioUploading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Error initiating file upload.');
+      setAudioUploading(false);
+    }
+  };
+
   const toggleTestAudio = () => {
+    setAudioPreviewError('');
     if (testAudioPlaying) {
       if (testAudioRef.current) {
         testAudioRef.current.pause();
@@ -69,17 +134,41 @@ export function AdminSettingsTab() {
       }
       setTestAudioPlaying(false);
     } else {
-      const url = settings?.audioIdentUrl || '/audio/christianradios_ident.wav';
+      let url = (settings?.audioIdentUrl || '').trim() || '/audio/christianradios_ident.mp3';
+      let playUrl = url;
+
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        try {
+          const parsed = new URL(url);
+          if (typeof window !== 'undefined' && parsed.origin !== window.location.origin) {
+            playUrl = `/api/public/stream-proxy?url=${encodeURIComponent(url)}`;
+          }
+        } catch {}
+      }
+
       if (!testAudioRef.current) {
         testAudioRef.current = new Audio();
       }
       const audio = testAudioRef.current;
-      audio.src = url;
+      audio.onerror = () => {
+        console.warn('Audio preview failed on URL:', playUrl);
+        setAudioPreviewError('Could not play audio from this URL (Remote server returned an error or blocked hotlinking). Try uploading the MP3 directly using the button below.');
+        setTestAudioPlaying(false);
+      };
+      audio.onended = () => {
+        setTestAudioPlaying(false);
+      };
+      audio.src = playUrl;
       audio.currentTime = 0;
-      audio.play().catch((err) => console.warn('Preview play warning:', err));
-      setTestAudioPlaying(true);
+      audio.play().then(() => {
+        setTestAudioPlaying(true);
+      }).catch((err) => {
+        console.warn('Preview play notice:', err);
+        setAudioPreviewError('Audio playback was blocked or failed to load from this link. Please upload the file directly.');
+        setTestAudioPlaying(false);
+      });
 
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window && !url.toLowerCase().endsWith('.mp3')) {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window && !url.toLowerCase().includes('.mp3')) {
         try {
           window.speechSynthesis.cancel();
           const utterance = new SpeechSynthesisUtterance(
@@ -135,6 +224,13 @@ export function AdminSettingsTab() {
         const data = await res.json();
         setSettings(data.settings);
         setSavedSuccess(true);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('cr:config_updated', {
+              detail: { audioIdent: data.settings },
+            })
+          );
+        }
         setTimeout(() => setSavedSuccess(false), 4000);
       } else {
         const err = await res.json();
@@ -1632,6 +1728,25 @@ export function AdminSettingsTab() {
               </button>
             </div>
 
+            {/* Audio Preview Error Alert */}
+            {audioPreviewError && (
+              <div className="p-3.5 bg-rose-950/70 border border-rose-500/50 rounded-xl text-xs text-rose-200 flex items-start gap-2.5 shadow-lg">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-bold text-rose-300">Audio Preview Failed</p>
+                  <p className="text-[11px] text-rose-200/90 mt-0.5">{audioPreviewError}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Audio Upload Success Alert */}
+            {audioUploadSuccess && (
+              <div className="p-3.5 bg-emerald-950/70 border border-emerald-500/50 rounded-xl text-xs text-emerald-200 flex items-center gap-2.5 shadow-lg animate-fade-in">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="font-semibold">{audioUploadSuccess}</span>
+              </div>
+            )}
+
             {/* Toggle Switch: Enable / Disable */}
             <div className="flex items-center justify-between p-4 bg-slate-950 border border-slate-800 rounded-xl">
               <div>
@@ -1703,7 +1818,7 @@ export function AdminSettingsTab() {
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-bold text-amber-400">Every Station Play</span>
                     <span className="text-[9px] bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1.5 py-0.5 rounded font-bold">
-                      High Drop-off Risk
+                      Always Plays
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-400 leading-relaxed">
@@ -1713,39 +1828,80 @@ export function AdminSettingsTab() {
               </div>
             </div>
 
-            {/* Audio URL & Duration */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2">
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Audio File URL (MP3 / WAV)
+            {/* Audio URL & Direct File Upload */}
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <label className="block text-xs font-semibold text-slate-300">
+                  Audio File Source (MP3 / WAV / AAC)
                 </label>
-                <input
-                  type="text"
-                  placeholder="/audio/christianradios_ident.wav"
-                  value={settings.audioIdentUrl || ''}
-                  onChange={(e) => updateSetting('audioIdentUrl', e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono"
-                />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Leave default for built-in celestial chime (<code className="text-slate-400">/audio/christianradios_ident.wav</code>) or paste your custom studio MP3/WAV recording.
-                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    ref={audioFileInputRef}
+                    accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac"
+                    className="hidden"
+                    onChange={handleAudioFileUpload}
+                  />
+                  <button
+                    type="button"
+                    disabled={audioUploading}
+                    onClick={() => audioFileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {audioUploading ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="w-3.5 h-3.5" />
+                    )}
+                    {audioUploading ? 'Uploading Audio File...' : 'Upload Audio File from Device'}
+                  </button>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Duration (Seconds)
-                </label>
-                <input
-                  type="number"
-                  min="3"
-                  max="15"
-                  value={settings.audioIdentDurationSeconds || 4}
-                  onChange={(e) => updateSetting('audioIdentDurationSeconds', Number(e.target.value))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono"
-                />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Ideal duration: 3 to 5 seconds.
-                </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2 space-y-2">
+                  <input
+                    type="text"
+                    placeholder="/audio/christianradios_ident.mp3"
+                    value={settings.audioIdentUrl || ''}
+                    onChange={(e) => updateSetting('audioIdentUrl', e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono"
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] text-slate-500 font-medium">Quick Presets:</span>
+                    <button
+                      type="button"
+                      onClick={() => updateSetting('audioIdentUrl', '/audio/christianradios_ident.mp3')}
+                      className="text-[11px] px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg border border-slate-700 hover:border-amber-500/30 cursor-pointer font-medium"
+                    >
+                      Studio Voiceover (MP3)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateSetting('audioIdentUrl', '/audio/christianradios_ident.wav')}
+                      className="text-[11px] px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 hover:border-slate-600 cursor-pointer font-medium"
+                    >
+                      Celestial Chime (WAV)
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Duration (Seconds)
+                  </label>
+                  <input
+                    type="number"
+                    min="3"
+                    max="15"
+                    value={settings.audioIdentDurationSeconds || 4}
+                    onChange={(e) => updateSetting('audioIdentDurationSeconds', Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Auto-transitions when audio finishes.
+                  </p>
+                </div>
               </div>
             </div>
 

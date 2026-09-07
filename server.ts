@@ -68,6 +68,11 @@ async function bootstrap() {
   app.use(cookieParser());
   app.use(extractUserFromCookie);
 
+  // Serve static audio assets
+  const audioDir = path.join(process.cwd(), 'public', 'audio');
+  if (!fs.existsSync(audioDir)) fs.mkdirSync(audioDir, { recursive: true });
+  app.use('/audio', express.static(audioDir));
+
   // 4. Rate Limiting Middlewares
   app.use('/api/', apiRateLimiter);
   app.use('/api/auth/login', authRateLimiter);
@@ -138,6 +143,14 @@ async function bootstrap() {
 
   function serveStatic() {
     const distPath = path.join(process.cwd(), 'dist');
+    const publicAudio = path.join(process.cwd(), 'public', 'audio');
+    const distAudio = path.join(distPath, 'audio');
+    if (fs.existsSync(distAudio)) {
+      app.use('/audio', express.static(distAudio));
+    }
+    if (fs.existsSync(publicAudio)) {
+      app.use('/audio', express.static(publicAudio));
+    }
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));

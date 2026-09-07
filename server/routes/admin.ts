@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { Router } from 'express';
 import { requireRole, sanitizeUser, type AuthenticatedRequest } from '../auth.js';
 import { db } from '../db.js';
@@ -798,6 +800,80 @@ adminRouter.put('/settings', (req: AuthenticatedRequest, res) => {
     }
   }
   res.json({ success: true, settings: sanitized });
+});
+
+// Upload Station Ident Audio File (MP3 / WAV / AAC)
+adminRouter.post('/settings/upload-ident', (req: AuthenticatedRequest, res) => {
+  try {
+    const { fileData, fileName } = req.body;
+    if (!fileData || typeof fileData !== 'string') {
+      res.status(400).json({ error: 'Missing or invalid audio file data' });
+      return;
+    }
+
+    const match = fileData.match(/^data:audio\/([a-zA-Z0-9_-]+);base64,(.+)$/) ||
+                  fileData.match(/^data:application\/octet-stream;base64,(.+)$/) ||
+                  fileData.match(/^data:video\/mp4;base64,(.+)$/);
+
+    let base64Content = fileData;
+    let ext = 'mp3';
+
+    if (match) {
+      if (match.length === 3) {
+        ext = match[1] === 'mpeg' ? 'mp3' : match[1];
+        base64Content = match[2];
+      } else if (match.length === 2) {
+        base64Content = match[1];
+      }
+    }
+
+    if (fileName && typeof fileName === 'string' && fileName.includes('.')) {
+      const parts = fileName.split('.');
+      const candidateExt = parts[parts.length - 1].toLowerCase();
+      if (['mp3', 'wav', 'ogg', 'm4a', 'aac'].includes(candidateExt)) {
+        ext = candidateExt;
+      }
+    }
+
+    const buffer = Buffer.from(base64Content, 'base64');
+    if (buffer.length === 0) {
+      res.status(400).json({ error: 'Uploaded audio file is empty' });
+      return;
+    }
+
+    // Maximum 12MB
+    if (buffer.length > 12 * 1024 * 1024) {
+      res.status(400).json({ error: 'Audio file exceeds maximum 12MB limit' });
+      return;
+    }
+
+    const targetDir = path.join(process.cwd(), 'public', 'audio');
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    const targetFile = path.join(targetDir, `custom_ident.${ext}`);
+    fs.writeFileSync(targetFile, buffer);
+
+    const distDir = path.join(process.cwd(), 'dist', 'audio');
+    if (fs.existsSync(path.join(process.cwd(), 'dist'))) {
+      if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
+      fs.writeFileSync(path.join(distDir, `custom_ident.${ext}`), buffer);
+    }
+
+    const audioUrl = `/audio/custom_ident.${ext}?v=${Date.now()}`;
+    db.settings.update({ audioIdentUrl: audioUrl });
+
+    res.json({
+      success: true,
+      audioUrl,
+      sizeBytes: buffer.length,
+      message: 'Station ident audio uploaded and activated successfully',
+    });
+  } catch (err: any) {
+    console.error('Error uploading ident audio:', err);
+    res.status(500).json({ error: err.message || 'Failed to process audio upload' });
+  }
 });
 
 adminRouter.get('/integrations', (req, res) => {

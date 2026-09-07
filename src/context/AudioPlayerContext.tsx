@@ -85,16 +85,35 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   // Fetch Public Platform Config (Audio Ident, Sonic Branding, etc.)
   useEffect(() => {
-    apiFetch('/api/public/config')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.audioIdent) {
-          setIdentConfig((prev) => ({ ...prev, ...data.audioIdent }));
-        }
-      })
-      .catch((err) => {
-        console.warn('[Player] Using default audio ident config:', err);
-      });
+    const fetchConfig = () => {
+      apiFetch('/api/public/config')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.audioIdent) {
+            setIdentConfig((prev) => ({ ...prev, ...data.audioIdent }));
+          }
+        })
+        .catch((err) => {
+          console.warn('[Player] Using default audio ident config:', err);
+        });
+    };
+
+    fetchConfig();
+
+    const handleConfigUpdate = (e: any) => {
+      if (e?.detail?.audioIdent) {
+        setIdentConfig((prev) => ({ ...prev, ...e.detail.audioIdent }));
+      } else {
+        fetchConfig();
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('cr:config_updated', handleConfigUpdate);
+      return () => {
+        window.removeEventListener('cr:config_updated', handleConfigUpdate);
+      };
+    }
   }, []);
 
   const skipIdent = useCallback(() => {
@@ -485,21 +504,86 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       setIdentRemainingSeconds(duration);
       pendingStationRef.current = station;
 
-      // Play ident sound
+      // Determine target audio URL
+      let rawIdentUrl = (identConfig.url || '').trim() || '/audio/christianradios_ident.mp3';
+      let targetIdentUrl = rawIdentUrl;
+
+      // If it is an external URL from another domain, route through proxy to bypass CORS / mixed-content / bot blocks
+      if (rawIdentUrl.startsWith('http://') || rawIdentUrl.startsWith('https://')) {
+        try {
+          const parsed = new URL(rawIdentUrl);
+          if (typeof window !== 'undefined' && parsed.origin !== window.location.origin) {
+            targetIdentUrl = `/api/public/stream-proxy?url=${encodeURIComponent(rawIdentUrl)}`;
+          }
+        } catch {}
+      }
+
+      // Play ident sound with robust fallback
       try {
         if (!identAudioRef.current) {
           identAudioRef.current = new Audio();
         }
         const identAudio = identAudioRef.current;
-        identAudio.src = identConfig.url || '/audio/christianradios_ident.wav';
         identAudio.volume = isMuted ? 0 : volume;
+
+        const endIdentAndPlay = () => {
+          if (identTimerRef.current) {
+            clearInterval(identTimerRef.current);
+            identTimerRef.current = null;
+          }
+          if (identAudio) {
+            try { identAudio.pause(); } catch {}
+          }
+          setIsIdentPlaying(false);
+          setIdentRemainingSeconds(0);
+          const pending = pendingStationRef.current;
+          pendingStationRef.current = null;
+          if (pending) {
+            attachAndPlayStream(pending.streamUrl, false);
+          }
+        };
+
+        // When audio ends naturally, transition immediately to radio broadcast!
+        identAudio.onended = () => {
+          endIdentAndPlay();
+        };
+
+        // Adjust duration dynamically once metadata is loaded
+        identAudio.onloadedmetadata = () => {
+          if (identAudio.duration && isFinite(identAudio.duration) && identAudio.duration > 1) {
+            const actualDur = Math.min(15, Math.ceil(identAudio.duration));
+            setIdentRemainingSeconds(actualDur);
+          }
+        };
+
+        // Fallback if custom URL fails (e.g. 403 Forbidden from hotlinking, 404, or network error)
+        identAudio.onerror = () => {
+          console.warn('[AudioIdent] Target URL failed to load:', targetIdentUrl, 'Falling back to local audio.');
+          identAudio.onerror = null;
+          identAudio.src = '/audio/christianradios_ident.mp3';
+          identAudio.play().catch(() => {});
+          if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+            try {
+              window.speechSynthesis.cancel();
+              const utterance = new SpeechSynthesisUtterance(
+                identConfig.customText || "You're listening to Christian Radios. One World. One Faith. Thousands of Voices."
+              );
+              utterance.rate = 1.0;
+              utterance.pitch = 1.0;
+              utterance.volume = isMuted ? 0 : volume;
+              window.speechSynthesis.speak(utterance);
+            } catch {}
+          }
+        };
+
+        identAudio.src = targetIdentUrl;
         identAudio.currentTime = 0;
         identAudio.play().catch((e) => {
           console.warn('[AudioIdent] Background audio play notice:', e);
         });
 
-        // Speech synthesis overlay if speech is supported
-        if (typeof window !== 'undefined' && 'speechSynthesis' in window && !identConfig.url.toLowerCase().endsWith('.mp3')) {
+        // Speech synthesis overlay if using built-in chime or if custom audio is not an MP3
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window && !targetIdentUrl.toLowerCase().includes('.mp3')) {
           try {
             window.speechSynthesis.cancel();
             const textToSpeak = identConfig.customText || "You're listening to Christian Radios. One World. One Faith. Thousands of Voices.";
@@ -514,7 +598,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         console.warn('[AudioIdent] Ident start notice:', err);
       }
 
-      // Countdown
+      // Countdown safety timer
       if (identTimerRef.current) {
         clearInterval(identTimerRef.current);
       }
