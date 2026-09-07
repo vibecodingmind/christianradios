@@ -104,6 +104,18 @@ export function AuthModal({ isOpen, defaultTab = 'login', onClose }: AuthModalPr
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
+  // Handle ESC key to dismiss modal
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   // Background Google One-Tap setup
   useEffect(() => {
     if (!isOpen || !googleClientId) return;
@@ -431,13 +443,23 @@ export function AuthModal({ isOpen, defaultTab = 'login', onClose }: AuthModalPr
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-slate-900/95 border border-slate-800/90 rounded-3xl max-w-lg w-full p-6 sm:p-8 text-slate-100 shadow-2xl relative my-6 sm:my-8 transition-all">
+    <div
+      className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        className="bg-slate-900/95 border border-slate-800/90 rounded-3xl max-w-lg w-full p-6 sm:p-8 text-slate-100 shadow-2xl relative my-6 sm:my-8 transition-all"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Close Button */}
         <button
-          onClick={onClose}
-          className="absolute top-5 right-5 text-slate-400 hover:text-white p-1.5 rounded-full hover:bg-slate-800 transition-colors cursor-pointer"
-          aria-label="Close"
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          className="absolute top-5 right-5 text-slate-400 hover:text-white p-2 rounded-full hover:bg-slate-800 transition-colors cursor-pointer z-20"
+          aria-label="Close modal"
         >
           <X className="w-5 h-5" />
         </button>
@@ -887,23 +909,32 @@ export function AuthModal({ isOpen, defaultTab = 'login', onClose }: AuthModalPr
                 </div>
               )}
 
-              {/* Primary Action Button */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-all shadow-lg shadow-sky-500/20 disabled:opacity-50 mt-3 cursor-pointer"
-              >
-                {loading ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Processing...</span>
-                  </div>
-                ) : tab === 'login' ? (
-                  'Sign In to Account'
-                ) : (
-                  'Create Account & Authenticate'
-                )}
-              </button>
+              {/* Primary Action Buttons */}
+              <div className="flex items-center gap-2.5 mt-3">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-all shadow-lg shadow-sky-500/20 disabled:opacity-50 cursor-pointer"
+                >
+                  {loading ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Processing...</span>
+                    </div>
+                  ) : tab === 'login' ? (
+                    'Sign In to Account'
+                  ) : (
+                    'Create Account & Authenticate'
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2.5 rounded-xl border border-slate-700/80 bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
             </form>
 
             {/* Social Login Divider & Single Amazing Google Button */}

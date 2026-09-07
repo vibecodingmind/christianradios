@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AudioPlayerProvider, useAudioPlayer } from './context/AudioPlayerContext';
 import { NotificationProvider } from './context/NotificationContext';
@@ -190,7 +190,7 @@ function MainAppContent() {
     }
   };
 
-  const handleNavigate = (view: string, param?: string) => {
+  const handleNavigate = useCallback((view: string, param?: string) => {
     setCurrentView(view);
     setViewParam(param);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -239,7 +239,7 @@ function MainAppContent() {
 
     url.pathname = targetPath;
     window.history.pushState({}, '', url.toString());
-  };
+  }, []);
 
   const handlePublicAction = (
     intent: 'ADD_RADIO' | 'CLAIM_STATION',
@@ -342,7 +342,7 @@ function MainAppContent() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [togglePlay, toggleMute, volume, setVolume]);
 
-  const handleOpenAuth = (tab: 'login' | 'register' = 'login') => {
+  const handleOpenAuth = useCallback((tab: 'login' | 'register' = 'login') => {
     if (user) {
       if (user.role === 'SUPER_ADMIN') {
         handleNavigate('admin');
@@ -353,7 +353,15 @@ function MainAppContent() {
     }
     setAuthDefaultTab(tab);
     setAuthModalOpen(true);
-  };
+  }, [user, handleNavigate]);
+
+  const handleCloseAuth = useCallback(() => {
+    setAuthModalOpen(false);
+    // If the user cancelled auth while on a restricted view, navigate them safely back to home
+    if (!user && ['admin', 'owner', 'profile'].includes(currentView)) {
+      handleNavigate('home');
+    }
+  }, [user, currentView, handleNavigate]);
 
   if (isEmbedRoute) {
     const embedSlug = viewParam || window.location.pathname.replace('/embed/', '');
@@ -548,7 +556,7 @@ function MainAppContent() {
       <AuthModal
         isOpen={authModalOpen}
         defaultTab={authDefaultTab}
-        onClose={() => setAuthModalOpen(false)}
+        onClose={handleCloseAuth}
       />
 
       {/* Broadcaster Onboarding Modal for Listeners */}

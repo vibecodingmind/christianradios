@@ -21,12 +21,25 @@ export function ProtectedRoute({
   description = 'You must be signed in to access this portal.',
 }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
+  const hasPromptedRef = React.useRef(false);
+  const onOpenAuthRef = React.useRef(onOpenAuth);
 
   React.useEffect(() => {
-    if (!loading && !user) {
-      onOpenAuth('login');
+    onOpenAuthRef.current = onOpenAuth;
+  }, [onOpenAuth]);
+
+  React.useEffect(() => {
+    if (user) {
+      hasPromptedRef.current = false;
     }
-  }, [loading, user, onOpenAuth]);
+  }, [user]);
+
+  React.useEffect(() => {
+    if (!loading && !user && !hasPromptedRef.current) {
+      hasPromptedRef.current = true;
+      onOpenAuthRef.current('login');
+    }
+  }, [loading, user]);
 
   if (loading) {
     return (
