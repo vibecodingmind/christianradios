@@ -20,14 +20,23 @@ export default defineConfig(() => {
           theme_color: '#0f172a',
           background_color: '#0f172a',
           display: 'standalone',
+          orientation: 'portrait',
           start_url: '/',
           scope: '/',
+          categories: ['entertainment', 'music'],
+          prefer_related_applications: false,
           icons: [
             {
               src: '/icon.svg',
               sizes: '512x512',
               type: 'image/svg+xml',
               purpose: 'any',
+            },
+            {
+              src: '/icon.svg',
+              sizes: '192x192',
+              type: 'image/svg+xml',
+              purpose: 'maskable',
             },
           ],
         },

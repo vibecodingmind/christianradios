@@ -112,7 +112,7 @@ export function PersistentPlayer() {
   return (
     <>
       {/* Floating Modern Audio Player Dock Widget */}
-      <div className="fixed bottom-2 sm:bottom-4 inset-x-2 sm:inset-x-4 lg:inset-x-8 z-50 pointer-events-none flex justify-center">
+      <div className="fixed bottom-[68px] md:bottom-4 inset-x-2 sm:inset-x-4 lg:inset-x-8 z-50 pointer-events-none flex justify-center">
         <div
           className={`pointer-events-auto relative w-full max-w-7xl overflow-hidden rounded-3xl bg-slate-950/92 dark:bg-slate-950/95 backdrop-blur-2xl border border-slate-800 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.95),0_0_35px_rgba(16,185,129,0.18)] ring-1 ring-white/10 transition-all duration-300 ${
             isPlaying ? 'animate-audio-glow-breathe' : ''

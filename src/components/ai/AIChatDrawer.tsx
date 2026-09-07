@@ -247,7 +247,7 @@ export function AIAssistantButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="fixed bottom-24 right-6 z-40 px-4 py-3 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold text-xs shadow-2xl flex items-center gap-2 border border-cyan-300/40 hover:scale-105 active:scale-95 transition-all cursor-pointer group"
+      className="fixed bottom-36 right-4 md:bottom-24 md:right-6 z-40 px-4 py-3 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold text-xs shadow-2xl flex items-center gap-2 border border-cyan-300/40 hover:scale-105 active:scale-95 transition-all cursor-pointer group"
     >
       <Sparkles className="w-4 h-4 text-cyan-200 group-hover:rotate-12 transition-transform" />
       <span>AI Guide</span>

@@ -37,6 +37,8 @@ import { SubscriptionCheckoutPage } from './pages/SubscriptionCheckoutPage';
 import { OwnerOnboardingModal } from './components/auth/OwnerOnboardingModal';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AIChatDrawer, AIAssistantButton } from './components/ai/AIChatDrawer';
+import { MobileAppBottomNav } from './components/layout/MobileAppBottomNav';
+import { MobileAppInstallBanner } from './components/pwa/MobileAppInstallBanner';
 
 function MainAppContent() {
   const [currentView, setCurrentView] = useState<string>('home');
@@ -378,6 +380,9 @@ function MainAppContent() {
         onPublicAction={handlePublicAction}
       />
 
+      {/* Mobile PWA Install Banner */}
+      {!isEmbedRoute && <MobileAppInstallBanner />}
+
       {/* Main Page Router */}
       <main className="flex-1 max-w-[1440px] mx-auto w-full px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
         {currentView === 'home' && (
@@ -544,7 +549,7 @@ function MainAppContent() {
       />
 
       {/* Breathing room spacer when persistent floating player is active */}
-      {currentStation && <div className="h-24 sm:h-28" aria-hidden="true" />}
+      {currentStation && <div className="h-40 md:h-28" aria-hidden="true" />}
 
       {/* Docked Persistent Audio Player */}
       <PersistentPlayer />
@@ -577,6 +582,11 @@ function MainAppContent() {
             onNavigate={handleNavigate}
           />
         </>
+      )}
+
+      {/* Mobile App Bottom Nav — listeners only, hidden on md+ */}
+      {!isEmbedRoute && (
+        <MobileAppBottomNav currentView={currentView} onNavigate={handleNavigate} />
       )}
     </div>
   );
