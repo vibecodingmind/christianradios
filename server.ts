@@ -16,6 +16,8 @@ import { kycRouter } from './server/routes/kyc.js';
 import { adminVerificationRouter } from './server/routes/adminVerification.js';
 import { listenerPulseRouter } from './server/routes/listenerPulse.js';
 import { notificationsRouter } from './server/routes/notifications.js';
+import { mobileRouter } from './server/routes/mobile.js';
+
 import { handleLiveEventsStream } from './server/liveSync.js';
 
 import { authRateLimiter, sensitiveActionRateLimiter, apiRateLimiter } from './server/rateLimiter.js';
@@ -103,6 +105,7 @@ async function bootstrap() {
   app.use('/api/payments', paymentsRouter);
   app.use('/api/ai', aiRouter);
   app.use('/api/notifications', notificationsRouter);
+  app.use('/api/mobile', mobileRouter);
 
   // Catch-all for unhandled API endpoints to prevent falling through to HTML index
   app.all('/api/*', (req, res) => {
