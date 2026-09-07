@@ -1027,55 +1027,57 @@ export function AuthModal({ isOpen, defaultTab = 'login', onClose }: AuthModalPr
               <a href="#" className="underline hover:text-slate-300">Privacy Policy</a>.
             </div>
 
-            {/* Discreet Collapsible QA / Demo Switcher */}
-            <div className="mt-4 pt-3 border-t border-slate-800/60">
-              <button
-                type="button"
-                onClick={() => setShowDemoLogins(!showDemoLogins)}
-                className="w-full flex items-center justify-between text-[11px] text-slate-500 hover:text-slate-300 transition-colors py-1 cursor-pointer"
-              >
-                <span className="flex items-center gap-1.5">
-                  <Sparkles className="w-3 h-3 text-amber-400" />
-                  <span>Instant QA / Demo Logins</span>
-                </span>
-                {showDemoLogins ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-              </button>
+            {/* Discreet Collapsible QA / Demo Switcher (Development Only) */}
+            {Boolean((import.meta as any).env?.DEV) && (
+              <div className="mt-4 pt-3 border-t border-slate-800/60">
+                <button
+                  type="button"
+                  onClick={() => setShowDemoLogins(!showDemoLogins)}
+                  className="w-full flex items-center justify-between text-[11px] text-slate-500 hover:text-slate-300 transition-colors py-1 cursor-pointer"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles className="w-3 h-3 text-amber-400" />
+                    <span>Instant QA / Demo Logins (Dev Only)</span>
+                  </span>
+                  {showDemoLogins ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
 
-              {showDemoLogins && (
-                <div className="grid grid-cols-3 gap-2 mt-2 pt-2 animate-fadeIn">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await quickLoginAs('SUPER_ADMIN');
-                      onClose();
-                    }}
-                    className="p-2 bg-slate-950 hover:bg-slate-850 border border-indigo-500/30 text-indigo-300 rounded-xl text-center transition-colors text-[10px] font-semibold cursor-pointer"
-                  >
-                    Super Admin
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await quickLoginAs('RADIO_OWNER');
-                      onClose();
-                    }}
-                    className="p-2 bg-slate-950 hover:bg-slate-850 border border-emerald-500/30 text-emerald-300 rounded-xl text-center transition-colors text-[10px] font-semibold cursor-pointer"
-                  >
-                    Radio Owner
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await quickLoginAs('LISTENER');
-                      onClose();
-                    }}
-                    className="p-2 bg-slate-950 hover:bg-slate-850 border border-sky-500/30 text-sky-300 rounded-xl text-center transition-colors text-[10px] font-semibold cursor-pointer"
-                  >
-                    Listener
-                  </button>
-                </div>
-              )}
-            </div>
+                {showDemoLogins && (
+                  <div className="grid grid-cols-3 gap-2 mt-2 pt-2 animate-fadeIn">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await quickLoginAs('SUPER_ADMIN');
+                        onClose();
+                      }}
+                      className="p-2 bg-slate-950 hover:bg-slate-850 border border-indigo-500/30 text-indigo-300 rounded-xl text-center transition-colors text-[10px] font-semibold cursor-pointer"
+                    >
+                      Super Admin
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await quickLoginAs('RADIO_OWNER');
+                        onClose();
+                      }}
+                      className="p-2 bg-slate-950 hover:bg-slate-850 border border-emerald-500/30 text-emerald-300 rounded-xl text-center transition-colors text-[10px] font-semibold cursor-pointer"
+                    >
+                      Radio Owner
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await quickLoginAs('LISTENER');
+                        onClose();
+                      }}
+                      className="p-2 bg-slate-950 hover:bg-slate-850 border border-sky-500/30 text-sky-300 rounded-xl text-center transition-colors text-[10px] font-semibold cursor-pointer"
+                    >
+                      Listener
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

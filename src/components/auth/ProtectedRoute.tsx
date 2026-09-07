@@ -22,6 +22,12 @@ export function ProtectedRoute({
 }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
 
+  React.useEffect(() => {
+    if (!loading && !user) {
+      onOpenAuth('login');
+    }
+  }, [loading, user, onOpenAuth]);
+
   if (loading) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 text-center">

@@ -68,17 +68,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
       }
-      if (!getAuthToken()) {
-        setUser(null);
-        setOwnerProfile(undefined);
-        setSubscription(undefined);
-        setPlan(undefined);
-      }
+      // If server does not acknowledge user session, purge any local state
+      removeAuthToken();
+      setUser(null);
+      setOwnerProfile(undefined);
+      setSubscription(undefined);
+      setPlan(undefined);
     } catch (err) {
       console.error('refreshUser error:', err);
-      if (!getAuthToken()) {
-        setUser(null);
-      }
+      removeAuthToken();
+      setUser(null);
+      setOwnerProfile(undefined);
+      setSubscription(undefined);
+      setPlan(undefined);
     } finally {
       setLoading(false);
     }
@@ -258,6 +260,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const quickLoginAs = async (role: 'SUPER_ADMIN' | 'RADIO_OWNER' | 'LISTENER') => {
+    if (!(import.meta as any).env?.DEV) {
+      console.warn('[Security] Instant demo login is disabled in production environment.');
+      return;
+    }
     const credentials = {
       SUPER_ADMIN: { email: 'admin@christianradios.org', password: 'Admin@2026!' },
       RADIO_OWNER: { email: 'owner@radiomaria.tz', password: 'Owner@2026!' },
