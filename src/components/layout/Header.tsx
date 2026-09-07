@@ -8,7 +8,6 @@ import {
   Layers,
   Globe,
   LogIn,
-  Sparkles,
   Menu,
   X,
   Shield,
@@ -57,7 +56,7 @@ export function Header({ currentView, onNavigate, onOpenAuth, onPublicAction }: 
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const handleListRadioClick = () => {
+  const handleAddStationClick = () => {
     setMobileMenuOpen(false);
     if (onPublicAction) {
       onPublicAction('ADD_RADIO');
@@ -135,22 +134,21 @@ export function Header({ currentView, onNavigate, onOpenAuth, onPublicAction }: 
           </nav>
 
           {/* ========================================================================= */}
-          {/* 3. RIGHT ACTION AREA (BROADCASTER CTA, LOGIN/SIGNUP, USER MENU)          */}
+          {/* 3. RIGHT ACTION AREA (ADD YOUR STATION, SIGN IN, USER MENU)             */}
           {/* ========================================================================= */}
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-            
-            {/* "Broadcast With Us" / "List Station" Button */}
-            <button
-              onClick={handleListRadioClick}
-              className="hidden lg:flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 hover:border-amber-500/40 transition-all cursor-pointer shadow-sm"
-              title="Broadcast your Christian radio station globally"
-            >
-              <Radio className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-              <span>Broadcast</span>
-            </button>
-
             {user ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 sm:gap-2.5">
+                {/* Add Station Button for authenticated users */}
+                <button
+                  onClick={handleAddStationClick}
+                  className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-sky-300 hover:text-white bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/25 hover:border-sky-500/40 transition-all cursor-pointer shadow-sm"
+                  title="Add another Christian radio station"
+                >
+                  <Radio className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Add Station</span>
+                </button>
+
                 {/* Role Console Quick Link */}
                 {user.role === 'SUPER_ADMIN' && (
                   <button
@@ -185,13 +183,13 @@ export function Header({ currentView, onNavigate, onOpenAuth, onPublicAction }: 
                   <span>Sign In</span>
                 </button>
 
-                {/* Redesigned Sign Up Button */}
+                {/* Primary CTA: "Add Your Station" Button */}
                 <button
-                  onClick={() => onOpenAuth('register')}
+                  onClick={handleAddStationClick}
                   className="flex items-center gap-1.5 px-3.5 sm:px-4.5 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-sky-500 via-indigo-600 to-sky-600 hover:from-sky-400 hover:via-indigo-500 hover:to-sky-500 border border-sky-400/30 shadow-md shadow-sky-500/20 hover:shadow-sky-500/35 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-sky-200" />
-                  <span>Sign Up</span>
+                  <Radio className="w-3.5 h-3.5 text-sky-200 animate-pulse" />
+                  <span>Add Your Station</span>
                 </button>
               </div>
             )}
@@ -240,15 +238,15 @@ export function Header({ currentView, onNavigate, onOpenAuth, onPublicAction }: 
 
           <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-2">
             <button
-              onClick={handleListRadioClick}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 hover:bg-amber-500/25 transition-all cursor-pointer"
+              onClick={handleAddStationClick}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-sky-500 to-indigo-600 shadow-md shadow-sky-500/20 hover:from-sky-400 hover:to-indigo-500 transition-all cursor-pointer"
             >
-              <Radio className="w-4 h-4 text-amber-400" />
-              <span>Broadcast / List Your Radio</span>
+              <Radio className="w-4 h-4 text-sky-200 animate-pulse" />
+              <span>Add Your Station</span>
             </button>
 
             {!user && (
-              <div className="grid grid-cols-2 gap-2 pt-1">
+              <div className="pt-1">
                 <button
                   onClick={() => {
                     setMobileMenuOpen(false);
@@ -258,16 +256,6 @@ export function Header({ currentView, onNavigate, onOpenAuth, onPublicAction }: 
                 >
                   <LogIn className="w-3.5 h-3.5 text-slate-400" />
                   <span>Sign In</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onOpenAuth('register');
-                  }}
-                  className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-sky-500 to-indigo-600 shadow-md shadow-sky-500/20 cursor-pointer"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-sky-200" />
-                  <span>Sign Up</span>
                 </button>
               </div>
             )}
