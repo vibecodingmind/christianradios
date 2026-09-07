@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { Router } from 'express';
-import { requireRole, sanitizeUser, type AuthenticatedRequest } from '../auth.js';
+import { requireRole, sanitizeUser, hashPassword, type AuthenticatedRequest } from '../auth.js';
 import { db } from '../db.js';
 import { encryptSecret, maskSecret } from '../crypto.js';
 import { IntegrationService } from '../services/integrationService.js';
@@ -469,6 +469,198 @@ adminRouter.post('/tenants/:id/assign-plan', (req: AuthenticatedRequest, res) =>
   res.json({ success: true, subscription: sub, plan });
 });
 
+// Create a new broadcaster account
+adminRouter.post('/tenants', (req: AuthenticatedRequest, res) => {
+  try {
+    const {
+      name,
+      email,
+      password,
+      organizationName,
+      phone,
+      country,
+      planId,
+      status = 'ACTIVE',
+    } = req.body;
+
+    if (!email || !name) {
+      res.status(400).json({ error: 'Name and email are required' });
+      return;
+    }
+
+    const existing = db.users.findByEmail(email.toLowerCase().trim());
+    if (existing) {
+      res.status(409).json({ error: 'A user account with this email already exists' });
+      return;
+    }
+
+    const newUserId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const rawPass = password && password.trim() ? password.trim() : 'Broadcaster@2026!';
+    const user = db.users.create({
+      id: newUserId,
+      email: email.toLowerCase().trim(),
+      passwordHash: hashPassword(rawPass),
+      name: name.trim(),
+      role: 'RADIO_OWNER',
+      status: status || 'ACTIVE',
+      emailVerified: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    db.ownerProfiles.create({
+      id: `prof_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userId: newUserId,
+      organizationName: organizationName?.trim() || `${name.trim()}'s Broadcast Ministry`,
+      bio: '',
+      website: '',
+      phone: phone?.trim() || '',
+      country: country || 'TZ',
+      verified: true,
+      verificationStatus: 'VERIFIED',
+    });
+
+    if (planId) {
+      db.subscriptions.create({
+        id: `sub_${Date.now()}`,
+        ownerId: newUserId,
+        planId,
+        status: 'ACTIVE',
+        billingInterval: 'MONTHLY',
+        currentPeriodStart: new Date().toISOString(),
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        cancelAtPeriodEnd: false,
+        autoRenew: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    db.auditLogs.log({
+      actorId: req.user!.id,
+      actorEmail: req.user!.email,
+      actorRole: req.user!.role,
+      action: 'BROADCASTER_CREATED',
+      entityType: 'User',
+      entityId: newUserId,
+      details: `Created broadcaster account for ${name} (${email}) with status ${status}.`,
+    });
+
+    const enriched = getOwnersList().find((o) => o.id === newUserId);
+    res.status(201).json({ success: true, broadcaster: enriched, user: sanitizeUser(user) });
+  } catch (err: any) {
+    console.error('Error creating broadcaster:', err);
+    res.status(500).json({ error: err.message || 'Failed to create broadcaster' });
+  }
+});
+
+// Edit broadcaster profile
+adminRouter.put('/tenants/:id', (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, organizationName, phone, country, bio, website, status, planId } = req.body;
+
+    const user = db.users.findById(id);
+    if (!user) {
+      res.status(404).json({ error: 'Broadcaster not found' });
+      return;
+    }
+
+    const updates: any = {};
+    if (name) updates.name = name.trim();
+    if (email) updates.email = email.toLowerCase().trim();
+    if (status) updates.status = status;
+    updates.updatedAt = new Date().toISOString();
+
+    const updatedUser = db.users.update(id, updates);
+
+    let profile = db.ownerProfiles.findByUserId(id);
+    if (profile) {
+      db.ownerProfiles.update(id, {
+        organizationName: organizationName !== undefined ? organizationName : profile.organizationName,
+        phone: phone !== undefined ? phone : profile.phone,
+        country: country !== undefined ? country : profile.country,
+        bio: bio !== undefined ? bio : profile.bio,
+        website: website !== undefined ? website : profile.website,
+      });
+    } else if (organizationName) {
+      db.ownerProfiles.create({
+        id: `prof_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        userId: id,
+        organizationName: organizationName.trim(),
+        bio: bio || '',
+        website: website || '',
+        phone: phone || '',
+        country: country || 'TZ',
+        verified: true,
+        verificationStatus: 'VERIFIED',
+      });
+    }
+
+    if (planId) {
+      const existingSub = db.subscriptions.findByOwnerId(id);
+      if (existingSub) {
+        db.subscriptions.update(existingSub.id, { planId, updatedAt: new Date().toISOString() });
+      } else {
+        db.subscriptions.create({
+          id: `sub_${Date.now()}`,
+          ownerId: id,
+          planId,
+          status: 'ACTIVE',
+          billingInterval: 'MONTHLY',
+          currentPeriodStart: new Date().toISOString(),
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          cancelAtPeriodEnd: false,
+          autoRenew: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    db.auditLogs.log({
+      actorId: req.user!.id,
+      actorEmail: req.user!.email,
+      actorRole: req.user!.role,
+      action: 'BROADCASTER_UPDATED',
+      entityType: 'User',
+      entityId: id,
+      details: `Updated broadcaster profile for ${updatedUser?.name || id}.`,
+    });
+
+    const enriched = getOwnersList().find((o) => o.id === id);
+    res.json({ success: true, broadcaster: enriched, user: sanitizeUser(updatedUser!) });
+  } catch (err: any) {
+    console.error('Error updating broadcaster:', err);
+    res.status(500).json({ error: err.message || 'Failed to update broadcaster' });
+  }
+});
+
+// Set broadcaster status explicitly
+adminRouter.post('/tenants/:id/status', (req: AuthenticatedRequest, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  if (!['ACTIVE', 'SUSPENDED', 'PENDING'].includes(status)) {
+    res.status(400).json({ error: 'Invalid status' });
+    return;
+  }
+  const updated = db.users.update(id, { status, updatedAt: new Date().toISOString() });
+  if (!updated) {
+    res.status(404).json({ error: 'Broadcaster not found' });
+    return;
+  }
+  db.auditLogs.log({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    actorRole: req.user!.role,
+    action: status === 'ACTIVE' ? 'BROADCASTER_ACTIVATED' : 'BROADCASTER_SUSPENDED',
+    entityType: 'User',
+    entityId: id,
+    details: `Admin changed broadcaster status to ${status}.`,
+  });
+  res.json({ success: true, user: sanitizeUser(updated) });
+});
+
 // Admin Subscription Plans Management
 adminRouter.get('/plans', (req, res) => {
   const plans = db.plans.getAll();
@@ -604,6 +796,69 @@ adminRouter.get('/payments', (req, res) => {
     invoice: db.invoices.getAll().find((i) => i.paymentId === p.id),
   }));
   res.json({ payments });
+});
+
+// Record Manual / Offline Transaction
+adminRouter.post('/payments/manual', (req: AuthenticatedRequest, res) => {
+  try {
+    const {
+      ownerId,
+      amount,
+      currency = 'USD',
+      paymentMethod = 'MANUAL',
+      description,
+      status = 'COMPLETED',
+      reference,
+    } = req.body;
+
+    if (!amount || Number(amount) <= 0) {
+      res.status(400).json({ error: 'Valid payment amount is required' });
+      return;
+    }
+
+    const trackingId = reference?.trim() || `TX_MAN_${Date.now()}_${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const payment = db.payments.create({
+      id: `pay_${Date.now()}`,
+      ownerId: ownerId || req.user!.id,
+      amount: Number(amount),
+      currency,
+      provider: 'PESAPAL' as any,
+      paymentMethod: (paymentMethod || 'MANUAL') as any,
+      trackingId,
+      status: status || 'COMPLETED',
+      description: description || 'Manual offline transaction recorded by Administrator',
+      createdAt: new Date().toISOString(),
+    });
+
+    db.invoices.create({
+      id: `inv_${Date.now()}`,
+      paymentId: payment.id,
+      ownerId: payment.ownerId,
+      amount: payment.amount,
+      currency: payment.currency,
+      taxAmount: 0,
+      billingPeriod: 'ONE_TIME',
+      invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
+      status: 'PAID',
+      issuedAt: new Date().toISOString(),
+      planName: 'Manual Payment',
+    });
+
+    db.auditLogs.log({
+      actorId: req.user!.id,
+      actorEmail: req.user!.email,
+      actorRole: req.user!.role,
+      action: 'PAYMENT_RECORDED_MANUAL',
+      entityType: 'Payment',
+      entityId: payment.id,
+      details: `Recorded manual payment ${trackingId} for ${currency} ${amount}.`,
+    });
+
+    res.status(201).json({ success: true, payment });
+  } catch (err: any) {
+    console.error('Error creating manual payment:', err);
+    res.status(500).json({ error: err.message || 'Failed to record manual payment' });
+  }
 });
 
 // 6. Stream Health Monitoring
@@ -1013,6 +1268,55 @@ adminRouter.post('/settings/test-gateway', async (req: AuthenticatedRequest, res
     }
   }
 
+  if (gateway === 'google_maps' || gateway === 'maps') {
+    const maps = IntegrationService.getGoogleMapsConfig();
+    if (!maps.apiKey) {
+      return res.json({
+        success: false,
+        gateway: 'GOOGLE_MAPS',
+        status: 'MISSING_CREDENTIALS',
+        message: 'No Google Maps Platform API Key configured. Please enter your API Key.',
+      });
+    }
+
+    try {
+      const testRes = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=Nairobi&key=${encodeURIComponent(maps.apiKey)}`,
+        { signal: AbortSignal.timeout(5000) }
+      );
+      const testData = await testRes.json();
+      if (testData.status === 'OK' || testData.status === 'ZERO_RESULTS') {
+        return res.json({
+          success: true,
+          gateway: 'GOOGLE_MAPS',
+          status: 'CONNECTED',
+          message: 'Google Maps Platform API key is valid and operational! Geocoding and Maps services connected.',
+        });
+      } else if (testData.status === 'REQUEST_DENIED') {
+        return res.json({
+          success: false,
+          gateway: 'GOOGLE_MAPS',
+          status: 'ERROR',
+          message: `Google Maps API returned REQUEST_DENIED: ${testData.error_message || 'Verify Geocoding API / Maps JavaScript API is enabled in your Google Cloud Console project.'}`,
+        });
+      } else {
+        return res.json({
+          success: true,
+          gateway: 'GOOGLE_MAPS',
+          status: 'CONNECTED',
+          message: `Google Maps Platform key verified (API Status: ${testData.status}).`,
+        });
+      }
+    } catch (err: any) {
+      return res.json({
+        success: false,
+        gateway: 'GOOGLE_MAPS',
+        status: 'ERROR',
+        message: `Failed to connect to Google Maps API: ${err.message || 'Network error'}`,
+      });
+    }
+  }
+
   if (gateway === 'whatsapp') {
     const wa = IntegrationService.getWhatsAppConfig();
     return res.json({
@@ -1165,6 +1469,84 @@ adminRouter.post('/tickets/:id/reply', (req: AuthenticatedRequest, res) => {
   );
 
   res.json({ success: true, ticket: updated });
+});
+
+// Update ticket status
+adminRouter.post('/tickets/:id/status', (req: AuthenticatedRequest, res) => {
+  const { id } = req.params;
+  const { status, note } = req.body;
+  const ticket = db.supportTickets.findById(id);
+  if (!ticket) {
+    res.status(404).json({ error: 'Ticket not found' });
+    return;
+  }
+
+  const updated = db.supportTickets.update(id, {
+    status,
+    updatedAt: new Date().toISOString(),
+  });
+
+  if (note && note.trim()) {
+    db.supportTickets.addResponse(
+      id,
+      {
+        authorId: req.user!.id,
+        authorName: req.user!.name,
+        authorRole: req.user!.role,
+        message: `[System Status Note: ${status}] ${note.trim()}`,
+      },
+      status
+    );
+  }
+
+  db.auditLogs.log({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    actorRole: req.user!.role,
+    action: 'SUPPORT_TICKET_STATUS_UPDATED',
+    entityType: 'SupportTicket',
+    entityId: id,
+    details: `Admin changed ticket ${id} status to ${status}.`,
+  });
+
+  res.json({ success: true, ticket: updated });
+});
+
+// Create a support ticket or notice from admin
+adminRouter.post('/tickets', (req: AuthenticatedRequest, res) => {
+  try {
+    const { recipientId, subject, message, priority = 'NORMAL', category = 'GENERAL' } = req.body;
+    if (!subject || !message) {
+      res.status(400).json({ error: 'Subject and message are required' });
+      return;
+    }
+
+    const ticket = db.supportTickets.create({
+      id: `tick_${Date.now()}`,
+      ownerId: recipientId || req.user!.id,
+      subject: subject.trim(),
+      category: category || 'GENERAL',
+      message: message.trim(),
+      status: 'OPEN',
+      priority: priority as any,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      responses: [
+        {
+          id: `resp_${Date.now()}`,
+          authorId: req.user!.id,
+          authorName: req.user!.name,
+          authorRole: req.user!.role,
+          message: message.trim(),
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    });
+
+    res.status(201).json({ success: true, ticket });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to create support ticket' });
+  }
 });
 
 // 14. Prayer Requests Moderation

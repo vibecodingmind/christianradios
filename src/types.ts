@@ -1147,6 +1147,12 @@ export interface PlatformSettings {
   appleKeyId?: string;
   passwordlessMagicLinkEnabled: boolean;
 
+  // Google Maps Platform API & Geocoding Configuration
+  googleMapsEnabled?: boolean;
+  googleMapsApiKey?: string;
+  googleMapsMapId?: string;
+  googleMapsDefaultZoom?: number;
+
   // Premium Radios & Referral Rules Configuration
   premiumRadiosEnabled?: boolean;
   minPremiumPriceTzs?: number;

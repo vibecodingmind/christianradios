@@ -1417,6 +1417,14 @@ class DatabaseEngine {
       this.save();
       return ticket;
     },
+    update: (id: string, updates: Partial<SupportTicket>) => {
+      const ticket = this.data.supportTickets.find((t) => t.id === id);
+      if (!ticket) return null;
+      Object.assign(ticket, updates);
+      ticket.updatedAt = new Date().toISOString();
+      this.save();
+      return ticket;
+    },
   };
 
   // --- Prayer Requests ---

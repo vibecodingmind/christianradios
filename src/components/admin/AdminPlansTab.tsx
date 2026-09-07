@@ -386,10 +386,10 @@ export function AdminPlansTab({ plans, onRefresh }: AdminPlansTabProps) {
 
       {/* CREATE / EDIT MODAL */}
       {(isCreating || editingPlan) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden my-auto animate-fade-in">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-800">
+            <div className="flex items-center justify-between p-6 border-b border-slate-800 shrink-0">
               <div className="flex items-center gap-2">
                 <Layers className="w-5 h-5 text-amber-400" />
                 <h3 className="text-lg font-bold text-white">
@@ -401,14 +401,15 @@ export function AdminPlansTab({ plans, onRefresh }: AdminPlansTabProps) {
                   setIsCreating(false);
                   setEditingPlan(null);
                 }}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleSavePlan} className="p-6 overflow-y-auto space-y-6 flex-1">
+            <form onSubmit={handleSavePlan} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 overflow-y-auto space-y-6 flex-1">
               {errorMsg && (
                 <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-xs font-medium">
                   {errorMsg}
@@ -676,26 +677,33 @@ export function AdminPlansTab({ plans, onRefresh }: AdminPlansTabProps) {
                 </label>
               </div>
 
-              {/* Modal Actions */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCreating(false);
-                    setEditingPlan(null);
-                  }}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex items-center gap-2 px-6 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 disabled:opacity-50"
-                >
-                  {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  {saving ? 'Saving...' : 'Save Package'}
-                </button>
+              </div>
+
+              {/* Pinned / Sticky Modal Action Footer */}
+              <div className="flex items-center justify-between p-4 px-6 bg-slate-950 border-t border-slate-800 shrink-0 z-10">
+                <div className="text-xs text-slate-400 hidden sm:block">
+                  Tier: <span className="font-bold text-amber-400">{formData.tier}</span> • ${formData.monthlyPriceUsd}/mo
+                </div>
+                <div className="flex items-center gap-3 ml-auto sm:ml-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCreating(false);
+                      setEditingPlan(null);
+                    }}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl cursor-pointer transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="flex items-center gap-2 px-6 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 disabled:opacity-50 cursor-pointer transition-colors"
+                  >
+                    {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    {saving ? 'Saving Package...' : 'Save Package'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

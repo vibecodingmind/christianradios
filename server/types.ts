@@ -1181,4 +1181,10 @@ export interface PlatformSettings {
   appleTeamId?: string;
   appleKeyId?: string;
   passwordlessMagicLinkEnabled: boolean;
+
+  // Google Maps Platform API & Geocoding Configuration
+  googleMapsEnabled?: boolean;
+  googleMapsApiKey?: string;
+  googleMapsMapId?: string;
+  googleMapsDefaultZoom?: number;
 }

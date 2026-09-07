@@ -50,6 +50,7 @@ export function PersistentPlayer() {
     setSleepTimer,
     setIsExpanded,
     retryStream,
+    closePlayer,
   } = useAudioPlayer();
 
   const [showSleepTimerModal, setShowSleepTimerModal] = useState(false);
@@ -490,6 +491,17 @@ export function PersistentPlayer() {
                 className="p-2 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-xl transition cursor-pointer shrink-0 hover:scale-105"
               >
                 <Maximize2 className="w-4 h-4" />
+              </button>
+
+              {/* Close / Dismiss Player Widget */}
+              <button
+                type="button"
+                onClick={closePlayer}
+                title="Dismiss player"
+                className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition cursor-pointer shrink-0 hover:scale-105"
+                aria-label="Dismiss player"
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
 

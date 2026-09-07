@@ -51,6 +51,9 @@ import { AdminGivingTab } from '../../components/admin/AdminGivingTab';
 import { AdminImportsTab } from '../../components/admin/AdminImportsTab';
 import { AdminClaimsTab } from '../../components/admin/AdminClaimsTab';
 import { AdminVerificationCenter } from '../../components/admin/AdminVerificationCenter';
+import { AdminStreamHealthTab } from '../../components/admin/AdminStreamHealthTab';
+import { AdminTransactionsTab } from '../../components/admin/AdminTransactionsTab';
+import { AdminSupportDeskTab } from '../../components/admin/AdminSupportDeskTab';
 import type {
   Station,
   User,
@@ -125,10 +128,6 @@ export function AdminDashboard({ onNavigate, initialParam }: AdminDashboardProps
 
   // Stream check state
   const [isCheckingStreams, setIsCheckingStreams] = useState(false);
-
-  // Ticket reply state
-  const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
-  const [ticketReply, setTicketReply] = useState('');
 
   // Sidebar navigation state
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -253,24 +252,6 @@ export function AdminDashboard({ onNavigate, initialParam }: AdminDashboardProps
     }
   };
 
-  // Reply to ticket
-  const handleSendTicketReply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedTicket || !ticketReply.trim()) return;
-
-    try {
-      const res = await apiFetch(`/api/admin/tickets/${selectedTicket.id}/reply`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: ticketReply.trim(), status: 'IN_PROGRESS' }),
-      });
-      if (res.ok) {
-        setTicketReply('');
-        setSelectedTicket(null);
-        await loadAdminData();
-      }
-    } catch {}
-  };
 
   interface AdminMenuItem {
     id: typeof activeTab;
@@ -345,38 +326,29 @@ export function AdminDashboard({ onNavigate, initialParam }: AdminDashboardProps
 
   return (
     <div id="admin-dashboard-root" className="space-y-6 pb-20">
-      {/* Top Executive Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/40 border border-slate-800 rounded-3xl p-6 sm:p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-5 shadow-xl">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400">
-            <ShieldCheck className="w-4 h-4" />
-            Super Administration & Platform Command Center
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Christian Radios Global Administration
-          </h1>
-          <p className="text-xs text-slate-400">
-            Operator: <span className="text-slate-200 font-semibold">{user?.email}</span>{' '}
-            • Environment: <span className="text-emerald-400 font-medium">Production</span> • Status: Online
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 flex-wrap">
+      {/* Sleek Breadcrumb & Status Bar */}
+      <div className="flex items-center justify-between px-1 py-1">
+        <div className="flex items-center gap-2 text-xs">
           <button
             onClick={() => onNavigate('home')}
-            className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 border border-slate-700 transition-all cursor-pointer"
+            className="text-slate-400 hover:text-amber-400 font-medium flex items-center gap-1 transition-colors cursor-pointer"
           >
-            <ArrowLeft className="w-4 h-4 text-amber-400" />
-            <span>Back to Christian Radios</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Christian Radios</span>
           </button>
-          <button
-            onClick={handleTriggerGlobalStreamCheck}
-            disabled={isCheckingStreams}
-            className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50 cursor-pointer"
-          >
-            <RotateCw className={`w-4 h-4 ${isCheckingStreams ? 'animate-spin' : ''}`} />
-            {isCheckingStreams ? 'Testing Streams...' : 'Run Global Stream Check'}
-          </button>
+          <span className="text-slate-600">/</span>
+          <span className="text-amber-400 font-bold uppercase tracking-wider text-[11px] flex items-center gap-1">
+            <ShieldCheck className="w-3.5 h-3.5" /> Admin Console
+          </span>
+          <span className="text-slate-600">/</span>
+          <span className="text-white font-bold">{currentTabObj?.label || 'Dashboard'}</span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-full font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="hidden sm:inline">Production</span> Online
+          </div>
         </div>
       </div>
 
@@ -966,56 +938,9 @@ export function AdminDashboard({ onNavigate, initialParam }: AdminDashboardProps
 
       {/* Tab 6: Stream Health Telemetry */}
       {activeTab === 'streams' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white">Live Stream Endpoints Telemetry</h2>
-            <button
-              onClick={handleTriggerGlobalStreamCheck}
-              disabled={isCheckingStreams}
-              className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5"
-            >
-              <RotateCw className={`w-3.5 h-3.5 ${isCheckingStreams ? 'animate-spin' : ''}`} />
-              Refresh All Streams
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {stations.map((st) => (
-              <div
-                key={st.id}
-                className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3 text-xs"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="font-bold text-white truncate max-w-[180px]">{st.name}</div>
-                  <span
-                    className={`font-bold text-[10px] px-2 py-0.5 rounded-full ${
-                      st.streamStatus === 'ONLINE'
-                        ? 'bg-emerald-500/10 text-emerald-400'
-                        : 'bg-rose-500/10 text-rose-400'
-                    }`}
-                  >
-                    {st.streamStatus || 'ONLINE'}
-                  </span>
-                </div>
-
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 font-mono text-[11px] text-slate-400 truncate">
-                  {st.streamUrl}
-                </div>
-
-                <div className="flex items-center justify-between text-slate-400 pt-1">
-                  <span>Latency: {st.responseLatencyMs || 120}ms</span>
-                  <span>Bitrate: {st.bitrate || 128}kbps</span>
-                  <button
-                    onClick={() => playStation(st)}
-                    className="text-amber-400 hover:underline font-semibold"
-                  >
-                    Play
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <AdminStreamHealthTab
+          onNavigateToStation={() => setActiveTab('stations')}
+        />
       )}
 
       {/* Tab 7: Taxonomy & Countries */}
@@ -1032,128 +957,20 @@ export function AdminDashboard({ onNavigate, initialParam }: AdminDashboardProps
 
       {/* Tab 9: Financial Transactions */}
       {activeTab === 'finance' && (
-        <div className="space-y-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="bg-slate-950 text-slate-400">
-                    <th className="py-3 px-4 font-semibold">Tracking ID</th>
-                    <th className="py-3 px-4 font-semibold">Method</th>
-                    <th className="py-3 px-4 font-semibold">Amount</th>
-                    <th className="py-3 px-4 font-semibold">Status</th>
-                    <th className="py-3 px-4 font-semibold">Description</th>
-                    <th className="py-3 px-4 font-semibold">Date</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60">
-                  {payments.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-500">
-                        No financial records found.
-                      </td>
-                    </tr>
-                  ) : (
-                    payments.map((p) => (
-                      <tr key={p.id} className="hover:bg-slate-800/30">
-                        <td className="py-3 px-4 font-mono font-bold text-white">{p.trackingId}</td>
-                        <td className="py-3 px-4 text-slate-300">{p.paymentMethod}</td>
-                        <td className="py-3 px-4 font-bold text-emerald-400">
-                          {p.currency} {(p.amount || 0).toLocaleString()}
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full">
-                            {p.status}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-slate-400">{p.description}</td>
-                        <td className="py-3 px-4 text-slate-500">
-                          {new Date(p.createdAt).toLocaleDateString()}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+        <AdminTransactionsTab
+          payments={payments}
+          tenants={tenants}
+          onRefresh={loadAdminData}
+        />
       )}
 
-      {/* Tab 10: Support Tickets */}
+      {/* Tab 10: Support Tickets Desk */}
       {activeTab === 'tickets' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Tickets List */}
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
-              <h3 className="text-base font-bold text-white">Broadcaster Tickets</h3>
-              <div className="space-y-3">
-                {tickets.length === 0 ? (
-                  <p className="text-xs text-slate-500 py-6 text-center">No open tickets at this time.</p>
-                ) : (
-                  tickets.map((t) => (
-                    <div
-                      key={t.id}
-                      onClick={() => setSelectedTicket(t)}
-                      className={`p-4 rounded-2xl border transition-colors cursor-pointer text-xs space-y-1.5 ${
-                        selectedTicket?.id === t.id
-                          ? 'bg-amber-950/40 border-amber-500'
-                          : 'bg-slate-950 border-slate-800 hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-white">{t.subject}</span>
-                        <span className="text-[10px] font-bold bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full">
-                          {t.status}
-                        </span>
-                      </div>
-                      <p className="text-slate-400 line-clamp-2">{t.message}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Reply Panel */}
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
-              {selectedTicket ? (
-                <div className="space-y-4">
-                  <h3 className="text-base font-bold text-white">
-                    Reply to: {selectedTicket.subject}
-                  </h3>
-                  <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs text-slate-300">
-                    <div className="text-[10px] font-bold text-slate-400 mb-1">
-                      Original Broadcaster Message:
-                    </div>
-                    {selectedTicket.message}
-                  </div>
-
-                  <form onSubmit={handleSendTicketReply} className="space-y-3 text-xs">
-                    <label className="block font-medium text-slate-300">Staff Response</label>
-                    <textarea
-                      rows={4}
-                      required
-                      placeholder="Type engineering resolution or response..."
-                      value={ticketReply}
-                      onChange={(e) => setTicketReply(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200"
-                    />
-                    <button
-                      type="submit"
-                      className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-5 py-2.5 rounded-xl transition-colors"
-                    >
-                      Send Reply
-                    </button>
-                  </form>
-                </div>
-              ) : (
-                <div className="py-20 text-center text-xs text-slate-400">
-                  Select a ticket from the list to view details and send engineering reply.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <AdminSupportDeskTab
+          tickets={tickets}
+          tenants={tenants}
+          onRefresh={loadAdminData}
+        />
       )}
 
       {/* Tab 11: Audit Logs */}

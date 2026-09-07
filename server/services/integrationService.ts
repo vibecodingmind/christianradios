@@ -8,6 +8,7 @@ export type IntegrationCategory =
   | 'AI'
   | 'COMMUNICATION'
   | 'RADIO_DIRECTORY'
+  | 'GEO_SERVICES'
   | 'STORAGE'
   | 'ANALYTICS';
 
@@ -243,6 +244,26 @@ export class IntegrationService {
   }
 
   /**
+   * Google Maps Platform API Configuration
+   */
+  static getGoogleMapsConfig() {
+    const settings = db.settings.get();
+    const rawKey = settings?.googleMapsApiKey || process.env.GOOGLE_MAPS_API_KEY || '';
+    const apiKey = decryptSecret(rawKey).trim();
+    const enabled = settings?.googleMapsEnabled ?? Boolean(apiKey);
+    const mapId = settings?.googleMapsMapId || '';
+    const defaultZoom = settings?.googleMapsDefaultZoom || 12;
+
+    return {
+      configured: Boolean(apiKey),
+      apiKey,
+      enabled,
+      mapId,
+      defaultZoom,
+    };
+  }
+
+  /**
    * Retrieve Public Summary of all Integrations for Admin Portal
    */
   static getIntegrationSummaries(): IntegrationSummary[] {
@@ -252,6 +273,7 @@ export class IntegrationService {
     const stripe = this.getStripeConfig();
     const paypal = this.getPayPalConfig();
     const google = this.getGoogleOAuthConfig();
+    const maps = this.getGoogleMapsConfig();
     const gemini = this.getGeminiConfig();
     const wa = this.getWhatsAppConfig();
     const radio = this.getRadioBrowserConfig();
@@ -313,6 +335,15 @@ export class IntegrationService {
         enabled: google.enabled,
         configured: google.configured,
         status: !google.enabled ? 'DISABLED' : google.configured ? 'CONNECTED' : 'NOT_CONFIGURED',
+      },
+      {
+        id: 'google_maps',
+        provider: 'Google Maps Platform',
+        category: 'GEO_SERVICES',
+        name: 'Google Maps Geocoding & Directory Maps',
+        enabled: maps.enabled,
+        configured: maps.configured,
+        status: !maps.enabled ? 'DISABLED' : maps.configured ? 'CONNECTED' : 'NOT_CONFIGURED',
       },
       {
         id: 'gemini',

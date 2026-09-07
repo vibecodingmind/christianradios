@@ -30,6 +30,7 @@ import {
   Play,
   Square,
   Upload,
+  MapPin,
 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import type { PlatformSettings } from '../../types';
@@ -41,7 +42,7 @@ export function AdminSettingsTab() {
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [activeSubSection, setActiveSubSection] = useState<
-    'gateways' | 'ai' | 'email' | 'whatsapp' | 'radio' | 'giving' | 'social' | 'security' | 'general' | 'audioIdent'
+    'gateways' | 'maps' | 'ai' | 'email' | 'whatsapp' | 'radio' | 'giving' | 'social' | 'security' | 'general' | 'audioIdent'
   >('gateways');
   const [gatewayTesting, setGatewayTesting] = useState<string | null>(null);
   const [gatewayTestResult, setGatewayTestResult] = useState<{
@@ -361,6 +362,19 @@ export function AdminSettingsTab() {
         >
           <CreditCard className="w-4 h-4 text-amber-400" />
           Payment Gateways
+        </button>
+
+        <button
+          id="nav-sub-maps"
+          onClick={() => setActiveSubSection('maps')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
+            activeSubSection === 'maps'
+              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <MapPin className="w-4 h-4 text-blue-400" />
+          Google Maps API
         </button>
 
         <button
@@ -760,6 +774,172 @@ export function AdminSettingsTab() {
                   placeholder="whsec_..."
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-purple-500 font-mono text-xs"
                 />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SECTION: GOOGLE MAPS PLATFORM API & GEOCODING */}
+      {activeSubSection === 'maps' && (
+        <div id="section-maps" className="space-y-6">
+          {/* Gateway Test Result Callout */}
+          {gatewayTestResult && (
+            <div
+              className={`p-4 rounded-xl border flex items-center justify-between ${
+                gatewayTestResult.status === 'CONNECTED'
+                  ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
+                  : 'bg-amber-950/40 border-amber-500/30 text-amber-300'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                {gatewayTestResult.status === 'CONNECTED' ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-amber-400" />
+                )}
+                <div>
+                  <span className="font-bold mr-2">{gatewayTestResult.gateway}:</span>
+                  <span className="text-sm">{gatewayTestResult.message}</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setGatewayTestResult(null)}
+                className="text-xs opacity-70 hover:opacity-100 cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    Google Maps Platform API & Geocoding
+                    <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                      Cloud Geocoding
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Powers radio station geographical pins, listener radius discovery, country & city geocoding, and interactive studio location maps.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 self-end sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => testApi('google_maps')}
+                  disabled={gatewayTesting === 'google_maps'}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-blue-300 border border-slate-700 hover:border-blue-500/40 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${gatewayTesting === 'google_maps' ? 'animate-spin' : ''}`} />
+                  {gatewayTesting === 'google_maps' ? 'Validating API...' : 'Test Connection'}
+                </button>
+
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.googleMapsEnabled ?? true}
+                    onChange={(e) => updateSetting('googleMapsEnabled', e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                </label>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* API Key */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-slate-300">
+                    Google Maps API Key *
+                  </label>
+                  <a
+                    href="https://console.cloud.google.com/google/maps-apis/credentials"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[11px] text-blue-400 hover:underline flex items-center gap-1"
+                  >
+                    Google Cloud Console <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showSecret['google_maps'] ? 'text' : 'password'}
+                    value={settings.googleMapsApiKey || ''}
+                    onChange={(e) => updateSetting('googleMapsApiKey', e.target.value)}
+                    placeholder="AIzaSyD..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-4 pr-10 py-2.5 text-sm text-slate-200 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => toggleSecret('google_maps')}
+                    className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 cursor-pointer"
+                  >
+                    {showSecret['google_maps'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Required APIs enabled in GCP: Maps JavaScript API, Geocoding API, Places API.
+                </p>
+              </div>
+
+              {/* Map ID */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-300">
+                  Google Map ID (Optional Vector / Custom Styling)
+                </label>
+                <input
+                  type="text"
+                  value={settings.googleMapsMapId || ''}
+                  onChange={(e) => updateSetting('googleMapsMapId', e.target.value)}
+                  placeholder="e.g. 8e0a97..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono"
+                />
+                <p className="text-[11px] text-slate-500">
+                  Allows custom vector map styling, dark theme, and high-performance WebGL rendering.
+                </p>
+              </div>
+
+              {/* Default Zoom */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-300">
+                  Default Zoom Level
+                </label>
+                <input
+                  type="number"
+                  min="3"
+                  max="19"
+                  value={settings.googleMapsDefaultZoom || 12}
+                  onChange={(e) => updateSetting('googleMapsDefaultZoom', Number(e.target.value))}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 font-mono"
+                />
+                <p className="text-[11px] text-slate-500">
+                  Default zoom level when displaying radio station broadcaster studio pins (range 3 to 19).
+                </p>
+              </div>
+
+              {/* Integration Status Card */}
+              <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl flex flex-col justify-between">
+                <div>
+                  <div className="text-xs font-bold text-slate-300 mb-1">Platform Geocoding Status</div>
+                  <p className="text-xs text-slate-400">
+                    {settings.googleMapsApiKey
+                      ? '✓ API key configured and ready for live map rendering.'
+                      : '⚠️ No API key set. Station cards will fall back to static coordinates.'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 mt-3 text-[11px] text-slate-500">
+                  <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                  <span>Maps JS • Geocoding API • Places API</span>
+                </div>
               </div>
             </div>
           </div>

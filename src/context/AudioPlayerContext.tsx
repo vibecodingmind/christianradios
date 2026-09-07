@@ -40,6 +40,7 @@ interface AudioPlayerContextType {
   setSleepTimer: (minutes: number | null) => void;
   setIsExpanded: (expanded: boolean) => void;
   retryStream: () => void;
+  closePlayer: () => void;
   refreshNowPlaying: () => Promise<void>;
 }
 
@@ -741,6 +742,25 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   };
 
+  const closePlayer = () => {
+    pause();
+    if (audioRef.current) {
+      audioRef.current.src = '';
+    }
+    if (hlsRef.current) {
+      try {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      } catch {}
+    }
+    setCurrentStation(null);
+    setNowPlaying(null);
+    setHasError(false);
+    setErrorMessage(null);
+    setIsExpanded(false);
+    setIsIdentPlaying(false);
+  };
+
   return (
     <AudioPlayerContext.Provider
       value={{
@@ -771,6 +791,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         setSleepTimer,
         setIsExpanded,
         retryStream,
+        closePlayer,
         refreshNowPlaying,
       }}
     >
