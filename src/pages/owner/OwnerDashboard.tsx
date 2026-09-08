@@ -137,6 +137,28 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
       } else {
         setShowClaimModal(true);
       }
+    } else if (initialParam?.startsWith('payment-return:')) {
+      // PesaPal / PayPal redirected back after payment — verify and activate subscription
+      const trackingId = initialParam.split('payment-return:')[1];
+      setActiveTab('billing');
+      if (trackingId) {
+        fetch(`/api/payments/pesapal/verify?tracking_id=${encodeURIComponent(trackingId)}`, {
+          credentials: 'include',
+        })
+          .then((r) => r.json())
+          .then(async (data) => {
+            if (data.payment?.status === 'COMPLETED') {
+              await refreshUser();
+            }
+            // Clean up URL params so refresh doesn't retrigger
+            const cleanUrl = new URL(window.location.href);
+            cleanUrl.search = '';
+            window.history.replaceState({}, '', cleanUrl.toString());
+          })
+          .catch((err) => {
+            console.error('[Payment Return] Verification failed:', err);
+          });
+      }
     }
   }, [initialParam]);
 

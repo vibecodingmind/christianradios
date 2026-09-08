@@ -186,6 +186,21 @@ function MainAppContent() {
       const cnt = path.replace('/country/', '');
       setCurrentView('country');
       setViewParam(cnt);
+    } else if (
+      // PesaPal returns to /owner/subscriptions with ?OrderTrackingId=... or ?tracking_id=...
+      // PayPal returns with ?token=... and ?PayerID=...
+      params.get('OrderTrackingId') ||
+      params.get('tracking_id') ||
+      params.get('OrderMerchantReference') ||
+      (params.get('token') && params.get('PayerID'))
+    ) {
+      const trackingId =
+        params.get('OrderTrackingId') ||
+        params.get('tracking_id') ||
+        params.get('token') ||
+        '';
+      setCurrentView('owner');
+      setViewParam(`payment-return:${trackingId}`);
     } else {
       setCurrentView('home');
       setViewParam(undefined);

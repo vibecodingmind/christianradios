@@ -3,6 +3,7 @@ import { requireAuth, type AuthenticatedRequest } from '../auth.js';
 import { db } from '../db.js';
 import { createPesaPalOrder, finalizePaymentTransaction, queryPesaPalTransactionStatus } from '../pesapal.js';
 import type { PaymentMethod } from '../types.js';
+import { IntegrationService } from '../services/integrationService.js';
 
 export const paymentsRouter = Router();
 
@@ -51,7 +52,7 @@ paymentsRouter.post(['/create-checkout', '/checkout'], requireAuth, async (req: 
       billingInterval,
       featuredCampaignId,
       paymentMethod: paymentMethod as PaymentMethod,
-      callbackUrl: `${process.env.APP_URL || 'http://localhost:3000'}/owner/subscriptions?verify_tracking_id=`,
+      callbackUrl: `${process.env.APP_URL || 'http://localhost:3000'}/owner/subscriptions`,
     });
 
     // If sandbox / simulated payment requested, finalize atomically right away
@@ -333,7 +334,7 @@ paymentsRouter.post('/stripe/create-intent', async (req, res) => {
       return;
     }
 
-    const settings = db.settings.get();
+    const stripeConfig = IntegrationService.getStripeConfig();
     const trackingId = `STRIPE_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
     // Record pending transaction
@@ -355,12 +356,12 @@ paymentsRouter.post('/stripe/create-intent', async (req, res) => {
     let clientSecret = `pi_mock_${Date.now()}_secret_${Math.random().toString(36).substring(2, 8)}`;
 
     // If Stripe Secret Key is configured, attempt real Stripe REST API PaymentIntent creation
-    if (settings.stripeSecretKey && !settings.stripeSecretKey.startsWith('sk_test_mock')) {
+    if (stripeConfig.secretKey && !stripeConfig.secretKey.startsWith('sk_test_mock')) {
       try {
         const stripeRes = await fetch('https://api.stripe.com/v1/payment_intents', {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${settings.stripeSecretKey}`,
+            Authorization: `Bearer ${stripeConfig.secretKey}`,
             'Content-Type': 'application/x-www-form-urlencoded',
           },
           body: new URLSearchParams({
@@ -378,7 +379,8 @@ paymentsRouter.post('/stripe/create-intent', async (req, res) => {
             db.payments.update(payment.id, { providerRef: stripeData.id });
           }
         } else {
-          console.warn('[Stripe API] Live creation warning, continuing with sandbox intent:', await stripeRes.text());
+          const errBody = await stripeRes.text();
+          console.warn(`[Stripe API] HTTP ${stripeRes.status} — Live creation failed, falling back to sandbox intent:`, errBody);
         }
       } catch (err) {
         console.warn('[Stripe API] Direct request error, fallback to sandbox intent:', err);
@@ -390,7 +392,7 @@ paymentsRouter.post('/stripe/create-intent', async (req, res) => {
       clientSecret,
       trackingId,
       paymentId: payment.id,
-      publishableKey: settings.stripePublishableKey || 'pk_test_cr_demo_sandbox',
+      publishableKey: stripeConfig.publishableKey || 'pk_test_cr_demo_sandbox',
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Stripe initialization failed';
@@ -474,7 +476,8 @@ paymentsRouter.post('/paypal/create-order', async (req, res) => {
 
     const mockOrderId = `PAYPAL_ORD_${Date.now()}_${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
     let orderId = mockOrderId;
-    let approveUrl = `https://www.sandbox.paypal.com/checkoutnow?token=${orderId}`;
+    const paypalWebBase = settings.paypalEnv === 'live' ? 'https://www.paypal.com' : 'https://www.sandbox.paypal.com';
+    let approveUrl = `${paypalWebBase}/checkoutnow?token=${orderId}`;
 
     // If real PayPal API credentials configured
     if (settings.paypalClientId && settings.paypalClientSecret) {

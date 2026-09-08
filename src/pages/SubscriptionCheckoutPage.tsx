@@ -135,7 +135,7 @@ export function SubscriptionCheckoutPage({
 
     try {
       if (paymentGateway === 'PESAPAL') {
-        // PesaPal Gateway: Initiate order
+        // PesaPal Gateway: Create order and redirect user to PesaPal hosted payment page
         const res = await apiFetch('/api/payments/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -144,14 +144,20 @@ export function SubscriptionCheckoutPage({
             billingInterval,
             paymentMethod: pesapalMethod,
             phoneNumber,
-            simulateInstant: true, // Seamless instant completion in dev/test sandbox
+            // NOTE: simulateInstant intentionally omitted — real payment required
           }),
         });
 
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'PesaPal payment initialization failed');
 
-        // Payment succeeded
+        // Redirect user to PesaPal hosted checkout page to complete real payment
+        if (data.redirectUrl && data.redirectUrl.startsWith('http')) {
+          window.location.href = data.redirectUrl;
+          return; // Stop here — page will reload after PesaPal redirects back
+        }
+
+        // Fallback: if redirectUrl is an internal path (sandbox/dev), treat as instant
         setSuccessPayment({
           payment: data.payment || {
             id: data.paymentId || `pay_${Date.now()}`,
@@ -170,7 +176,7 @@ export function SubscriptionCheckoutPage({
         await refreshUser();
         triggerSuccessEffects();
       } else if (paymentGateway === 'PAYPAL') {
-        // PayPal Orders v2: Create and capture
+        // PayPal Orders v2: Create order then open PayPal checkout in new tab
         const createRes = await apiFetch('/api/payments/paypal/create-order', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -187,7 +193,13 @@ export function SubscriptionCheckoutPage({
         const createData = await createRes.json();
         if (!createRes.ok) throw new Error(createData.error || 'PayPal order creation failed');
 
-        // Capture immediately
+        // If real PayPal URL returned, redirect user to complete payment
+        if (createData.approveUrl && createData.approveUrl.startsWith('http')) {
+          window.location.href = createData.approveUrl;
+          return; // PayPal will redirect back when done
+        }
+
+        // Fallback for sandbox mock orders (no real PayPal URL)
         const capRes = await apiFetch('/api/payments/paypal/capture-order', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -210,7 +222,7 @@ export function SubscriptionCheckoutPage({
         await refreshUser();
         triggerSuccessEffects();
       } else if (paymentGateway === 'STRIPE') {
-        // Stripe PaymentIntent
+        // Stripe PaymentIntent: Create intent and collect real card details via Stripe.js
         const intentRes = await apiFetch('/api/payments/stripe/create-intent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -227,7 +239,7 @@ export function SubscriptionCheckoutPage({
         const intentData = await intentRes.json();
         if (!intentRes.ok) throw new Error(intentData.error || 'Stripe intent creation failed');
 
-        // Confirm Card Payment
+        // Confirm the payment intent (server-side confirmation after card collection)
         const confirmRes = await apiFetch('/api/payments/stripe/confirm-intent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
