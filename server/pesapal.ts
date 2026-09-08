@@ -56,6 +56,74 @@ export async function getPesaPalAuthToken(): Promise<string> {
   }
 }
 
+/**
+ * Register IPN URL with PesaPal and persist the returned IPN ID to settings.
+ * Must be called at least once before submitting any live orders.
+ */
+export async function registerPesaPalIPN(): Promise<string> {
+  const config = getPesaPalConfig();
+  if (!config.consumerKey || !config.consumerSecret) {
+    throw new Error('PesaPal credentials not configured.');
+  }
+
+  const appUrl = process.env.APP_URL || 'http://localhost:3000';
+  const ipnUrl = `${appUrl}/api/payments/pesapal/ipn-webhook`;
+
+  const token = await getPesaPalAuthToken();
+  const res = await fetch(`${config.baseUrl}/api/URLSetup/RegisterIPN`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      url: ipnUrl,
+      ipn_notification_type: 'GET',
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`PesaPal IPN registration failed: HTTP ${res.status} — ${body}`);
+  }
+
+  const data = (await res.json()) as { ipn_id?: string; url?: string; ipn_status?: string };
+  const ipnId = data.ipn_id || '';
+
+  if (ipnId) {
+    // Persist to DB settings so all future orders use this IPN ID
+    db.settings.update({ pesapalIpnId: ipnId } as any);
+    console.log(`[PesaPal] IPN registered. ID: ${ipnId}, URL: ${ipnUrl}`);
+  }
+
+  return ipnId;
+}
+
+let ipnRegistrationDone = false;
+
+/**
+ * Ensures IPN is registered exactly once per server lifecycle.
+ * Safe to call before every order — skips if already done or IPN ID exists.
+ */
+export async function ensurePesaPalIPN(): Promise<void> {
+  if (ipnRegistrationDone) return;
+  const config = getPesaPalConfig();
+  if (!config.configured) return;
+
+  if (config.ipnId) {
+    ipnRegistrationDone = true;
+    return;
+  }
+
+  try {
+    await registerPesaPalIPN();
+    ipnRegistrationDone = true;
+  } catch (err) {
+    console.error('[PesaPal] Auto IPN registration failed:', err instanceof Error ? err.message : err);
+  }
+}
+
 export async function queryPesaPalTransactionStatus(orderTrackingId: string): Promise<{
   verified: boolean;
   status: PaymentStatus;

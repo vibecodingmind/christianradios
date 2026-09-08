@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../auth.js';
 import { db } from '../db.js';
-import { createPesaPalOrder, finalizePaymentTransaction, queryPesaPalTransactionStatus } from '../pesapal.js';
+import { createPesaPalOrder, finalizePaymentTransaction, queryPesaPalTransactionStatus, registerPesaPalIPN, ensurePesaPalIPN } from '../pesapal.js';
 import type { PaymentMethod } from '../types.js';
 import { IntegrationService } from '../services/integrationService.js';
 
@@ -39,6 +39,9 @@ paymentsRouter.post(['/create-checkout', '/checkout'], requireAuth, async (req: 
       res.status(400).json({ error: 'Either planId or featuredCampaignId must be provided.' });
       return;
     }
+
+    // Ensure PesaPal IPN is registered before submitting any order
+    await ensurePesaPalIPN();
 
     const order = await createPesaPalOrder({
       ownerId: user.id,
@@ -569,6 +572,21 @@ paymentsRouter.post('/paypal/capture-order', async (req, res) => {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'PayPal capture failed';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// 8. Admin: Manually trigger PesaPal IPN registration (call after updating credentials or APP_URL)
+paymentsRouter.post('/pesapal/register-ipn', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const ipnId = await registerPesaPalIPN();
+    res.json({
+      success: true,
+      ipnId,
+      message: `PesaPal IPN registered successfully. IPN ID: ${ipnId}`,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'IPN registration failed';
     res.status(500).json({ error: msg });
   }
 });

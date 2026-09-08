@@ -506,19 +506,21 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
             billingInterval,
             paymentMethod: pesapalMethod,
             phoneNumber: checkoutPhone,
-            simulateInstant: true,
+            // simulateInstant intentionally omitted — real payment required
           }),
         });
 
         const data = await res.json();
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || 'PesaPal payment processing failed.');
+        if (!res.ok) throw new Error(data.error || 'PesaPal payment initialization failed.');
+
+        // Redirect to PesaPal hosted payment page for real payment
+        if (data.redirectUrl && data.redirectUrl.startsWith('http')) {
+          window.location.href = data.redirectUrl;
+          return;
         }
 
-        setCheckoutSuccessData({
-          payment: data.payment,
-          invoice: data.invoice,
-        });
+        // Sandbox/dev fallback: no real redirect URL
+        setCheckoutSuccessData({ payment: data.payment, invoice: data.invoice });
       } else if (checkoutGateway === 'PAYPAL') {
         const createRes = await apiFetch('/api/payments/paypal/create-order', {
           method: 'POST',
@@ -536,6 +538,13 @@ export function OwnerDashboard({ onNavigate, initialParam }: OwnerDashboardProps
         const createData = await createRes.json();
         if (!createRes.ok) throw new Error(createData.error || 'PayPal order creation failed.');
 
+        // Redirect to PayPal approve page for real payment
+        if (createData.approveUrl && createData.approveUrl.startsWith('http')) {
+          window.location.href = createData.approveUrl;
+          return;
+        }
+
+        // Sandbox fallback: no real PayPal redirect
         const capRes = await apiFetch('/api/payments/paypal/capture-order', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
