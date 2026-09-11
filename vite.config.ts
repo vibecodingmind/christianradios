@@ -46,6 +46,10 @@ export default defineConfig(() => {
         },
         workbox: {
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+          // Without this the service worker answers navigations to server routes
+          // with the cached HTML shell, so payment callbacks and webhooks that
+          // land in a browser tab never reach Express.
+          navigateFallbackDenylist: [/^\/api\//],
         },
       }),
     ],

@@ -6,6 +6,7 @@ import { requireRole, sanitizeUser, hashPassword, type AuthenticatedRequest } fr
 import { db } from '../db.js';
 import { encryptSecret, maskSecret } from '../crypto.js';
 import { IntegrationService } from '../services/integrationService.js';
+import { getPlatformCurrency, getPlanPrice } from '../currency.js';
 import { checkSingleStream, runAllStreamHealthChecks } from '../streamMonitor.js';
 import { radioImportService } from '../import/importService.js';
 import { syncStationFromSource } from '../import/syncService.js';
@@ -35,13 +36,13 @@ adminRouter.get('/metrics', (req, res) => {
 
   // MRR from active paid subscriptions. Plans are charged in the platform
   // currency, so MRR is reported in it too rather than converted at a fixed rate.
-  const currency = db.settings.get().defaultCurrency || 'USD';
+  const currency = getPlatformCurrency();
   const plansMap = new Map(db.plans.getAll().map((p) => [p.id, p]));
   let mrr = 0;
   for (const sub of activeSubs) {
     const plan = plansMap.get(sub.planId);
     if (plan && plan.tier !== 'FREE') {
-      mrr += plan.monthlyPriceUsd ?? 0;
+      mrr += getPlanPrice(plan, 'MONTHLY');
     }
   }
 
