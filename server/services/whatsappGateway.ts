@@ -81,6 +81,26 @@ class WhatsAppGatewayService {
   }
 
   /**
+   * Strips the long-lived Meta credentials before a session is sent to a client.
+   * The UI only needs to know whether a token is on file, never its value.
+   */
+  redactSession<T extends WhatsAppSession | undefined>(session: T): T {
+    if (!session) return session;
+    const { metaAccessToken, metaAppSecret, pairingToken, ...safe } = session;
+    return {
+      ...safe,
+      metaAccessTokenSet: Boolean(metaAccessToken),
+      metaAppSecretSet: Boolean(metaAppSecret),
+    } as unknown as T;
+  }
+
+  /** Same redaction, applied to a station record before it leaves the server. */
+  redactStation<T extends { whatsappSession?: WhatsAppSession } | null | undefined>(station: T): T {
+    if (!station || !station.whatsappSession) return station;
+    return { ...station, whatsappSession: this.redactSession(station.whatsappSession) };
+  }
+
+  /**
    * Complete pairing handshake (Standard WhatsApp or WhatsApp Business)
    */
   confirmPairing(
@@ -100,6 +120,16 @@ class WhatsAppGatewayService {
     const cleanPhone = String(options.phone || '').trim();
     if (!cleanPhone) {
       throw new Error('Valid WhatsApp phone number is required.');
+    }
+
+    // The pairing token proves this confirmation belongs to the QR session that
+    // was just issued, rather than to an arbitrary phone number.
+    const expectedToken = station.whatsappSession?.pairingToken;
+    if (!expectedToken) {
+      throw new Error('No pairing session is in progress. Start a new pairing request.');
+    }
+    if (!options.token || options.token !== expectedToken) {
+      throw new Error('Invalid or expired pairing token. Please scan the QR code again.');
     }
 
     const accountType: WhatsAppAccountType = options.accountType === 'BUSINESS' ? 'BUSINESS' : 'STANDARD';

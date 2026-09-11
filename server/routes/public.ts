@@ -1,6 +1,8 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import http from 'http';
 import https from 'https';
+import { createRateLimiter } from '../rateLimiter.js';
 import { db } from '../db.js';
 import { requireAuth, getSessionFromRequest, type AuthenticatedRequest } from '../auth.js';
 import { validateStreamUrl } from '../ssrf.js';
@@ -13,6 +15,13 @@ import { simulatedPaymentsAllowed } from '../paymentVerification.js';
 import { IntegrationService } from '../services/integrationService.js';
 
 export const publicRouter = Router();
+
+// The studio bridge is open to listeners, so cap how fast one client can post.
+const bridgeRateLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 10,
+  message: 'Too many studio messages. Please wait a moment before sending another.',
+});
 
 const ZERO_DECIMAL_CURRENCIES = new Set(['TZS', 'UGX', 'RWF', 'KRW', 'JPY', 'VND', 'XAF', 'XOF']);
 
@@ -971,8 +980,10 @@ publicRouter.get('/stations/:stationId/bridge/inbound', (req, res) => {
   const challenge = req.query['hub.challenge'];
 
   if (mode === 'subscribe') {
+    // Must match the token this station was configured with. A shared literal
+    // would let anyone complete Meta webhook registration for any station.
     const expectedToken = st.whatsappSession?.metaVerifyToken;
-    if (!expectedToken || token === expectedToken || token === 'christianradios_meta_webhook') {
+    if (expectedToken && typeof token === 'string' && token === expectedToken) {
       res.status(200).send(challenge);
       return;
     }
@@ -983,8 +994,34 @@ publicRouter.get('/stations/:stationId/bridge/inbound', (req, res) => {
   res.status(200).json({ status: 'ACTIVE', stationId: st.id, name: st.name });
 });
 
+const MAX_BRIDGE_MESSAGE_LENGTH = 1000;
+
+/**
+ * Verifies Meta's X-Hub-Signature-256 over the raw request body. Returns false
+ * when the station has an app secret configured but the signature is absent or
+ * does not match, so a forged payload cannot impersonate a verified business
+ * account.
+ */
+function verifyMetaWebhookSignature(req: any, appSecret: string): boolean {
+  const header = req.headers['x-hub-signature-256'];
+  if (typeof header !== 'string' || !header.startsWith('sha256=')) return false;
+
+  const expected = crypto
+    .createHmac('sha256', appSecret)
+    .update(JSON.stringify(req.body))
+    .digest('hex');
+  const provided = header.slice('sha256='.length);
+
+  if (provided.length !== expected.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(provided, 'utf8'), Buffer.from(expected, 'utf8'));
+  } catch {
+    return false;
+  }
+}
+
 // Inbound Receiver (Meta Cloud API, Twilio, or Direct Web Player)
-publicRouter.post('/stations/:stationId/bridge/inbound', (req, res) => {
+publicRouter.post('/stations/:stationId/bridge/inbound', bridgeRateLimiter, (req, res) => {
   const { stationId } = req.params;
   const st = db.stations.findBySlug(stationId) || db.stations.findById(stationId);
   if (!st) {
@@ -1000,15 +1037,22 @@ publicRouter.post('/stations/:stationId/bridge/inbound', (req, res) => {
 
   // Format 1: Meta WhatsApp Cloud API Webhook payload
   if (req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]) {
+    const appSecret = st.whatsappSession?.metaAppSecret;
+    if (appSecret && !verifyMetaWebhookSignature(req, appSecret)) {
+      res.status(401).json({ error: 'Invalid webhook signature.' });
+      return;
+    }
+
     const changeVal = req.body.entry[0].changes[0].value;
     const msg = changeVal.messages[0];
     const contact = changeVal.contacts?.[0];
-    
+
     body = msg.text?.body || msg.caption || '[Media Message]';
     from = msg.from ? `+${msg.from}` : '';
     senderName = contact?.profile?.name || from || 'WhatsApp Listener';
     channel = 'WHATSAPP';
-    accountType = 'BUSINESS';
+    // Only a signed payload may claim to be a verified business account.
+    accountType = appSecret ? 'BUSINESS' : 'STANDARD';
   }
   // Format 2: Twilio WhatsApp Webhook payload
   else if (req.body?.From && req.body?.Body) {
@@ -1023,11 +1067,17 @@ publicRouter.post('/stations/:stationId/bridge/inbound', (req, res) => {
     from = req.body.from || '';
     senderName = req.body.senderName || req.body.authorName || '';
     channel = req.body.channel === 'SMS' ? 'SMS' : req.body.channel === 'WEB' ? 'WEB' : 'WHATSAPP';
-    accountType = req.body.accountType === 'BUSINESS' ? 'BUSINESS' : 'STANDARD';
+    // An unsigned caller cannot self-declare a verified business account.
+    accountType = 'STANDARD';
   }
 
-  if (!body) {
+  if (typeof body !== 'string' || !body.trim()) {
     res.status(400).json({ error: 'Message body is required.' });
+    return;
+  }
+
+  if (body.length > MAX_BRIDGE_MESSAGE_LENGTH) {
+    res.status(400).json({ error: `Message must be ${MAX_BRIDGE_MESSAGE_LENGTH} characters or fewer.` });
     return;
   }
 

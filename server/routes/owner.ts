@@ -1059,12 +1059,13 @@ ownerRouter.delete(['/giving/campaigns/:id', '/campaigns/:id'], (req: Authentica
 });
 
 // Financial Ledger
-ownerRouter.get(['/giving/ledger', '/ledger'], (req: AuthenticatedRequest, res) => {
+// `/giving/statement` is the path the Financial Statement tab calls.
+ownerRouter.get(['/giving/ledger', '/ledger', '/giving/statement'], (req: AuthenticatedRequest, res) => {
   const ownerId = req.user!.id;
   const ledger = db.ledgerEntries.getByOwnerId(ownerId);
   const balance = db.ledgerEntries.getOwnerBalance(ownerId);
 
-  res.json({ ledger, balance });
+  res.json({ ledger, statement: ledger, balance });
 });
 
 // Payout Withdrawals
@@ -1093,9 +1094,8 @@ ownerRouter.post(['/giving/withdrawals', '/withdrawals'], (req: AuthenticatedReq
   const finalAccountName = payoutAccountName || req.user!.name || req.user!.email;
   const finalAccountNumber = payoutAccountNumber || accountDetails || 'Primary Account';
 
-  const financialSummary = db.getUserFinancialSummary(ownerId);
-  const currentBalance = db.ledgerEntries.getOwnerBalance(ownerId);
-  const effectiveAvailable = Math.max(currentBalance.availableBalance, financialSummary.availableBalance);
+  const financialSummary = db.ledgerEntries.getOwnerBalance(ownerId);
+  const effectiveAvailable = financialSummary.availableBalance;
   const hasReferralEarnings = financialSummary.totalCommissions > 0;
   const hasDonationEarnings = effectiveAvailable > 0;
 
@@ -1770,7 +1770,11 @@ ownerRouter.get('/notifications', (req: AuthenticatedRequest, res) => {
 });
 
 ownerRouter.post('/notifications/:id/read', (req: AuthenticatedRequest, res) => {
-  db.notifications.markRead(req.params.id, req.user!.id);
+  const marked = db.notifications.markRead(req.params.id, req.user!.id);
+  if (!marked) {
+    res.status(404).json({ error: 'Notification not found.' });
+    return;
+  }
   res.json({ success: true });
 });
 
@@ -1934,7 +1938,7 @@ ownerRouter.get('/stations/:id/whatsapp/status', (req: AuthenticatedRequest, res
   }
 
   const session = whatsappGateway.getStationSession(id);
-  res.json({ success: true, session });
+  res.json({ success: true, session: whatsappGateway.redactSession(session) });
 });
 
 // 16b. Initialize QR Pairing Session (Supports Standard & Business WhatsApp)
@@ -1991,7 +1995,11 @@ ownerRouter.post('/stations/:id/whatsapp/confirm-scan', (req: AuthenticatedReque
     const updatedStation = db.stations.findById(id);
     broadcastLiveEvent('WHATSAPP_STATUS_CHANGED', { status: 'CONNECTED', session, station: updatedStation }, { stationId: id });
     broadcastLiveEvent('STATION_UPDATED', updatedStation, { stationId: id });
-    res.json({ success: true, session, station: updatedStation });
+    res.json({
+      success: true,
+      session: whatsappGateway.redactSession(session),
+      station: whatsappGateway.redactStation(updatedStation),
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to confirm WhatsApp pairing.' });
   }
@@ -2016,7 +2024,11 @@ ownerRouter.post('/stations/:id/whatsapp/disconnect', (req: AuthenticatedRequest
     const updatedStation = db.stations.findById(id);
     broadcastLiveEvent('WHATSAPP_STATUS_CHANGED', { status: 'DISCONNECTED', session, station: updatedStation }, { stationId: id });
     broadcastLiveEvent('STATION_UPDATED', updatedStation, { stationId: id });
-    res.json({ success: true, session, station: updatedStation });
+    res.json({
+      success: true,
+      session: whatsappGateway.redactSession(session),
+      station: whatsappGateway.redactStation(updatedStation),
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to disconnect WhatsApp session.' });
   }
@@ -2078,7 +2090,11 @@ ownerRouter.put('/stations/:id/whatsapp/meta-config', (req: AuthenticatedRequest
       metaVerifyToken,
     });
     const updatedStation = db.stations.findById(id);
-    res.json({ success: true, session, station: updatedStation });
+    res.json({
+      success: true,
+      session: whatsappGateway.redactSession(session),
+      station: whatsappGateway.redactStation(updatedStation),
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to update Meta configuration.' });
   }

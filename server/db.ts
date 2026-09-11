@@ -30,6 +30,7 @@ import type {
   Donation,
   DonationCampaign,
   LedgerEntry,
+  LedgerEntryType,
   WithdrawalRequest,
   DailyVerse,
   StreamOutageAlert,
@@ -49,6 +50,11 @@ import type {
   StationApplication,
   StationFeedPost,
 } from './types.js';
+
+/** Avoids floating-point dust accumulating across ledger sums. */
+function round2(value: number): number {
+  return Number.isFinite(value) ? Math.round(value * 100) / 100 : 0;
+}
 
 export interface DatabaseSchema {
   users: User[];
@@ -1767,40 +1773,77 @@ class DatabaseEngine {
       this.save();
       return entry;
     },
-    getOwnerBalance: (ownerId: string) => {
-      const ownerDonations = db.donations.getByOwnerId(ownerId);
-      const completedDonations = ownerDonations.filter((d) => d.status === 'COMPLETED');
-      
-      const totalGrossDonations = completedDonations.reduce((sum, d) => sum + (d.grossAmount || d.amount), 0);
-      const totalPlatformFees = completedDonations.reduce((sum, d) => {
-        if (d.platformFeeAmount !== undefined) return sum + d.platformFeeAmount;
-        const feeRate = (d.platformFeePercentage ?? 5.0) / 100;
-        return sum + Math.round((d.grossAmount || d.amount) * feeRate);
-      }, 0);
-      const totalNetEarnings = totalGrossDonations - totalPlatformFees;
-
-      const ownerWithdrawals = (this.data.withdrawalRequests || []).filter((w) => w.ownerId === ownerId);
-      const completedWithdrawn = ownerWithdrawals
-        .filter((w) => w.status === 'COMPLETED')
-        .reduce((sum, w) => sum + w.amount, 0);
-
-      const pendingWithdrawn = ownerWithdrawals
-        .filter((w) => ['REQUESTED', 'UNDER_REVIEW', 'APPROVED', 'PROCESSING'].includes(w.status))
-        .reduce((sum, w) => sum + w.amount, 0);
-
-      const availableBalance = Math.max(0, totalNetEarnings - completedWithdrawn - pendingWithdrawn);
-
-      return {
-        totalGrossDonations,
-        totalPlatformFees,
-        totalNetEarnings,
-        completedWithdrawn,
-        pendingWithdrawn,
-        availableBalance,
-        currency: 'USD',
-      };
-    },
+    getOwnerBalance: (ownerId: string) => this.computeOwnerBalance(ownerId),
   };
+
+  /**
+   * The single source of truth for what an owner may withdraw.
+   *
+   * The ledger is the double-entry record of everything earned and paid out, so
+   * the balance is derived from it rather than from donations alone — otherwise
+   * premium revenue shares and referral commissions are invisible. Completed
+   * withdrawals already appear as WITHDRAWAL_DEBIT entries; withdrawals still
+   * awaiting disbursement do not, so those are held back separately.
+   */
+  private computeOwnerBalance(ownerId: string) {
+    const entries = (this.data.ledgerEntries || []).filter(
+      (e) => e.ownerId === ownerId && e.status !== 'REVERSED'
+    );
+
+    const sumOf = (types: LedgerEntryType[]) =>
+      entries.filter((e) => types.includes(e.type)).reduce((sum, e) => sum + (e.amount || 0), 0);
+
+    const totalDonationCredits = sumOf(['DONATION_CREDIT']);
+    const totalPremiumShare = sumOf(['PREMIUM_SHARE_CREDIT']);
+    const totalCommissions = sumOf(['REFERRAL_CREDIT']);
+    const totalAdjustmentCredits = sumOf(['ADJUSTMENT_CREDIT', 'ADJUSTMENT']);
+
+    const totalCredits =
+      totalDonationCredits + totalPremiumShare + totalCommissions + totalAdjustmentCredits;
+    const totalDebits = sumOf([
+      'DONATION_PAYOUT',
+      'PLATFORM_FEE_DEBIT',
+      'WITHDRAWAL_DEBIT',
+      'REFUND_DEBIT',
+      'ADJUSTMENT_DEBIT',
+    ]);
+
+    const ownerWithdrawals = (this.data.withdrawalRequests || []).filter((w) => w.ownerId === ownerId);
+    const completedWithdrawn = ownerWithdrawals
+      .filter((w) => w.status === 'COMPLETED')
+      .reduce((sum, w) => sum + w.amount, 0);
+    const pendingWithdrawn = ownerWithdrawals
+      .filter((w) => ['REQUESTED', 'UNDER_REVIEW', 'APPROVED', 'PROCESSING'].includes(w.status))
+      .reduce((sum, w) => sum + w.amount, 0);
+
+    const completedDonations = db.donations
+      .getByOwnerId(ownerId)
+      .filter((d) => d.status === 'COMPLETED');
+    const totalGrossDonations = completedDonations.reduce((sum, d) => sum + (d.grossAmount || d.amount), 0);
+    const totalPlatformFees = completedDonations.reduce((sum, d) => {
+      if (d.platformFeeAmount !== undefined) return sum + d.platformFeeAmount;
+      const feeRate = (d.platformFeePercentage ?? 5.0) / 100;
+      return sum + (d.grossAmount || d.amount) * feeRate;
+    }, 0);
+
+    const grossEarnings = round2(totalCredits);
+    const availableBalance = Math.max(0, round2(totalCredits - totalDebits - pendingWithdrawn));
+
+    return {
+      totalGrossDonations: round2(totalGrossDonations),
+      totalPlatformFees: round2(totalPlatformFees),
+      totalNetEarnings: round2(totalDonationCredits),
+      totalDonations: round2(totalDonationCredits),
+      totalPremiumShare: round2(totalPremiumShare),
+      totalCommissions: round2(totalCommissions),
+      grossEarnings,
+      totalWithdrawn: round2(completedWithdrawn),
+      completedWithdrawn: round2(completedWithdrawn),
+      pendingWithdrawn: round2(pendingWithdrawn),
+      availableBalance,
+      currency: this.data.settings?.defaultCurrency || 'USD',
+    };
+  }
 
   // --- Withdrawal Requests ---
   public withdrawalRequests = {
@@ -2015,37 +2058,11 @@ class DatabaseEngine {
   };
 
   // --- Financial Ledger Summary Calculator ---
+  // Delegates to the same ledger-derived balance as getOwnerBalance. Two
+  // independent calculators previously disagreed, and callers took the larger of
+  // the two, which overstated what an owner could withdraw.
   public getUserFinancialSummary(userId: string) {
-    const userLedger = (this.data.ledgerEntries || []).filter((e) => e.ownerId === userId);
-
-    const totalDonations = userLedger
-      .filter((e) => e.type === 'DONATION_PAYOUT' && e.status === 'SETTLED')
-      .reduce((sum, e) => sum + e.amount, 0);
-
-    const totalPremiumShare = (this.data.premiumSubscriptions || [])
-      .filter((s) => s.ownerId === userId && (s.status === 'ACTIVE' || s.status === 'EXPIRED'))
-      .reduce((sum, s) => sum + s.ownerShareTzs, 0);
-
-    const totalCommissions = (this.data.referralCommissions || [])
-      .filter((c) => c.referrerId === userId && c.status === 'SETTLED')
-      .reduce((sum, c) => sum + c.commissionAmountTzs, 0);
-
-    const grossEarnings = totalDonations + totalPremiumShare + totalCommissions;
-
-    const totalWithdrawn = (this.data.withdrawalRequests || [])
-      .filter((w) => w.ownerId === userId && (w.status === 'PAID' || w.status === 'APPROVED' || w.status === 'PROCESSING' || w.status === 'PENDING'))
-      .reduce((sum, w) => sum + w.amount, 0);
-
-    const availableBalance = Math.max(0, grossEarnings - totalWithdrawn);
-
-    return {
-      grossEarnings,
-      totalDonations,
-      totalPremiumShare,
-      totalCommissions,
-      totalWithdrawn,
-      availableBalance,
-    };
+    return this.computeOwnerBalance(userId);
   }
 
   // --- Settings ---

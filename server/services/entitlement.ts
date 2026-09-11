@@ -166,11 +166,16 @@ export class PlanEntitlementService {
     ).length;
 
     // 3. Donation Campaigns Usage
-    const allDonations = db.donations.getAll();
-    const ownerDonations = allDonations.filter(
-      (d) => d.ownerId === ownerId || ownerStationIds.has(d.stationId)
-    );
-    const donationCampaignsCount = ownerDonations.length;
+    // The plan limit caps campaigns, not individual gifts — counting donations
+    // meant a popular station hit the limit after a handful of donors.
+    const donationCampaignsCount = db.donationCampaigns
+      .getAll()
+      .filter(
+        (c) =>
+          (c.ownerId === ownerId || ownerStationIds.has(c.stationId)) &&
+          c.status !== 'COMPLETED' &&
+          c.status !== 'EXPIRED'
+      ).length;
 
     // 4. Compute capabilities
     const canAddStation = stationsCount < plan.maxStations;

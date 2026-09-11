@@ -55,6 +55,35 @@ export function handleLiveEventsStream(req: Request, res: Response): void {
   });
 }
 
+// Every connected browser receives every event on the public /api/public/events
+// stream, so anything broadcast is effectively public. Station and session
+// records carry gateway credentials, which must never be included.
+const SECRET_KEYS = new Set([
+  'metaAccessToken',
+  'metaAppSecret',
+  'metaVerifyToken',
+  'pairingToken',
+  'passwordHash',
+  'accessToken',
+  'apiKey',
+  'secretKey',
+  'consumerSecret',
+  'clientSecret',
+  'webhookSecret',
+]);
+
+function scrubSecrets(value: unknown, depth = 0): unknown {
+  if (depth > 8 || value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map((item) => scrubSecrets(item, depth + 1));
+
+  const result: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+    if (SECRET_KEYS.has(key)) continue;
+    result[key] = scrubSecrets(val, depth + 1);
+  }
+  return result;
+}
+
 /**
  * Broadcast an event to all connected clients
  */
@@ -67,7 +96,7 @@ export function broadcastLiveEvent(
     type,
     stationId: meta?.stationId,
     userId: meta?.userId,
-    data,
+    data: scrubSecrets(data),
     timestamp: new Date().toISOString(),
   };
 

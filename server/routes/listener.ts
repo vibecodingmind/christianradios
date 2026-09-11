@@ -4,6 +4,7 @@ import { requireAuth, type AuthenticatedRequest } from '../auth.js';
 import { db } from '../db.js';
 import type { ListeningSession } from '../types.js';
 import { broadcastLiveEvent } from '../liveSync.js';
+import { createRateLimiter } from '../rateLimiter.js';
 
 export const listenerRouter = Router();
 
@@ -81,31 +82,53 @@ listenerRouter.post('/favorites/toggle', requireAuth, (req: AuthenticatedRequest
   });
 });
 
-// Record Listening Session
-listenerRouter.post('/history/session', (req, res) => {
+// Record Listening Session.
+// Anonymous listening is a legitimate use of the player, so this stays public —
+// but it writes to the play counts that drive rankings and owner analytics, so
+// it is rate limited and the station must actually exist.
+const sessionRateLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 30,
+  message: 'Too many playback events. Please slow down.',
+});
+
+listenerRouter.post('/history/session', sessionRateLimiter, (req: AuthenticatedRequest, res) => {
   const { stationId, durationSeconds = 30, clientType = 'WEB', countryCode } = req.body;
   if (!stationId) {
     res.status(400).json({ error: 'stationId is required' });
     return;
   }
 
+  const station = db.stations.findById(stationId);
+  if (!station) {
+    res.status(404).json({ error: 'Station not found.' });
+    return;
+  }
+
   const ip = req.ip || '127.0.0.1';
   const ipHash = crypto.createHash('sha256').update(ip).digest('hex').substring(0, 16);
 
+  // A single "session" must not be able to claim hours of listening.
+  const MAX_SESSION_SECONDS = 6 * 60 * 60;
+  const parsedDuration = parseInt(durationSeconds, 10);
+  const boundedDuration = Math.min(
+    MAX_SESSION_SECONDS,
+    Math.max(1, Number.isFinite(parsedDuration) ? parsedDuration : 30)
+  );
+
   const session: ListeningSession = {
     id: `sess_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-    stationId,
-    // @ts-ignore
+    stationId: station.id,
     userId: req.user?.id,
     ipHash,
     startedAt: new Date().toISOString(),
-    durationSeconds: Math.max(1, parseInt(durationSeconds, 10) || 30),
+    durationSeconds: boundedDuration,
     countryCode,
     clientType: clientType === 'ANDROID' || clientType === 'IOS' ? clientType : 'WEB',
   };
 
   db.sessions.create(session);
-  db.stations.incrementPlayCount(stationId);
+  db.stations.incrementPlayCount(station.id);
 
   db.analytics.logEvent({
     id: `ev_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -125,7 +148,11 @@ listenerRouter.get('/notifications', requireAuth, (req: AuthenticatedRequest, re
 });
 
 listenerRouter.post('/notifications/:id/read', requireAuth, (req: AuthenticatedRequest, res) => {
-  db.notifications.markRead(req.params.id, req.user!.id);
+  const marked = db.notifications.markRead(req.params.id, req.user!.id);
+  if (!marked) {
+    res.status(404).json({ error: 'Notification not found.' });
+    return;
+  }
   res.json({ success: true });
 });
 

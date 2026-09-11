@@ -18,6 +18,28 @@ if (!fs.existsSync(DOCUMENTS_DIR)) {
   fs.mkdirSync(DOCUMENTS_DIR, { recursive: true });
 }
 
+/** Reads the leading magic bytes so a declared MIME type can be checked against the real contents. */
+function detectFileType(buffer: Buffer): string | null {
+  if (buffer.length >= 4 && buffer.subarray(0, 4).toString('latin1') === '%PDF') {
+    return 'application/pdf';
+  }
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return 'image/jpeg';
+  }
+  const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  if (buffer.length >= 8 && buffer.subarray(0, 8).equals(PNG_SIGNATURE)) {
+    return 'image/png';
+  }
+  if (
+    buffer.length >= 12 &&
+    buffer.subarray(0, 4).toString('latin1') === 'RIFF' &&
+    buffer.subarray(8, 12).toString('latin1') === 'WEBP'
+  ) {
+    return 'image/webp';
+  }
+  return null;
+}
+
 // Validation schemas for KYC Submission
 const KYCSubmissionSchema = z.object({
   verificationType: z.enum(['INDIVIDUAL', 'ORGANIZATION']),
@@ -145,7 +167,7 @@ kycRouter.post('/upload-document', (req: AuthenticatedRequest, res) => {
   const userId = req.user!.id;
   const { documentType, fileName, fileData } = req.body;
 
-  if (!documentType || !fileData) {
+  if (!documentType || typeof fileData !== 'string' || !fileData) {
     res.status(400).json({ error: 'Missing document type or file data.' });
     return;
   }
@@ -173,6 +195,10 @@ kycRouter.post('/upload-document', (req: AuthenticatedRequest, res) => {
 
     if (fileData.startsWith('data:')) {
       const parts = fileData.split(';base64,');
+      if (parts.length < 2) {
+        res.status(400).json({ error: 'File data must be base64 encoded.' });
+        return;
+      }
       mimeType = parts[0].replace('data:', '');
       buffer = Buffer.from(parts[1], 'base64');
     } else {
@@ -194,18 +220,18 @@ kycRouter.post('/upload-document', (req: AuthenticatedRequest, res) => {
       'image/webp': '.webp',
     };
 
-    if (mimeExtMap[mimeType]) {
-      fileExt = mimeExtMap[mimeType];
-    } else if (fileName) {
-      const ext = path.extname(fileName).toLowerCase();
-      if (['.pdf', '.jpg', '.jpeg', '.png', '.webp'].includes(ext)) {
-        fileExt = ext;
-      } else {
-        res.status(400).json({ error: 'Unsupported file format. Please upload PDF, JPG, PNG, or WEBP.' });
-        return;
-      }
-    } else {
-      res.status(400).json({ error: 'Unsupported file format.' });
+    // The declared MIME type must be on the allowlist. Falling back to the
+    // filename extension let any content through under a generic content type.
+    if (!mimeExtMap[mimeType]) {
+      res.status(400).json({ error: 'Unsupported file format. Please upload PDF, JPG, PNG, or WEBP.' });
+      return;
+    }
+    fileExt = mimeExtMap[mimeType];
+
+    // And the bytes must actually match what was declared.
+    const detected = detectFileType(buffer);
+    if (detected !== mimeType.replace('image/jpg', 'image/jpeg')) {
+      res.status(400).json({ error: 'File contents do not match the declared file type.' });
       return;
     }
 

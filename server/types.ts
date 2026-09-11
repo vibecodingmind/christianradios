@@ -851,6 +851,8 @@ export interface WhatsAppSession {
   metaPhoneNumberId?: string;
   metaAccessToken?: string;
   metaVerifyToken?: string;
+  /** Meta app secret used to verify the X-Hub-Signature-256 on inbound webhooks. */
+  metaAppSecret?: string;
 }
 
 export interface StationFeedPost {
