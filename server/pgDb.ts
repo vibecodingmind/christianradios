@@ -19,6 +19,10 @@ export class PgDatabaseSync {
           process.env.NODE_ENV === 'production' || connectionString.includes('railway')
             ? { rejectUnauthorized: false }
             : false,
+        // pg waits forever by default. The boot sequence blocks on the restore,
+        // so an unreachable database would hang the healthcheck instead of
+        // falling back to local state.
+        connectionTimeoutMillis: 10_000,
       });
 
       this.pool.on('error', (err) => {

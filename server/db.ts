@@ -107,6 +107,24 @@ export interface DatabaseSchema {
 
 const DB_FILE = path.join(process.cwd(), 'data', 'db.json');
 const SNAPSHOT_INTERVAL_MS = Number(process.env.DB_SNAPSHOT_INTERVAL_MS ?? 5000);
+const RESTORE_TIMEOUT_MS = Number(process.env.DB_RESTORE_TIMEOUT_MS ?? 30_000);
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    timer.unref?.();
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
 
 class DatabaseEngine {
   private data: DatabaseSchema;
@@ -619,10 +637,21 @@ class DatabaseEngine {
   public async restoreFromDurableStore(): Promise<void> {
     if (!pgSync.getPool()) return;
     try {
-      const snapshot = await pgSync.loadSnapshot();
+      // The server does not start listening until this resolves, so a database
+      // that accepts the connection but never answers must not stall the boot
+      // past the platform's healthcheck window.
+      const snapshot = await withTimeout(
+        pgSync.loadSnapshot(),
+        RESTORE_TIMEOUT_MS,
+        'Timed out reading the Postgres snapshot.'
+      );
       if (!snapshot || !Array.isArray(snapshot.users)) {
         console.log('[Persistence] No Postgres snapshot yet. Seeding one from local state.');
-        await this.flushSnapshot();
+        await withTimeout(
+          this.flushSnapshot(),
+          RESTORE_TIMEOUT_MS,
+          'Timed out writing the initial Postgres snapshot.'
+        );
         return;
       }
       const defaults = this.getDefaultSchema();
@@ -682,7 +711,9 @@ class DatabaseEngine {
       this.snapshotTimeout = null;
     }
     try {
-      await this.flushSnapshot();
+      // Bounded so a stalled database cannot hold the container open past the
+      // platform's kill timeout, which would drop the on-disk write too.
+      await withTimeout(this.flushSnapshot(), 10_000, 'Timed out on final snapshot write.');
     } catch (err) {
       console.error('[Persistence] Final snapshot write failed:', err);
     }
