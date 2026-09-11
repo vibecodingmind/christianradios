@@ -2,6 +2,7 @@ import { ALL_WORLD_COUNTRIES } from './worldCountries.js';
 import { pgSync } from './pgDb.js';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import type {
   User,
   RadioOwnerProfile,
@@ -105,6 +106,7 @@ export interface DatabaseSchema {
 }
 
 const DB_FILE = path.join(process.cwd(), 'data', 'db.json');
+const SNAPSHOT_INTERVAL_MS = Number(process.env.DB_SNAPSHOT_INTERVAL_MS ?? 5000);
 
 class DatabaseEngine {
   private data: DatabaseSchema;
@@ -316,6 +318,9 @@ class DatabaseEngine {
   }
 
   private saveTimeout: NodeJS.Timeout | null = null;
+  private snapshotTimeout: NodeJS.Timeout | null = null;
+  private snapshotInFlight = false;
+  private lastSnapshotHash: string | null = null;
 
   private init() {
     try {
@@ -565,11 +570,6 @@ class DatabaseEngine {
 
       this.saveImmediately();
       this.isLoaded = true;
-
-      // Trigger background sync to PostgreSQL if DATABASE_URL is set
-      pgSync.initSchemaAndSync(this.data).catch((err) => {
-        console.error('[PostgreSQL] Async sync error:', err);
-      });
     } catch (e) {
       console.error('Error initializing database file:', e);
       this.data = this.getDefaultSchema();
@@ -597,6 +597,7 @@ class DatabaseEngine {
     } catch (e) {
       console.error('Error persisting database:', e);
     }
+    this.scheduleSnapshot();
   }
 
   public scheduleSave(delayMs = 500) {
@@ -605,6 +606,83 @@ class DatabaseEngine {
       this.saveTimeout = null;
       this.saveImmediately();
     }, delayMs);
+  }
+
+  /**
+   * Restores the document from Postgres before the server accepts traffic. Without
+   * this the container's fresh copy of data/db.json silently wins after a redeploy
+   * and every account, payment and ledger entry created since the last build is gone.
+   */
+  public async restoreFromDurableStore(): Promise<void> {
+    if (!pgSync.getPool()) return;
+    try {
+      const snapshot = await pgSync.loadSnapshot();
+      if (!snapshot || !Array.isArray(snapshot.users)) {
+        console.log('[Persistence] No Postgres snapshot yet. Seeding one from local state.');
+        await this.flushSnapshot();
+        return;
+      }
+      const defaults = this.getDefaultSchema();
+      this.data = {
+        ...defaults,
+        ...snapshot,
+        countries: ALL_WORLD_COUNTRIES,
+        settings: { ...defaults.settings, ...(snapshot.settings || {}) },
+      };
+      this.lastSnapshotHash = null;
+      this.saveImmediately();
+      console.log(
+        `[Persistence] Restored from Postgres snapshot: ${this.data.users.length} users, ` +
+          `${this.data.stations.length} stations, ${this.data.payments.length} payments.`
+      );
+    } catch (err) {
+      console.error('[Persistence] Could not restore Postgres snapshot, continuing with local state:', err);
+    } finally {
+      // The relational tables are a reporting mirror; sync them from whatever state
+      // won so they never reflect the container's stale checkout.
+      pgSync.initSchemaAndSync(this.data).catch((err) => {
+        console.error('[PostgreSQL] Async sync error:', err);
+      });
+    }
+  }
+
+  private scheduleSnapshot() {
+    if (!pgSync.getPool() || this.snapshotTimeout) return;
+    this.snapshotTimeout = setTimeout(() => {
+      this.snapshotTimeout = null;
+      this.flushSnapshot().catch((err) => {
+        console.error('[Persistence] Snapshot write failed:', err);
+      });
+    }, SNAPSHOT_INTERVAL_MS);
+    this.snapshotTimeout.unref?.();
+  }
+
+  public async flushSnapshot(): Promise<void> {
+    if (!pgSync.getPool() || this.snapshotInFlight) return;
+    const serialized = JSON.stringify(this.data);
+    const hash = crypto.createHash('sha256').update(serialized).digest('hex');
+    if (hash === this.lastSnapshotHash) return;
+    this.snapshotInFlight = true;
+    try {
+      await pgSync.saveSnapshot(serialized);
+      this.lastSnapshotHash = hash;
+    } finally {
+      this.snapshotInFlight = false;
+    }
+  }
+
+  /** Flushes both persistence layers so an in-flight payment is not lost on shutdown. */
+  public async shutdown(): Promise<void> {
+    this.saveImmediately();
+    if (this.snapshotTimeout) {
+      clearTimeout(this.snapshotTimeout);
+      this.snapshotTimeout = null;
+    }
+    try {
+      await this.flushSnapshot();
+    } catch (err) {
+      console.error('[Persistence] Final snapshot write failed:', err);
+    }
   }
 
   public getRaw(): DatabaseSchema {
@@ -2075,17 +2153,25 @@ class DatabaseEngine {
     },
   };
 
+  /** Runs idempotent data migrations on every boot, including on live installs. */
+  public applyMigrations(migrateFn: (data: DatabaseSchema) => void) {
+    migrateFn(this.data);
+    this.save();
+  }
+
   public seedInitialData(seedFn: (data: DatabaseSchema) => void) {
-    if (
-      this.data.users.length === 0 ||
-      this.data.stations.length === 0 ||
-      !this.data.plans ||
-      this.data.plans.length !== 3 ||
-      !this.data.stationReviews ||
-      this.data.stationReviews.length === 0 ||
-      !this.data.prayerRequests ||
-      this.data.prayerRequests.length === 0
-    ) {
+    // The seed replaces payments, donations, ledger entries and withdrawals
+    // wholesale, so it may only run on a genuinely empty install. It used to fire
+    // whenever any seeded collection was emptied — an admin clearing the prayer
+    // wall was enough to wipe every real transaction on the platform.
+    const hasRealActivity =
+      this.data.users.length > 0 ||
+      (this.data.payments?.length ?? 0) > 0 ||
+      (this.data.donations?.length ?? 0) > 0 ||
+      (this.data.ledgerEntries?.length ?? 0) > 0 ||
+      (this.data.subscriptions?.length ?? 0) > 0;
+
+    if (!hasRealActivity) {
       seedFn(this.data);
       this.save();
     }

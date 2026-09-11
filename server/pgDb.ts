@@ -37,6 +37,51 @@ export class PgDatabaseSync {
     return this.isConnected;
   }
 
+  /**
+   * Railway (and most container platforms) give every deploy a fresh filesystem, so
+   * `data/db.json` resets to the committed seed on each redeploy. The snapshot table
+   * keeps the authoritative document in Postgres so payments, donations, ledger
+   * entries and accounts survive restarts.
+   */
+  private async ensureSnapshotTable(client: pg.PoolClient): Promise<void> {
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS app_state_snapshot (
+         id INTEGER PRIMARY KEY,
+         data JSONB NOT NULL,
+         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+       );`
+    );
+  }
+
+  public async loadSnapshot(): Promise<DatabaseSchema | null> {
+    if (!this.pool) return null;
+    const client = await this.pool.connect();
+    try {
+      await this.ensureSnapshotTable(client);
+      const result = await client.query('SELECT data FROM app_state_snapshot WHERE id = 1;');
+      if (result.rows.length === 0) return null;
+      const data = result.rows[0].data;
+      return typeof data === 'string' ? (JSON.parse(data) as DatabaseSchema) : (data as DatabaseSchema);
+    } finally {
+      client.release();
+    }
+  }
+
+  public async saveSnapshot(serialized: string): Promise<void> {
+    if (!this.pool) return;
+    const client = await this.pool.connect();
+    try {
+      await this.ensureSnapshotTable(client);
+      await client.query(
+        `INSERT INTO app_state_snapshot (id, data, updated_at) VALUES (1, $1::jsonb, NOW())
+         ON CONFLICT (id) DO UPDATE SET data = $1::jsonb, updated_at = NOW();`,
+        [serialized]
+      );
+    } finally {
+      client.release();
+    }
+  }
+
   public async initSchemaAndSync(data: DatabaseSchema): Promise<void> {
     if (!this.pool) return;
 

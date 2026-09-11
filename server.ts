@@ -3,6 +3,7 @@ import cookieParser from 'cookie-parser';
 import path from 'path';
 import fs from 'fs';
 import { extractUserFromCookie } from './server/auth.js';
+import { db } from './server/db.js';
 import { runSeed } from './server/seed.js';
 import { startStreamMonitorWorker } from './server/streamMonitor.js';
 import { authRouter } from './server/routes/auth.js';
@@ -23,6 +24,10 @@ import { handleLiveEventsStream } from './server/liveSync.js';
 import { authRateLimiter, sensitiveActionRateLimiter, apiRateLimiter } from './server/rateLimiter.js';
 
 async function bootstrap() {
+  // Must happen before any request is served, otherwise writes land on top of the
+  // container's stale copy of data/db.json and overwrite the durable snapshot.
+  await db.restoreFromDurableStore();
+
   const app = express();
   app.disable('x-powered-by');
   // Railway and most PaaS hosts terminate TLS at a single proxy hop. Trusting it
@@ -189,7 +194,7 @@ async function bootstrap() {
   }
 
   // 7. Start Server
-  app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Christian Radios] Server active at http://0.0.0.0:${PORT}`);
 
     // Deferred initialization of initial database seed and stream monitoring workers
@@ -202,6 +207,24 @@ async function bootstrap() {
       }
     }, 200);
   });
+
+  // Railway sends SIGTERM before replacing the container. Writes are debounced, so
+  // without an explicit flush the last few seconds of activity are dropped.
+  let shuttingDown = false;
+  const shutdown = async (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`[Christian Radios] ${signal} received, flushing database before exit...`);
+    server.close();
+    try {
+      await db.shutdown();
+    } catch (err) {
+      console.error('[Christian Radios] Error flushing database on shutdown:', err);
+    }
+    process.exit(0);
+  };
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+  process.on('SIGINT', () => void shutdown('SIGINT'));
 }
 
 bootstrap().catch((err) => {

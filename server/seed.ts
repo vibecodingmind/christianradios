@@ -2,7 +2,7 @@ import { ALL_WORLD_COUNTRIES } from './worldCountries.js';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { db } from './db.js';
+import { db, type DatabaseSchema } from './db.js';
 import type { Category, Country, Station, SubscriptionPlan, User } from './types.js';
 import { DEFAULT_OFFICIAL_PLANS } from './services/entitlement.js';
 import { hashPassword } from './auth.js';
@@ -34,31 +34,40 @@ function resolveSeedAdminPassword(): string {
   return generated;
 }
 
+/**
+ * Plan normalisation has to run on every boot, including on established installs
+ * that the destructive demo seed must never touch again.
+ */
+function normalizeOfficialPlans(data: DatabaseSchema): void {
+  if (
+    !data.plans ||
+    data.plans.length !== 3 ||
+    data.plans.some((p: any) =>
+      ['BASIC', 'STARTER', 'BUSINESS', 'PROFESSIONAL'].includes(p.tier as string) ||
+      ['plan_basic', 'plan_starter', 'plan_professional', 'plan_business', 'plan_enterprise'].includes(p.id)
+    )
+  ) {
+    data.plans = DEFAULT_OFFICIAL_PLANS;
+  }
+
+  if (data.subscriptions && data.subscriptions.length > 0) {
+    data.subscriptions.forEach((sub: any) => {
+      if (sub.planId === 'plan_starter' || sub.planId === 'plan_basic') {
+        sub.planId = 'plan_pro';
+      } else if (['plan_professional', 'plan_business', 'plan_enterprise'].includes(sub.planId)) {
+        sub.planId = 'plan_vip';
+      }
+    });
+  }
+}
+
 export function runSeed() {
+  db.applyMigrations(normalizeOfficialPlans);
+
   db.seedInitialData((data) => {
     console.log('Seeding Christian Radios initial database...');
 
-    // 1. Subscription Plans (Enforce strictly the 3 official packages: Free Starter, Pro Ministry, Kingdom Network)
-    if (
-      !data.plans ||
-      data.plans.length !== 3 ||
-      data.plans.some((p: any) =>
-        ['BASIC', 'STARTER', 'BUSINESS', 'PROFESSIONAL'].includes(p.tier as string) ||
-        ['plan_basic', 'plan_starter', 'plan_professional', 'plan_business', 'plan_enterprise'].includes(p.id)
-      )
-    ) {
-      data.plans = DEFAULT_OFFICIAL_PLANS;
-    }
-
-    if (data.subscriptions && data.subscriptions.length > 0) {
-      data.subscriptions.forEach((sub: any) => {
-        if (sub.planId === 'plan_starter' || sub.planId === 'plan_basic') {
-          sub.planId = 'plan_pro';
-        } else if (['plan_professional', 'plan_business', 'plan_enterprise'].includes(sub.planId)) {
-          sub.planId = 'plan_vip';
-        }
-      });
-    }
+    normalizeOfficialPlans(data);
 
     // 1b. Featured Packages
     if (!data.featuredPackages || data.featuredPackages.length === 0) {
@@ -398,9 +407,23 @@ export function runSeed() {
 
     // The remaining accounts exist to make the demo data explorable. They all
     // have well-known passwords, so they must never reach a production install.
-    data.users = IS_PRODUCTION
+    const seedUsers = IS_PRODUCTION
       ? [adminUser]
       : [adminUser, opsUser, financeUser, ownerUser1, ownerUser2, listenerUser];
+
+    // The seed re-runs whenever any seeded collection is emptied, so it must merge
+    // rather than replace: overwriting would delete every account registered since
+    // launch, along with their passwords.
+    if (!Array.isArray(data.users) || data.users.length === 0) {
+      data.users = seedUsers;
+    } else {
+      for (const seedUser of seedUsers) {
+        const existing = data.users.find(
+          (u) => u.id === seedUser.id || u.email.toLowerCase() === seedUser.email
+        );
+        if (!existing) data.users.push(seedUser);
+      }
+    }
 
     // 5. Radio Owner Profiles
     data.ownerProfiles = [
