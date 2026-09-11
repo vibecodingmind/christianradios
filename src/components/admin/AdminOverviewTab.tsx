@@ -233,10 +233,10 @@ export function AdminOverviewTab({
             </span>
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            TZS {(metrics?.mrrTzs ?? 0).toLocaleString()}
+            {metrics?.currency ?? 'USD'} {(metrics?.mrr ?? 0).toLocaleString()}
           </div>
           <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
-            <span>≈ ${(metrics?.mrrUsd ?? 0).toLocaleString()} USD</span>
+            <span>{(metrics?.arr ?? (metrics?.mrr ?? 0) * 12).toLocaleString()} {metrics?.currency ?? 'USD'} annualised</span>
             <button
               onClick={() => onNavigateTab('finance')}
               className="text-amber-400 font-semibold hover:underline flex items-center gap-0.5 cursor-pointer"

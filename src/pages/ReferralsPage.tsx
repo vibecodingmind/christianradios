@@ -27,7 +27,18 @@ interface FinancialSummary {
   totalCommissions: number;
   totalWithdrawn: number;
   availableBalance: number;
+  currency: string;
 }
+
+const EMPTY_SUMMARY: FinancialSummary = {
+  grossEarnings: 0,
+  totalDonations: 0,
+  totalPremiumShare: 0,
+  totalCommissions: 0,
+  totalWithdrawn: 0,
+  availableBalance: 0,
+  currency: 'USD',
+};
 
 export function ReferralsPage({
   onNavigate,
@@ -43,14 +54,8 @@ export function ReferralsPage({
   const [referralLink, setReferralLink] = useState('');
   const [referralsCount, setReferralsCount] = useState(0);
   const [qualifiedCount, setQualifiedCount] = useState(0);
-  const [financial, setFinancial] = useState<FinancialSummary>({
-    grossEarnings: 0,
-    totalDonations: 0,
-    totalPremiumShare: 0,
-    totalCommissions: 0,
-    totalWithdrawn: 0,
-    availableBalance: 0,
-  });
+  const [financial, setFinancial] = useState<FinancialSummary>(EMPTY_SUMMARY);
+  const [minWithdrawal, setMinWithdrawal] = useState(20);
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [commissions, setCommissions] = useState<ReferralCommission[]>([]);
 
@@ -73,7 +78,8 @@ export function ReferralsPage({
         setReferralLink(data.referralLink || window.location.origin + '?ref=' + (data.referralCode || ''));
         setReferralsCount(data.referralsCount || 0);
         setQualifiedCount(data.qualifiedCount || 0);
-        setFinancial(data.financialSummary || { grossEarnings: 0, totalDonations: 0, totalPremiumShare: 0, totalCommissions: 0, totalWithdrawn: 0, availableBalance: 0 });
+        setFinancial({ ...EMPTY_SUMMARY, ...(data.financialSummary || {}) });
+        if (typeof data.minWithdrawalAmount === 'number') setMinWithdrawal(data.minWithdrawalAmount);
         setReferrals(data.referrals || []);
         setCommissions(data.commissions || []);
       }
@@ -131,11 +137,11 @@ export function ReferralsPage({
             <Wallet className="w-4 h-4 text-emerald-400" />
           </div>
           <p className="text-2xl font-black text-white">
-            TZS {financial.availableBalance.toLocaleString()}
+            {financial.currency} {financial.availableBalance.toLocaleString()}
           </p>
           <button
             onClick={() => setWithdrawModalOpen(true)}
-            disabled={financial.availableBalance < 20000}
+            disabled={financial.availableBalance < minWithdrawal}
             className="w-full mt-2 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ArrowUpRight className="w-4 h-4" /> Request Payout
@@ -148,7 +154,7 @@ export function ReferralsPage({
             <Coins className="w-4 h-4 text-amber-400" />
           </div>
           <p className="text-2xl font-black text-amber-300">
-            TZS {financial.totalCommissions.toLocaleString()}
+            {financial.currency} {financial.totalCommissions.toLocaleString()}
           </p>
           <span className="text-[11px] text-slate-400 font-medium">100% Immutable Ledger</span>
         </div>
@@ -168,7 +174,7 @@ export function ReferralsPage({
             <ShieldCheck className="w-4 h-4 text-indigo-400" />
           </div>
           <p className="text-2xl font-black text-slate-200">
-            TZS {financial.totalWithdrawn.toLocaleString()}
+            {financial.currency} {financial.totalWithdrawn.toLocaleString()}
           </p>
           <span className="text-[11px] text-slate-400 font-medium">Verified Payouts</span>
         </div>
@@ -262,13 +268,13 @@ export function ReferralsPage({
                       {c.paymentType === 'OWNER_SUBSCRIPTION' ? 'Broadcaster Plan' : 'Premium Radio Subscription'}
                     </td>
                     <td className="py-3.5 px-4 text-slate-300">
-                      TZS {c.grossAmountTzs.toLocaleString()}
+                      {financial.currency} {c.grossAmountTzs.toLocaleString()}
                     </td>
                     <td className="py-3.5 px-4 text-sky-400 font-bold">
                       {c.commissionPercentage}%
                     </td>
                     <td className="py-3.5 px-4 font-bold text-amber-300">
-                      + TZS {c.commissionAmountTzs.toLocaleString()}
+                      + {financial.currency} {c.commissionAmountTzs.toLocaleString()}
                     </td>
                     <td className="py-3.5 px-4">
                       <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
@@ -293,7 +299,8 @@ export function ReferralsPage({
         onClose={() => setWithdrawModalOpen(false)}
         userRole={user.role}
         availableBalance={financial.availableBalance}
-        currency="TZS"
+        currency={financial.currency}
+        minWithdrawal={minWithdrawal}
         onSuccess={() => {
           loadReferralData();
         }}

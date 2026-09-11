@@ -60,6 +60,7 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
     currency: 'USD',
   });
 
+  const [minWithdrawal, setMinWithdrawal] = useState(20);
   const [donations, setDonations] = useState<Donation[]>([]);
   const [campaigns, setCampaigns] = useState<DonationCampaign[]>([]);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
@@ -106,6 +107,9 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
 
       if (overviewRes?.balance) {
         setBalance(overviewRes.balance);
+      }
+      if (typeof overviewRes?.settings?.minWithdrawalAmount === 'number') {
+        setMinWithdrawal(overviewRes.settings.minWithdrawalAmount);
       }
       setCampaigns(campaignsRes?.campaigns || []);
       setDonations(donationsRes?.donations || []);
@@ -683,6 +687,7 @@ export function DonationsLedger({ stations }: DonationsLedgerProps) {
         userRole="RADIO_OWNER"
         availableBalance={balance.availableBalance}
         currency={balance.currency || 'USD'}
+        minWithdrawal={minWithdrawal}
         stationId={stations[0]?.id}
         stationName={stations[0]?.name}
         onSuccess={async () => {

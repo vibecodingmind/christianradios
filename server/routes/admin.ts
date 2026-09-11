@@ -33,13 +33,15 @@ adminRouter.get('/metrics', (req, res) => {
   // Revenue Calculations
   const totalRevenue = completedPayments.reduce((acc, p) => acc + p.amount, 0);
 
-  // MRR from active paid subscriptions
+  // MRR from active paid subscriptions. Plans are charged in the platform
+  // currency, so MRR is reported in it too rather than converted at a fixed rate.
+  const currency = db.settings.get().defaultCurrency || 'USD';
   const plansMap = new Map(db.plans.getAll().map((p) => [p.id, p]));
-  let mrrTzs = 0;
+  let mrr = 0;
   for (const sub of activeSubs) {
     const plan = plansMap.get(sub.planId);
     if (plan && plan.tier !== 'FREE') {
-      mrrTzs += plan.monthlyPriceTzs;
+      mrr += plan.monthlyPriceUsd ?? 0;
     }
   }
 
@@ -50,7 +52,6 @@ adminRouter.get('/metrics', (req, res) => {
   const openTickets = tickets.filter((t) => t.status === 'OPEN' || t.status === 'IN_PROGRESS');
 
   const totalPlays = allStations.reduce((acc, s) => acc + (s.playCount || 0), 0);
-  const mrrUsd = Math.round(mrrTzs / 2600);
 
   const metricsData = {
     totalStations: allStations.length,
@@ -61,10 +62,10 @@ adminRouter.get('/metrics', (req, res) => {
     totalOwners: allOwners.length,
     totalTenants: allOwners.length,
     activeSubscriptions: activeSubs.length,
-    mrrTzs,
-    mrrUsd,
-    arrTzs: mrrTzs * 12,
-    totalRevenueTzs: totalRevenue,
+    currency,
+    mrr,
+    arr: mrr * 12,
+    totalRevenue,
     totalPlays,
     openReportsCount: openReports.length,
     openTicketsCount: openTickets.length,
@@ -1662,7 +1663,7 @@ adminRouter.get(['/giving/overview', '/donations/overview'], (req, res) => {
     settings: {
       givingEnabled: settings.givingEnabled ?? true,
       donationFeePercentage: settings.donationFeePercentage ?? 5.0,
-      minWithdrawalAmount: settings.minWithdrawalAmount ?? 20000,
+      minWithdrawalAmount: settings.minWithdrawalAmount ?? 20,
       withdrawalFeePercentage: settings.withdrawalFeePercentage ?? 1.0,
     },
   });

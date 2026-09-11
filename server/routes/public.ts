@@ -1245,9 +1245,9 @@ publicRouter.get('/giving/config', (req, res) => {
   res.json({
     givingEnabled: settings.givingEnabled ?? true,
     donationFeePercentage: settings.donationFeePercentage ?? 5.0,
-    donationMinAmount: settings.donationMinAmount ?? 1000,
-    donationMaxAmount: settings.donationMaxAmount ?? 10000000,
-    defaultCurrency: settings.defaultCurrency || 'TZS',
+    donationMinAmount: settings.donationMinAmount ?? 1,
+    donationMaxAmount: settings.donationMaxAmount ?? 10000,
+    defaultCurrency: settings.defaultCurrency || 'USD',
     presetAmountsTZS: [5000, 10000, 20000, 50000, 100000, 250000],
     presetAmountsUSD: [5, 10, 25, 50, 100, 250],
     supportedPaymentMethods: ['MPESA', 'TIGO_PESA', 'AIRTEL_MONEY', 'CARD', 'BANK_TRANSFER'],

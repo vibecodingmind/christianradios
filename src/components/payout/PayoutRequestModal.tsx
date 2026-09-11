@@ -19,6 +19,7 @@ interface PayoutRequestModalProps {
   userRole: 'RADIO_OWNER' | 'LISTENER' | 'SUPER_ADMIN';
   availableBalance: number;
   currency?: string;
+  minWithdrawal?: number;
   stationId?: string;
   stationName?: string;
   onSuccess?: (withdrawal: WithdrawalRequest) => void;
@@ -29,7 +30,8 @@ export function PayoutRequestModal({
   onClose,
   userRole,
   availableBalance,
-  currency = 'TZS',
+  currency = 'USD',
+  minWithdrawal,
   stationId,
   stationName,
   onSuccess,
@@ -38,7 +40,7 @@ export function PayoutRequestModal({
   const [payoutMode, setPayoutMode] = useState<'MOBILE_MONEY' | 'PAYPAL' | 'BANK_TRANSFER'>('MOBILE_MONEY');
 
   // Amount & Notes
-  const defaultMin = currency === 'USD' ? 10 : 20000;
+  const defaultMin = minWithdrawal ?? (currency === 'USD' ? 20 : 20000);
   const [amount, setAmount] = useState<number | string>(
     availableBalance > 0 ? Math.min(availableBalance, defaultMin) : defaultMin
   );
@@ -68,8 +70,10 @@ export function PayoutRequestModal({
 
   const numAmount = Number(amount) || 0;
   const feeRate = 0.01; // 1% fee
-  const fee = Math.round(numAmount * feeRate);
-  const netAmount = Math.max(0, numAmount - fee);
+  // Whole-unit rounding zeroed the fee on small USD payouts, so the preview
+  // disagreed with what the server actually deducted.
+  const fee = Math.round(numAmount * feeRate * 100) / 100;
+  const netAmount = Math.max(0, Math.round((numAmount - fee) * 100) / 100);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

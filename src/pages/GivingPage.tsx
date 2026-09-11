@@ -80,6 +80,7 @@ export function GivingPage({ onNavigate, onOpenAuth }: GivingPageProps) {
   const [selectedStationId, setSelectedStationId] = useState<string>('');
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>('');
   const [givingCurrency, setGivingCurrency] = useState<'USD' | 'TZS'>('USD');
+  const [platformCurrency, setPlatformCurrency] = useState('USD');
   const [presetAmount, setPresetAmount] = useState<number>(50);
   const [customAmount, setCustomAmount] = useState<string>('');
 
@@ -110,11 +111,16 @@ export function GivingPage({ onNavigate, onOpenAuth }: GivingPageProps) {
     async function loadData() {
       try {
         setLoading(true);
-        const [campRes, stnRes] = await Promise.all([
+        const [campRes, stnRes, cfgRes] = await Promise.all([
           fetch('/api/public/campaigns').then((r) => r.json()).catch(() => ({ campaigns: [] })),
           fetch('/api/public/stations?limit=100').then((r) => r.json()).catch(() => ({ stations: [] })),
+          fetch('/api/public/giving/config').then((r) => r.json()).catch(() => null),
         ]);
         setCampaigns(campRes.campaigns || []);
+        if (cfgRes?.defaultCurrency) {
+          setPlatformCurrency(String(cfgRes.defaultCurrency).toUpperCase());
+          setGivingCurrency(String(cfgRes.defaultCurrency).toUpperCase() === 'TZS' ? 'TZS' : 'USD');
+        }
         const loadedStations: Station[] = stnRes.stations || [];
         setStations(loadedStations);
         if (loadedStations.length > 0) {
@@ -203,7 +209,11 @@ export function GivingPage({ onNavigate, onOpenAuth }: GivingPageProps) {
     scrollToCampaigns();
   };
 
-  const totalRaisedAcrossPlatform = campaigns.reduce((sum, c) => sum + (c.amountRaised || 0), 0);
+  // Campaigns are denominated individually, so only totals in the platform
+  // currency can be summed — mixing them produced a meaningless headline figure.
+  const totalRaisedAcrossPlatform = campaigns
+    .filter((c) => (c.currency || platformCurrency).toUpperCase() === platformCurrency)
+    .reduce((sum, c) => sum + (c.amountRaised || 0), 0);
   const totalSupportersCount = campaigns.reduce((sum, c) => sum + (c.supportersCount || 0), 0);
 
   const usdPresetOptions = [10, 25, 50, 100, 250, 500];
@@ -275,7 +285,7 @@ export function GivingPage({ onNavigate, onOpenAuth }: GivingPageProps) {
                   Mobilized for Ministry
                 </span>
                 <div className="text-lg sm:text-xl font-black text-emerald-400">
-                  TZS {Number(totalRaisedAcrossPlatform || 0).toLocaleString()}
+                  {platformCurrency} {Number(totalRaisedAcrossPlatform || 0).toLocaleString()}
                 </div>
               </div>
             </div>

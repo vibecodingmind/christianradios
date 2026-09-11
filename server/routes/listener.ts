@@ -441,6 +441,7 @@ listenerRouter.get('/referrals', requireAuth, (req: AuthenticatedRequest, res) =
     referralsCount: referralsList.length,
     qualifiedCount: referralsList.filter((r) => r.status === 'QUALIFIED').length,
     financialSummary: financial,
+    minWithdrawalAmount: db.settings.get().minWithdrawalAmount ?? 20,
     referrals: referralsList,
     commissions: commissionsList,
   });
@@ -451,7 +452,6 @@ listenerRouter.post('/withdrawals', requireAuth, (req: AuthenticatedRequest, res
   const listenerId = req.user!.id;
   const {
     amount,
-    currency = 'TZS',
     paymentMethod = 'MOBILE_MONEY',
     payoutMethod,
     payoutAccountName,
@@ -462,11 +462,14 @@ listenerRouter.post('/withdrawals', requireAuth, (req: AuthenticatedRequest, res
     notes,
   } = req.body;
 
-  const numAmount = parseInt(amount, 10);
   const settings = db.settings.get();
-  const minAmount = settings.minWithdrawalAmount || 20000;
+  // The balance is held in the platform currency, so the payout must be too. A
+  // client-supplied currency would let a caller withdraw a USD balance as TZS.
+  const currency = settings.defaultCurrency || 'USD';
+  const numAmount = Number(amount);
+  const minAmount = settings.minWithdrawalAmount ?? 20;
 
-  if (isNaN(numAmount) || numAmount < minAmount) {
+  if (!Number.isFinite(numAmount) || numAmount < minAmount) {
     res.status(400).json({ error: `Minimum withdrawal amount is ${currency} ${minAmount.toLocaleString()}` });
     return;
   }
@@ -485,8 +488,9 @@ listenerRouter.post('/withdrawals', requireAuth, (req: AuthenticatedRequest, res
   const finalBankOrProvider = payoutBankOrProvider || finalMethod;
 
   const feeRate = (settings.withdrawalFeePercentage ?? 1.0) / 100;
-  const fee = Math.round(numAmount * feeRate);
-  const netAmount = numAmount - fee;
+  // Rounding to whole units erased the entire fee on small USD payouts.
+  const fee = Math.round(numAmount * feeRate * 100) / 100;
+  const netAmount = Math.round((numAmount - fee) * 100) / 100;
 
   const request = db.withdrawalRequests.create({
     id: `wth_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,

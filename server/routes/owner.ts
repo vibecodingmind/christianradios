@@ -894,7 +894,7 @@ ownerRouter.get(['/giving/overview', '/donations/overview'], (req: Authenticated
     },
     settings: {
       platformFeePercentage: settings.donationFeePercentage ?? 5.0,
-      minWithdrawalAmount: settings.minWithdrawalAmount ?? 20000,
+      minWithdrawalAmount: settings.minWithdrawalAmount ?? 20,
       withdrawalFeePercentage: settings.withdrawalFeePercentage ?? 1.0,
     },
   });
@@ -1081,7 +1081,6 @@ ownerRouter.post(['/giving/withdrawals', '/withdrawals'], (req: AuthenticatedReq
   const ownerId = req.user!.id;
   const {
     amount,
-    currency = 'TZS',
     payoutMethod,
     payoutAccountName,
     payoutAccountNumber,
@@ -1090,6 +1089,10 @@ ownerRouter.post(['/giving/withdrawals', '/withdrawals'], (req: AuthenticatedReq
     notes,
     accountDetails,
   } = req.body;
+
+  // The ledger balance is denominated in the platform currency, so the payout is
+  // too. Letting the client name the currency would withdraw USD as TZS.
+  const currency = db.settings.get().defaultCurrency || 'USD';
 
   const finalAccountName = payoutAccountName || req.user!.name || req.user!.email;
   const finalAccountNumber = payoutAccountNumber || accountDetails || 'Primary Account';
@@ -1115,7 +1118,7 @@ ownerRouter.post(['/giving/withdrawals', '/withdrawals'], (req: AuthenticatedReq
   }
 
   const settings = db.settings.get();
-  const minWithdrawal = settings.minWithdrawalAmount ?? 20000;
+  const minWithdrawal = settings.minWithdrawalAmount ?? 20;
   if (numAmount < minWithdrawal) {
     res.status(400).json({
       error: `Minimum withdrawal amount is ${minWithdrawal.toLocaleString()} ${currency}. Requested amount was ${numAmount.toLocaleString()} ${currency}.`,
@@ -1131,8 +1134,9 @@ ownerRouter.post(['/giving/withdrawals', '/withdrawals'], (req: AuthenticatedReq
   }
 
   const feeRate = (settings.withdrawalFeePercentage ?? 1.0) / 100;
-  const fee = Math.round(numAmount * feeRate);
-  const netAmount = numAmount - fee;
+  // Rounding to whole units erased the entire fee on small USD payouts.
+  const fee = Math.round(numAmount * feeRate * 100) / 100;
+  const netAmount = Math.round((numAmount - fee) * 100) / 100;
 
   const withdrawal = db.withdrawalRequests.create({
     id: `wd_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -1646,6 +1650,7 @@ ownerRouter.get('/referrals', (req: AuthenticatedRequest, res) => {
     referralsCount: referralsList.length,
     qualifiedCount: referralsList.filter((r) => r.status === 'QUALIFIED').length,
     financialSummary: financial,
+    minWithdrawalAmount: db.settings.get().minWithdrawalAmount ?? 20,
     referrals: referralsList,
     commissions: commissionsList,
   });
