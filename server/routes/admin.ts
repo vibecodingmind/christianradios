@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { Router } from 'express';
@@ -495,7 +496,10 @@ adminRouter.post('/tenants', (req: AuthenticatedRequest, res) => {
     }
 
     const newUserId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-    const rawPass = password && password.trim() ? password.trim() : 'Broadcaster@2026!';
+    // A shared default password would be guessable across every broadcaster the
+    // admin creates, so generate a unique one and return it to the admin once.
+    const generatedPassword = password && password.trim() ? null : crypto.randomBytes(12).toString('base64url');
+    const rawPass = password && password.trim() ? password.trim() : generatedPassword!;
     const user = db.users.create({
       id: newUserId,
       email: email.toLowerCase().trim(),
@@ -547,7 +551,13 @@ adminRouter.post('/tenants', (req: AuthenticatedRequest, res) => {
     });
 
     const enriched = getOwnersList().find((o) => o.id === newUserId);
-    res.status(201).json({ success: true, broadcaster: enriched, user: sanitizeUser(user) });
+    res.status(201).json({
+      success: true,
+      broadcaster: enriched,
+      user: sanitizeUser(user),
+      // Only present when the admin left the password blank.
+      generatedPassword: generatedPassword || undefined,
+    });
   } catch (err: any) {
     console.error('Error creating broadcaster:', err);
     res.status(500).json({ error: err.message || 'Failed to create broadcaster' });

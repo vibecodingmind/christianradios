@@ -1,10 +1,38 @@
 import { ALL_WORLD_COUNTRIES } from './worldCountries.js';
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { db } from './db.js';
 import type { Category, Country, Station, SubscriptionPlan, User } from './types.js';
 import { DEFAULT_OFFICIAL_PLANS } from './services/entitlement.js';
 import { hashPassword } from './auth.js';
+
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
+/**
+ * Resolves the bootstrap super-admin password. Shipping a known password means a
+ * fresh production deploy starts with a publicly documented admin account, so
+ * production must be given one explicitly or receive a random one.
+ */
+function resolveSeedAdminPassword(): string {
+  const configured = (process.env.SEED_ADMIN_PASSWORD || '').trim();
+  if (configured) return configured;
+
+  if (!IS_PRODUCTION) return 'Admin@2026!';
+
+  const generated = crypto.randomBytes(18).toString('base64url');
+  console.warn(
+    '\n' +
+      '='.repeat(72) +
+      '\n[Seed] SEED_ADMIN_PASSWORD was not set. A one-time super-admin password' +
+      '\n[Seed] has been generated. Save it now — it will not be shown again:' +
+      `\n[Seed]     ${generated}` +
+      '\n' +
+      '='.repeat(72) +
+      '\n'
+  );
+  return generated;
+}
 
 export function runSeed() {
   db.seedInitialData((data) => {
@@ -292,8 +320,8 @@ export function runSeed() {
     // 4. Seed Users
     const adminUser: User = {
       id: 'usr_admin_01',
-      email: 'admin@christianradios.org',
-      passwordHash: hashPassword('Admin@2026!'),
+      email: (process.env.SEED_ADMIN_EMAIL || 'admin@christianradios.org').toLowerCase().trim(),
+      passwordHash: hashPassword(resolveSeedAdminPassword()),
       role: 'SUPER_ADMIN',
       name: 'Dr. David Mwangi',
       emailVerified: true,
@@ -368,7 +396,11 @@ export function runSeed() {
       updatedAt: new Date().toISOString(),
     };
 
-    data.users = [adminUser, opsUser, financeUser, ownerUser1, ownerUser2, listenerUser];
+    // The remaining accounts exist to make the demo data explorable. They all
+    // have well-known passwords, so they must never reach a production install.
+    data.users = IS_PRODUCTION
+      ? [adminUser]
+      : [adminUser, opsUser, financeUser, ownerUser1, ownerUser2, listenerUser];
 
     // 5. Radio Owner Profiles
     data.ownerProfiles = [

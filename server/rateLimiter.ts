@@ -23,7 +23,10 @@ export function createRateLimiter(options: { windowMs?: number; maxRequests?: nu
   }, 5 * 60 * 1000);
 
   return (req: Request, res: Response, next: NextFunction): void => {
-    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || req.socket.remoteAddress || '127.0.0.1';
+    // req.ip already honours X-Forwarded-For according to the app's `trust proxy`
+    // setting. Reading the header directly would let any client spoof its IP and
+    // bypass the limit entirely.
+    const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
     const now = Date.now();
 
     let record = ipStore.get(ip);

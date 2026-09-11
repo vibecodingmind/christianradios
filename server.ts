@@ -25,6 +25,9 @@ import { authRateLimiter, sensitiveActionRateLimiter, apiRateLimiter } from './s
 async function bootstrap() {
   const app = express();
   app.disable('x-powered-by');
+  // Railway and most PaaS hosts terminate TLS at a single proxy hop. Trusting it
+  // makes req.ip the real client address instead of the proxy's.
+  app.set('trust proxy', Number(process.env.TRUSTED_PROXY_HOPS ?? 1));
   const PORT = Number(process.env.PORT) || 3000;
 
   // 2. Production Security Headers & CORS Middleware
@@ -81,11 +84,32 @@ async function bootstrap() {
 
   // 4. Rate Limiting Middlewares
   app.use('/api/', apiRateLimiter);
-  app.use('/api/auth/login', authRateLimiter);
-  app.use('/api/auth/register', authRateLimiter);
-  app.use('/api/auth/forgot-password', authRateLimiter);
-  app.use('/api/auth/reset-password', authRateLimiter);
-  app.use('/api/payments/create-checkout', sensitiveActionRateLimiter);
+  // Every credential/OTP endpoint needs the tighter limit, not just login and
+  // register — otherwise a 6-digit code can be brute-forced.
+  for (const authPath of [
+    '/api/auth/login',
+    '/api/auth/register',
+    '/api/auth/forgot-password',
+    '/api/auth/reset-password',
+    '/api/auth/verify-code',
+    '/api/auth/verify-token',
+    '/api/auth/resend-code',
+    '/api/auth/google',
+  ]) {
+    app.use(authPath, authRateLimiter);
+  }
+  for (const paymentPath of [
+    '/api/payments/create-checkout',
+    '/api/payments/checkout',
+    '/api/payments/subscribe-station',
+    '/api/payments/stripe/create-intent',
+    '/api/payments/stripe/confirm-intent',
+    '/api/payments/paypal/create-order',
+    '/api/payments/paypal/capture-order',
+    '/api/public/donations',
+  ]) {
+    app.use(paymentPath, sensitiveActionRateLimiter);
+  }
 
   // 5. API Routes
   app.get('/api/health', (req, res) => {

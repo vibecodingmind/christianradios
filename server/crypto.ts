@@ -1,11 +1,29 @@
 import crypto from 'crypto';
 
-const MASTER_KEY_SOURCE =
-  process.env.INTEGRATION_ENCRYPTION_KEY ||
-  process.env.MASTER_ENCRYPTION_KEY ||
-  process.env.JWT_SECRET ||
-  process.env.AUTH_SECRET ||
-  'christian_radios_prod_master_key_2026_aes256gcm_vault';
+function resolveMasterKeySource(): string {
+  const configured = (
+    process.env.INTEGRATION_ENCRYPTION_KEY ||
+    process.env.MASTER_ENCRYPTION_KEY ||
+    process.env.JWT_SECRET ||
+    process.env.AUTH_SECRET ||
+    ''
+  ).trim();
+
+  if (configured) return configured;
+
+  // A published default key means the stored gateway credentials are readable by
+  // anyone with the source, so production must not fall back to one.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'INTEGRATION_ENCRYPTION_KEY (or AUTH_SECRET) must be set in production so stored credentials can be encrypted.'
+    );
+  }
+
+  console.warn('[Crypto] No encryption key configured — using an insecure development key.');
+  return 'christian_radios_local_dev_encryption_key_not_for_production';
+}
+
+const MASTER_KEY_SOURCE = resolveMasterKeySource();
 
 // Derive 32-byte encryption key using SHA-256
 const ENCRYPTION_KEY = crypto.createHash('sha256').update(MASTER_KEY_SOURCE).digest();

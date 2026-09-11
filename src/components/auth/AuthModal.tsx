@@ -78,8 +78,7 @@ export function AuthModal({ isOpen, defaultTab = 'login', onClose }: AuthModalPr
 
   // Google OAuth states
   const [googleClientId, setGoogleClientId] = useState<string>('');
-  const [showGoogleInput, setShowGoogleInput] = useState(false);
-  const [fallbackGoogleEmail, setFallbackGoogleEmail] = useState('');
+  const [googleUnavailable, setGoogleUnavailable] = useState(false);
 
   // Fetch Google client config on open
   useEffect(() => {
@@ -167,103 +166,32 @@ export function AuthModal({ isOpen, defaultTab = 'login', onClose }: AuthModalPr
 
   const passwordStrength = getPasswordStrength(password);
 
-  // Google Login click handler
+  // Google Login click handler.
+  // Uses Google Identity Services so the browser hands us a signed ID token; the
+  // server will not accept a plain email address as proof of identity.
   const handleGoogleLogin = async () => {
     setError(null);
-    setLoading(true);
 
     const g = (window as any).google;
 
-    if (g?.accounts?.oauth2 && googleClientId) {
-      try {
-        const tokenClient = g.accounts.oauth2.initTokenClient({
-          client_id: googleClientId,
-          scope: 'email profile openid',
-          callback: async (tokenResponse: any) => {
-            if (tokenResponse.error) {
-              setLoading(false);
-              if (tokenResponse.error !== 'access_denied') {
-                setError(tokenResponse.error_description || 'Google sign-in was canceled.');
-              }
-              return;
-            }
-
-            try {
-              const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
-              });
-
-              if (!userInfoRes.ok) {
-                throw new Error('Failed to retrieve Google profile.');
-              }
-
-              const profile = await userInfoRes.json();
-              const res = await loginWithGoogle({
-                email: profile.email,
-                name: profile.name,
-                avatarUrl: profile.picture,
-                googleId: profile.sub,
-                role,
-              });
-
-              setLoading(false);
-              if (res.success) {
-                onClose();
-              } else {
-                setError(res.error || 'Google login failed.');
-              }
-            } catch (fetchErr: any) {
-              setLoading(false);
-              setError(fetchErr.message || 'Error processing Google account details.');
-            }
-          },
-          error_callback: (err: any) => {
-            setLoading(false);
-            console.warn('Google Token Client error:', err);
-            setShowGoogleInput(true);
-          },
-        });
-
-        tokenClient.requestAccessToken({ prompt: 'select_account' });
-        return;
-      } catch (err) {
-        console.warn('Google OAuth2 init error:', err);
-      }
-    }
-
-    setLoading(false);
-    setShowGoogleInput(true);
-  };
-
-  const handleFallbackGoogleSubmit = async () => {
-    if (!fallbackGoogleEmail || !fallbackGoogleEmail.includes('@')) {
-      setError('Please enter a valid Google email address.');
+    if (!googleClientId || !g?.accounts?.id) {
+      setGoogleUnavailable(true);
       return;
     }
 
     setLoading(true);
-    setError(null);
     try {
-      const emailTrimmed = fallbackGoogleEmail.trim().toLowerCase();
-      const derivedName = emailTrimmed.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-      const res = await loginWithGoogle({
-        email: emailTrimmed,
-        name: derivedName,
-        avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(derivedName)}&background=0284c7&color=fff`,
-        role,
+      g.accounts.id.prompt((notification: any) => {
+        // One Tap can be suppressed (dismissed too often, blocked cookies, etc.).
+        if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.()) {
+          setLoading(false);
+          setGoogleUnavailable(true);
+        }
       });
-
-      if (res.success) {
-        setShowGoogleInput(false);
-        setFallbackGoogleEmail('');
-        onClose();
-      } else {
-        setError(res.error || 'Google login failed.');
-      }
-    } catch {
-      setError('Google Sign-In could not be completed.');
-    } finally {
+    } catch (err) {
+      console.warn('Google Identity Services error:', err);
       setLoading(false);
+      setGoogleUnavailable(true);
     }
   };
 
@@ -946,8 +874,8 @@ export function AuthModal({ isOpen, defaultTab = 'login', onClose }: AuthModalPr
                 </span>
               </div>
 
-              {showGoogleInput ? (
-                <div className="p-3.5 bg-slate-950 border border-sky-500/30 rounded-2xl space-y-2.5 transition-all">
+              {googleUnavailable ? (
+                <div className="p-3.5 bg-slate-950 border border-amber-500/30 rounded-2xl space-y-2.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
                       <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -968,42 +896,21 @@ export function AuthModal({ isOpen, defaultTab = 'login', onClose }: AuthModalPr
                           d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                         />
                       </svg>
-                      <span>Google Account Authentication</span>
+                      <span>Google Sign-In Unavailable</span>
                     </div>
                     <button
                       type="button"
-                      onClick={() => setShowGoogleInput(false)}
+                      onClick={() => setGoogleUnavailable(false)}
                       className="text-[11px] text-slate-400 hover:text-white transition-colors cursor-pointer"
                     >
-                      Cancel
+                      Dismiss
                     </button>
                   </div>
-                  <p className="text-[11px] text-slate-400">
-                    Enter your Google email address to authenticate:
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Google could not verify your account in this browser. This usually means third-party
+                    cookies are blocked or the Google script was unable to load. Please sign in with your
+                    email and password instead.
                   </p>
-                  <div className="flex gap-2">
-                    <input
-                      type="email"
-                      placeholder="your.email@gmail.com"
-                      value={fallbackGoogleEmail}
-                      onChange={(e) => setFallbackGoogleEmail(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleFallbackGoogleSubmit();
-                        }
-                      }}
-                      className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleFallbackGoogleSubmit}
-                      disabled={loading || !fallbackGoogleEmail.includes('@')}
-                      className="bg-sky-600 hover:bg-sky-500 text-white font-bold px-3 py-2 rounded-xl text-xs transition-colors disabled:opacity-50 cursor-pointer"
-                    >
-                      Sign In
-                    </button>
-                  </div>
                 </div>
               ) : (
                 <button

@@ -3,7 +3,33 @@ import type { Request, Response, NextFunction } from 'express';
 import type { User, Role } from './types.js';
 import { db } from './db.js';
 
-const AUTH_SECRET = process.env.JWT_SECRET || process.env.AUTH_SECRET || 'christian_radios_prod_secret_2026_salt_hash_min32';
+const FALLBACK_AUTH_SECRET = 'christian_radios_local_dev_secret_do_not_use_in_production';
+
+function resolveAuthSecret(): string {
+  const configured = (process.env.JWT_SECRET || process.env.AUTH_SECRET || '').trim();
+
+  if (process.env.NODE_ENV === 'production') {
+    // A shipped default secret lets anyone forge a SUPER_ADMIN session, so the
+    // server must refuse to start rather than silently accept one.
+    if (!configured) {
+      throw new Error(
+        'AUTH_SECRET (or JWT_SECRET) must be set in production. Generate one with: openssl rand -hex 32'
+      );
+    }
+    if (configured.length < 32) {
+      throw new Error('AUTH_SECRET must be at least 32 characters long.');
+    }
+    return configured;
+  }
+
+  if (!configured) {
+    console.warn('[Auth] AUTH_SECRET is not set — using an insecure development secret.');
+    return FALLBACK_AUTH_SECRET;
+  }
+  return configured;
+}
+
+const AUTH_SECRET = resolveAuthSecret();
 
 export interface AuthSessionPayload {
   userId: string;
@@ -26,10 +52,16 @@ export function verifyPassword(password: string, storedHash: string): boolean {
     if (!salt || !key) return false;
     const keyBuffer = Buffer.from(key, 'hex');
     const derivedKey = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512');
-    return crypto.timingSafeEqual(keyBuffer, derivedKey);
+    return safeEqual(keyBuffer, derivedKey);
   } catch {
     return false;
   }
+}
+
+/** crypto.timingSafeEqual throws on length mismatch, so compare lengths first. */
+function safeEqual(a: Buffer, b: Buffer): boolean {
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 export function signSessionToken(user: User): string {
@@ -58,7 +90,7 @@ export function verifySessionToken(token: string): AuthSessionPayload | null {
       .update(`${header}.${body}`)
       .digest('base64url');
 
-    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
+    if (!safeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
       return null;
     }
 
@@ -181,6 +213,21 @@ export function consumePasswordResetToken(rawToken: string): boolean {
   return resetTokensStore.delete(tokenHash);
 }
 
+/**
+ * Validates and burns a reset token in a single step so two concurrent requests
+ * cannot both pass validation with the same token.
+ */
+export function claimPasswordResetToken(rawToken: string): string | null {
+  if (!rawToken || typeof rawToken !== 'string') return null;
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const entry = resetTokensStore.get(tokenHash);
+  if (!entry) return null;
+
+  resetTokensStore.delete(tokenHash);
+  if (Date.now() > entry.expiresAt) return null;
+  return entry.email;
+}
+
 export function sanitizeUser(user: User): Omit<User, 'passwordHash'> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { passwordHash, ...sanitized } = user;
@@ -198,6 +245,20 @@ export interface EmailVerificationEntry {
 }
 
 const emailVerificationsStore = new Map<string, EmailVerificationEntry>();
+
+// Both stores expire entries on read, but an abandoned entry is never read
+// again. Sweep periodically so abuse cannot grow the maps without bound.
+const TOKEN_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
+const tokenSweeper = setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of resetTokensStore) {
+    if (now > entry.expiresAt) resetTokensStore.delete(key);
+  }
+  for (const [key, entry] of emailVerificationsStore) {
+    if (now > entry.expiresAt) emailVerificationsStore.delete(key);
+  }
+}, TOKEN_SWEEP_INTERVAL_MS);
+tokenSweeper.unref?.();
 
 export function createEmailVerification(userId: string, email: string): { code: string; token: string } {
   const cleanEmail = email.toLowerCase().trim();
@@ -250,7 +311,7 @@ export function verifyEmailCode(email: string, code: string): User | null {
   }
 
   const incomingHash = crypto.createHash('sha256').update(cleanCode).digest('hex');
-  const match = crypto.timingSafeEqual(Buffer.from(incomingHash), Buffer.from(entry.codeHash));
+  const match = safeEqual(Buffer.from(incomingHash), Buffer.from(entry.codeHash));
 
   if (!match) {
     entry.attempts += 1;
@@ -281,7 +342,7 @@ export function verifyEmailToken(email: string, token: string): User | null {
   }
 
   const incomingTokenHash = crypto.createHash('sha256').update(cleanToken).digest('hex');
-  const match = crypto.timingSafeEqual(Buffer.from(incomingTokenHash), Buffer.from(entry.tokenHash));
+  const match = safeEqual(Buffer.from(incomingTokenHash), Buffer.from(entry.tokenHash));
 
   if (!match) {
     return null;

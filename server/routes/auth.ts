@@ -7,8 +7,7 @@ import {
   requireAuth,
   sanitizeUser,
   createPasswordResetToken,
-  verifyPasswordResetToken,
-  consumePasswordResetToken,
+  claimPasswordResetToken,
   createEmailVerification,
   canResendEmailVerification,
   verifyEmailCode,
@@ -19,8 +18,17 @@ import { sendAuthVerificationEmail } from '../email.js';
 import { db } from '../db.js';
 import type { User, Role } from '../types.js';
 import { DEFAULT_OFFICIAL_PLANS, PlanEntitlementService } from '../services/entitlement.js';
+import { IntegrationService } from '../services/integrationService.js';
 
 export const authRouter = Router();
+
+const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const SESSION_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  path: '/',
+};
 
 const RegisterSchema = z.object({
   email: z.string().email(),
@@ -177,12 +185,7 @@ authRouter.post('/verify-code', async (req, res) => {
     }
 
     const token = signSessionToken(verifiedUser);
-    res.cookie('cr_session', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie('cr_session', token, { ...SESSION_COOKIE_OPTIONS, maxAge: SESSION_MAX_AGE_MS });
 
     const ownerProfile =
       verifiedUser.role === 'RADIO_OWNER'
@@ -216,12 +219,7 @@ authRouter.post('/verify-token', async (req, res) => {
     }
 
     const token = signSessionToken(verifiedUser);
-    res.cookie('cr_session', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie('cr_session', token, { ...SESSION_COOKIE_OPTIONS, maxAge: SESSION_MAX_AGE_MS });
 
     const ownerProfile =
       verifiedUser.role === 'RADIO_OWNER'
@@ -250,7 +248,12 @@ authRouter.post('/resend-code', async (req, res) => {
 
     const user = db.users.findByEmail(email);
     if (!user) {
-      res.status(404).json({ error: 'No account registered with this email address.' });
+      // Mirror the success response so this endpoint cannot be used to discover
+      // which email addresses have accounts.
+      res.json({
+        success: true,
+        message: 'If an account exists for that address, a new verification code has been sent.',
+      });
       return;
     }
 
@@ -339,12 +342,7 @@ authRouter.post('/login', async (req, res) => {
     }
 
     const token = signSessionToken(user);
-    res.cookie('cr_session', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie('cr_session', token, { ...SESSION_COOKIE_OPTIONS, maxAge: SESSION_MAX_AGE_MS });
 
     db.auditLogs.log({
       actorId: user.id,
@@ -375,7 +373,8 @@ authRouter.post('/login', async (req, res) => {
 });
 
 authRouter.post('/logout', (req, res) => {
-  res.clearCookie('cr_session');
+  // clearCookie only matches when the attributes match the original cookie.
+  res.clearCookie('cr_session', SESSION_COOKIE_OPTIONS);
   res.json({ success: true, message: 'Logged out successfully.' });
 });
 
@@ -596,7 +595,9 @@ authRouter.post('/reset-password', (req, res) => {
     return;
   }
 
-  const email = verifyPasswordResetToken(token);
+  // Claiming validates and burns the token in one step so it cannot be reused
+  // by a concurrent request.
+  const email = claimPasswordResetToken(token);
   if (!email) {
     res.status(400).json({ error: 'Invalid or expired password reset token.' });
     return;
@@ -607,9 +608,6 @@ authRouter.post('/reset-password', (req, res) => {
     res.status(400).json({ error: 'Account not eligible for password reset.' });
     return;
   }
-
-  // Consume token so it cannot be reused
-  consumePasswordResetToken(token);
 
   // Update user password
   db.users.update(user.id, {
@@ -650,57 +648,81 @@ authRouter.get('/google-config', (req, res) => {
   });
 });
 
+interface GoogleIdentity {
+  email: string;
+  sub: string;
+  name?: string;
+  picture?: string;
+}
+
+/**
+ * Verifies a Google ID token with Google's tokeninfo endpoint and checks that it
+ * was issued for this application. Returns null unless every check passes — the
+ * unsigned JWT payload is never trusted.
+ */
+async function verifyGoogleIdToken(credential: string): Promise<GoogleIdentity | null> {
+  try {
+    const res = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!res.ok) return null;
+
+    const info = (await res.json()) as {
+      email?: string;
+      email_verified?: string | boolean;
+      aud?: string;
+      iss?: string;
+      exp?: string;
+      sub?: string;
+      name?: string;
+      picture?: string;
+    };
+
+    if (!info.email || !info.sub) return null;
+    if (info.email_verified !== true && info.email_verified !== 'true') return null;
+
+    const issuer = info.iss || '';
+    if (issuer !== 'accounts.google.com' && issuer !== 'https://accounts.google.com') return null;
+
+    const expiry = Number(info.exp);
+    if (!Number.isFinite(expiry) || expiry * 1000 <= Date.now()) return null;
+
+    const expectedClientId =
+      IntegrationService.getGoogleOAuthConfig().clientId ||
+      process.env.VITE_GOOGLE_CLIENT_ID ||
+      process.env.GOOGLE_CLIENT_ID ||
+      '';
+    if (expectedClientId && info.aud !== expectedClientId) return null;
+
+    return { email: info.email, sub: info.sub, name: info.name, picture: info.picture };
+  } catch (err) {
+    console.warn('[Auth] Google ID token verification failed:', err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 authRouter.post('/google', async (req, res) => {
   try {
-    const { email, name, avatarUrl, googleId, credential, role = 'LISTENER', referralCode } = req.body;
+    const { credential, role = 'LISTENER', referralCode } = req.body;
 
-    // Handle credential payload or decoded user object
-    let targetEmail = email;
-    let targetName = name;
-    let targetAvatar = avatarUrl;
-    let targetGoogleId = googleId;
-
-    if (credential) {
-      try {
-        // Attempt online tokeninfo verification with Google if reachable
-        try {
-          const verifyRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`, {
-            signal: AbortSignal.timeout(3000),
-          });
-          if (verifyRes.ok) {
-            const googleInfo = await verifyRes.json();
-            if (googleInfo.email) {
-              targetEmail = googleInfo.email;
-              targetName = googleInfo.name || targetName;
-              targetAvatar = googleInfo.picture || targetAvatar;
-              targetGoogleId = googleInfo.sub || targetGoogleId;
-            }
-          }
-        } catch {
-          // Fallback to local JWT parsing if network is unavailable
-        }
-
-        if (!targetEmail) {
-          // Parse Google JWT ID Token payload (base64 part 2)
-          const parts = credential.split('.');
-          if (parts.length === 3) {
-            const payloadJson = Buffer.from(parts[1], 'base64').toString('utf-8');
-            const payload = JSON.parse(payloadJson);
-            targetEmail = payload.email || targetEmail;
-            targetName = payload.name || targetName;
-            targetAvatar = payload.picture || targetAvatar;
-            targetGoogleId = payload.sub || targetGoogleId;
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to parse Google JWT credential payload:', err);
-      }
-    }
-
-    if (!targetEmail) {
-      res.status(400).json({ error: 'Google email address is required.' });
+    // Identity must come from a Google-signed ID token. An email supplied in the
+    // request body would let anyone sign in as any user.
+    if (!credential || typeof credential !== 'string') {
+      res.status(400).json({ error: 'A Google ID token is required to sign in with Google.' });
       return;
     }
+
+    const identity = await verifyGoogleIdToken(credential);
+    if (!identity) {
+      res.status(401).json({ error: 'Google sign-in could not be verified. Please try again.' });
+      return;
+    }
+
+    const targetEmail = identity.email;
+    const targetName = identity.name;
+    const targetAvatar = identity.picture;
+    const targetGoogleId = identity.sub;
 
     const cleanEmail = targetEmail.toLowerCase().trim();
     let user = db.users.findByEmail(cleanEmail);
@@ -799,12 +821,7 @@ authRouter.post('/google', async (req, res) => {
     }
 
     const token = signSessionToken(user);
-    res.cookie('cr_session', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie('cr_session', token, { ...SESSION_COOKIE_OPTIONS, maxAge: SESSION_MAX_AGE_MS });
 
     db.auditLogs.log({
       actorId: user.id,
