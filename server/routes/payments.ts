@@ -5,6 +5,7 @@ import { db } from '../db.js';
 import { createPesaPalOrder, finalizePaymentTransaction, queryPesaPalTransactionStatus, registerPesaPalIPN, ensurePesaPalIPN } from '../pesapal.js';
 import type { Payment, PaymentMethod } from '../types.js';
 import { IntegrationService } from '../services/integrationService.js';
+import { getPlatformCurrency, getPlanPrice, roundMoney } from '../currency.js';
 import {
   amountsMatch,
   capturePayPalOrder,
@@ -35,13 +36,15 @@ function resolvePurchase(
 ): { purchase: PricedPurchase } | { error: string; status: number } {
   const { planId, featuredCampaignId, billingInterval = 'MONTHLY' } = body;
 
+  const platformCurrency = getPlatformCurrency();
+
   if (planId) {
     const plan = db.plans.findById(planId);
     if (!plan) return { error: 'Subscription plan not found.', status: 404 };
     return {
       purchase: {
-        amount: billingInterval === 'ANNUAL' ? plan.annualPriceUsd : plan.monthlyPriceUsd,
-        currency: plan.currency || 'USD',
+        amount: getPlanPrice(plan, billingInterval === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY'),
+        currency: platformCurrency,
         description: `${plan.name} (${billingInterval === 'ANNUAL' ? '1 Year' : '1 Month'})`,
         planId,
       },
@@ -54,10 +57,17 @@ function resolvePurchase(
     if (campaign.ownerId && campaign.ownerId !== userId) {
       return { error: 'You can only pay for your own featured placements.', status: 403 };
     }
+    const campaignCurrency = (campaign.currency || platformCurrency).toUpperCase();
+    if (campaignCurrency !== platformCurrency) {
+      return {
+        error: `This placement is priced in ${campaignCurrency}, but the platform settles in ${platformCurrency}.`,
+        status: 409,
+      };
+    }
     return {
       purchase: {
         amount: campaign.price,
-        currency: campaign.currency || 'USD',
+        currency: platformCurrency,
         description: `Featured Station Placement (${campaign.placement})`,
         featuredCampaignId,
       },
@@ -302,12 +312,18 @@ paymentsRouter.post('/subscribe-station', requireAuth, async (req: Authenticated
       return;
     }
 
-    const price = billingInterval === 'ANNUAL' ? (station.annualPriceUsd || 50) : (station.monthlyPriceUsd || 5);
-    const currency = 'USD';
-    const durationDays = billingInterval === 'ANNUAL' ? 365 : 30;
+    // The owner's share lands in a single-currency ledger, so the station's
+    // premium price has to be read in the currency the platform settles in.
+    const currency = getPlatformCurrency();
+    const isAnnual = billingInterval === 'ANNUAL';
+    const price =
+      currency === 'TZS'
+        ? (isAnnual ? station.annualPriceTzs : station.monthlyPriceTzs) || (isAnnual ? 130000 : 13000)
+        : (isAnnual ? station.annualPriceUsd : station.monthlyPriceUsd) || (isAnnual ? 50 : 5);
+    const durationDays = isAnnual ? 365 : 30;
 
-    const ownerShare = Number((price * 0.8).toFixed(2));
-    const platformShare = Number((price - ownerShare).toFixed(2));
+    const ownerShare = roundMoney(price * 0.8, currency);
+    const platformShare = roundMoney(price - ownerShare, currency);
 
     const existing = db.premiumSubscriptions
       .getAll()

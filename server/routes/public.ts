@@ -13,6 +13,7 @@ import { broadcastLiveEvent } from '../liveSync.js';
 import { createPesaPalOrder, ensurePesaPalIPN, finalizePaymentTransaction } from '../pesapal.js';
 import { simulatedPaymentsAllowed } from '../paymentVerification.js';
 import { IntegrationService } from '../services/integrationService.js';
+import { getPlatformCurrency, roundMoney } from '../currency.js';
 
 export const publicRouter = Router();
 
@@ -22,16 +23,6 @@ const bridgeRateLimiter = createRateLimiter({
   maxRequests: 10,
   message: 'Too many studio messages. Please wait a moment before sending another.',
 });
-
-const ZERO_DECIMAL_CURRENCIES = new Set(['TZS', 'UGX', 'RWF', 'KRW', 'JPY', 'VND', 'XAF', 'XOF']);
-
-/** Rounds to the smallest unit the currency actually supports. */
-function roundMoney(value: number, currency: string): number {
-  if (!Number.isFinite(value)) return 0;
-  return ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase())
-    ? Math.round(value)
-    : Number(value.toFixed(2));
-}
 
 // 1. Get Stations Directory with Filters
 publicRouter.get('/stations', (req, res) => {
@@ -1400,28 +1391,33 @@ publicRouter.post(['/donations', '/donations/checkout'], async (req, res) => {
     return;
   }
 
-  const donationCurrency = String(currency || settings.defaultCurrency || 'USD').toUpperCase();
-  const numAmount = Number(amount);
+  // A donation credits the owner's ledger, which holds one running balance with
+  // no per-currency split. Accepting a gift in another currency would add its
+  // face value to a balance denominated in something else.
+  const platformCurrency = getPlatformCurrency();
+  const donationCurrency = String(currency || platformCurrency).toUpperCase();
+  if (donationCurrency !== platformCurrency) {
+    res.status(400).json({
+      error: `Donations are settled in ${platformCurrency}. Please give in ${platformCurrency}.`,
+    });
+    return;
+  }
 
+  const numAmount = Number(amount);
   if (!Number.isFinite(numAmount) || numAmount <= 0) {
     res.status(400).json({ error: 'Please enter a valid donation amount.' });
     return;
   }
 
-  // Configured limits are expressed in the platform's default currency, so they
-  // are only meaningful when the gift is made in that same currency.
-  const platformCurrency = String(settings.defaultCurrency || 'USD').toUpperCase();
-  if (donationCurrency === platformCurrency) {
-    const min = settings.donationMinAmount;
-    const max = settings.donationMaxAmount;
-    if (typeof min === 'number' && numAmount < min) {
-      res.status(400).json({ error: `The minimum donation is ${platformCurrency} ${min.toLocaleString()}.` });
-      return;
-    }
-    if (typeof max === 'number' && numAmount > max) {
-      res.status(400).json({ error: `The maximum donation is ${platformCurrency} ${max.toLocaleString()}.` });
-      return;
-    }
+  const min = settings.donationMinAmount;
+  const max = settings.donationMaxAmount;
+  if (typeof min === 'number' && numAmount < min) {
+    res.status(400).json({ error: `The minimum donation is ${platformCurrency} ${min.toLocaleString()}.` });
+    return;
+  }
+  if (typeof max === 'number' && numAmount > max) {
+    res.status(400).json({ error: `The maximum donation is ${platformCurrency} ${max.toLocaleString()}.` });
+    return;
   }
 
   const feeRate = settings.donationFeePercentage ?? 5.0;

@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { db } from './db.js';
 import { IntegrationService } from './services/integrationService.js';
 import type { Payment, PaymentMethod, PaymentStatus, Subscription } from './types.js';
+import { roundMoney } from './currency.js';
 
 export function getPesaPalConfig() {
   return IntegrationService.getPesaPalConfig();
@@ -355,16 +356,6 @@ export async function createPesaPalOrder(
 /**
  * Verifies transaction with provider and updates subscription/invoice atomically
  */
-const ZERO_DECIMAL_CURRENCIES = new Set(['TZS', 'UGX', 'RWF', 'KRW', 'JPY', 'VND', 'XAF', 'XOF']);
-
-/** Rounds to the smallest unit the currency actually supports. */
-function roundMoney(value: number, currency: string): number {
-  if (!Number.isFinite(value)) return 0;
-  return ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase())
-    ? Math.round(value)
-    : Number(value.toFixed(2));
-}
-
 /**
  * Derives the next invoice number from the highest issued sequence rather than
  * the record count, so deleting or archiving an invoice cannot cause a reuse.

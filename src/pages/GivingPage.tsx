@@ -79,7 +79,6 @@ export function GivingPage({ onNavigate, onOpenAuth }: GivingPageProps) {
   const [beneficiaryType, setBeneficiaryType] = useState<'GLOBAL' | 'STATION' | 'CAMPAIGN'>('GLOBAL');
   const [selectedStationId, setSelectedStationId] = useState<string>('');
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>('');
-  const [givingCurrency, setGivingCurrency] = useState<'USD' | 'TZS'>('USD');
   const [platformCurrency, setPlatformCurrency] = useState('USD');
   const [presetAmount, setPresetAmount] = useState<number>(50);
   const [customAmount, setCustomAmount] = useState<string>('');
@@ -119,7 +118,6 @@ export function GivingPage({ onNavigate, onOpenAuth }: GivingPageProps) {
         setCampaigns(campRes.campaigns || []);
         if (cfgRes?.defaultCurrency) {
           setPlatformCurrency(String(cfgRes.defaultCurrency).toUpperCase());
-          setGivingCurrency(String(cfgRes.defaultCurrency).toUpperCase() === 'TZS' ? 'TZS' : 'USD');
         }
         const loadedStations: Station[] = stnRes.stations || [];
         setStations(loadedStations);
@@ -339,30 +337,13 @@ export function GivingPage({ onNavigate, onOpenAuth }: GivingPageProps) {
               </p>
             </div>
 
-            {/* Currency Switcher */}
-            <div className="inline-flex items-center bg-slate-950 p-1 rounded-2xl border border-slate-800 shrink-0">
-              <button
-                type="button"
-                onClick={() => setGivingCurrency('USD')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                  givingCurrency === 'USD'
-                    ? 'bg-sky-600 text-white shadow'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                USD ($)
-              </button>
-              <button
-                type="button"
-                onClick={() => setGivingCurrency('TZS')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                  givingCurrency === 'TZS'
-                    ? 'bg-sky-600 text-white shadow'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                TZS (Shilingi)
-              </button>
+            {/* Gifts settle into a single-currency ledger, so the platform sets
+                the currency rather than offering the donor a choice the
+                accounting cannot represent. */}
+            <div className="inline-flex items-center bg-slate-950 px-3 py-1.5 rounded-2xl border border-slate-800 shrink-0">
+              <span className="text-xs font-bold text-slate-300">
+                All gifts settled in {platformCurrency}
+              </span>
             </div>
           </div>
 
@@ -505,10 +486,10 @@ export function GivingPage({ onNavigate, onOpenAuth }: GivingPageProps) {
             {/* Step 3: Giving Amount Chips & Custom Input */}
             <div className="space-y-2">
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
-                3. Choose Giving Amount ({givingCurrency})
+                3. Choose Giving Amount ({platformCurrency})
               </label>
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
-                {(givingCurrency === 'USD' ? usdPresetOptions : tzsPresetOptions).map((val) => {
+                {(platformCurrency === 'TZS' ? tzsPresetOptions : usdPresetOptions).map((val) => {
                   const isSelected = presetAmount === val && !customAmount;
                   return (
                     <button
@@ -524,7 +505,7 @@ export function GivingPage({ onNavigate, onOpenAuth }: GivingPageProps) {
                           : 'bg-slate-950/80 border-slate-800 text-white hover:border-slate-700'
                       }`}
                     >
-                      {givingCurrency === 'USD' ? `$${val}` : `${(val / 1000).toLocaleString()}k`}
+                      {platformCurrency === 'TZS' ? `${(val / 1000).toLocaleString()}k` : `$${val}`}
                     </button>
                   );
                 })}
@@ -533,7 +514,7 @@ export function GivingPage({ onNavigate, onOpenAuth }: GivingPageProps) {
               <div className="pt-1">
                 <input
                   type="number"
-                  placeholder={`Or enter custom amount in ${givingCurrency}...`}
+                  placeholder={`Or enter custom amount in ${platformCurrency}...`}
                   value={customAmount}
                   onChange={(e) => setCustomAmount(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"

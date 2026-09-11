@@ -41,7 +41,10 @@ export function DonationModal({
   const { user } = useAuth();
 
   const [amount, setAmount] = useState<number>(25);
-  const currency = 'USD';
+  // Donations settle into a single-currency ledger, so the platform decides the
+  // currency rather than the donor.
+  const [currency, setCurrency] = useState('USD');
+  const [presetAmounts, setPresetAmounts] = useState<number[]>([5, 15, 25, 50, 100, 250]);
   const [fundType, setFundType] = useState<string>(campaign ? 'CAMPAIGN' : 'GOSPEL_OUTREACH');
   const [paymentGateway, setPaymentGateway] = useState<'PESAPAL' | 'PAYPAL' | 'STRIPE'>('PESAPAL');
   const [donorName, setDonorName] = useState(user?.name || '');
@@ -61,9 +64,23 @@ export function DonationModal({
     }
   }, [user, isOpen]);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!isOpen) return;
+    apiFetch('/api/public/giving/config')
+      .then((r) => r.json())
+      .then((cfg) => {
+        const platformCurrency = String(cfg?.defaultCurrency || 'USD').toUpperCase();
+        setCurrency(platformCurrency);
+        const presets = platformCurrency === 'TZS' ? cfg?.presetAmountsTZS : cfg?.presetAmountsUSD;
+        if (Array.isArray(presets) && presets.length > 0) {
+          setPresetAmounts(presets);
+          setAmount(presets[Math.min(2, presets.length - 1)]);
+        }
+      })
+      .catch(() => undefined);
+  }, [isOpen]);
 
-  const presetAmounts = [5, 15, 25, 50, 100, 250];
+  if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,7 +199,7 @@ export function DonationModal({
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-                    Select Contribution Amount (USD $)
+                    Select Contribution Amount ({currency})
                   </label>
                 </div>
 
@@ -198,14 +215,14 @@ export function DonationModal({
                           : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700'
                       }`}
                     >
-                      ${preset}
+                      {preset.toLocaleString()}
                     </button>
                   ))}
                 </div>
 
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-xs text-slate-400">
-                    $
+                    {currency}
                   </span>
                   <input
                     type="number"
@@ -213,8 +230,8 @@ export function DonationModal({
                     required
                     value={amount}
                     onChange={(e) => setAmount(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-4 py-2.5 text-white font-bold text-base focus:outline-none focus:border-rose-500"
-                    placeholder="Enter custom USD amount"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-14 pr-4 py-2.5 text-white font-bold text-base focus:outline-none focus:border-rose-500"
+                    placeholder={`Enter custom ${currency} amount`}
                   />
                 </div>
               </div>
@@ -397,7 +414,7 @@ export function DonationModal({
             <div>
               <h3 className="text-2xl font-black text-white">God Bless You, {completedDonation.donorName}!</h3>
               <p className="text-xs sm:text-sm text-slate-300 mt-1">
-                Your support of <strong className="text-emerald-400">{completedDonation.currency || 'TZS'} {Number(completedDonation.amount || 0).toLocaleString()}</strong> has been directly credited to <strong>{completedDonation.stationName}</strong>.
+                Your support of <strong className="text-emerald-400">{completedDonation.currency || currency} {Number(completedDonation.amount || 0).toLocaleString()}</strong> has been directly credited to <strong>{completedDonation.stationName}</strong>.
               </p>
             </div>
 
