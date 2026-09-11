@@ -157,20 +157,24 @@ export function SubscriptionCheckoutPage({
           return; // Stop here — page will reload after PesaPal redirects back
         }
 
-        // Fallback: if redirectUrl is an internal path (sandbox/dev), treat as instant
+        // No hosted checkout URL (sandbox/dev). Ask the server for the verified
+        // status rather than assuming the payment succeeded.
+        const verifyRes = await apiFetch(
+          '/api/payments/pesapal/verify?tracking_id=' + encodeURIComponent(data.orderTrackingId)
+        );
+        const verifyData = await verifyRes.json();
+
+        if (!verifyRes.ok || verifyData.payment?.status !== 'COMPLETED') {
+          throw new Error(
+            verifyData.payment?.failureReason ||
+              verifyData.error ||
+              'Your payment has not been confirmed yet. Please complete the payment and try again.'
+          );
+        }
+
         setSuccessPayment({
-          payment: data.payment || {
-            id: data.paymentId || `pay_${Date.now()}`,
-            trackingId: data.orderTrackingId,
-            amount: priceUsd,
-            currency: 'USD',
-            status: 'COMPLETED',
-            paymentMethod: pesapalMethod,
-            provider: 'PESAPAL',
-            description: `${selectedPlan.name} Subscription`,
-            createdAt: new Date().toISOString(),
-          } as Payment,
-          invoice: data.invoice,
+          payment: verifyData.payment as Payment,
+          invoice: verifyData.invoice,
         });
 
         await refreshUser();

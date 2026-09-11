@@ -129,6 +129,8 @@ export async function queryPesaPalTransactionStatus(orderTrackingId: string): Pr
   status: PaymentStatus;
   paymentMethod?: PaymentMethod;
   description?: string;
+  amount?: number;
+  currency?: string;
 }> {
   const config = getPesaPalConfig();
   const hasRealKeys =
@@ -136,7 +138,16 @@ export async function queryPesaPalTransactionStatus(orderTrackingId: string): Pr
     config.consumerKey !== 'pesapal_live_or_sandbox_consumer_key';
 
   if (!hasRealKeys) {
-    // Development / Sandbox mode without keys configured
+    // Without credentials there is nothing to verify against. Auto-approving is
+    // only acceptable for local/sandbox work; in production it would hand out
+    // paid subscriptions for free.
+    if (process.env.NODE_ENV === 'production') {
+      return {
+        verified: false,
+        status: 'PENDING',
+        description: 'PesaPal credentials are not configured, so the payment cannot be verified.',
+      };
+    }
     return {
       verified: true,
       status: 'COMPLETED',
@@ -165,9 +176,13 @@ export async function queryPesaPalTransactionStatus(orderTrackingId: string): Pr
       payment_status_description?: string;
       status_code?: number;
       payment_method?: string;
+      amount?: number | string;
+      currency?: string;
     };
 
     const statusDesc = (data.payment_status_description || '').toLowerCase();
+    const paidAmount = Number(data.amount);
+    const paidCurrency = data.currency ? String(data.currency).toUpperCase() : undefined;
 
     if (statusDesc === 'completed' || data.status_code === 1) {
       let method: PaymentMethod = 'MPESA';
@@ -185,6 +200,8 @@ export async function queryPesaPalTransactionStatus(orderTrackingId: string): Pr
         status: 'COMPLETED',
         paymentMethod: method,
         description: data.payment_status_description,
+        amount: Number.isFinite(paidAmount) ? paidAmount : undefined,
+        currency: paidCurrency,
       };
     } else if (statusDesc === 'failed' || statusDesc === 'invalid' || data.status_code === 2) {
       return {
@@ -217,6 +234,8 @@ export interface CreateOrderParams {
   subscriptionPlanId?: string;
   billingInterval?: 'MONTHLY' | 'ANNUAL';
   featuredCampaignId?: string;
+  premiumSubscriptionId?: string;
+  donationId?: string;
   paymentMethod?: PaymentMethod;
   callbackUrl?: string;
 }
@@ -242,6 +261,7 @@ export async function createPesaPalOrder(
     ownerId: params.ownerId,
     subscriptionId: params.subscriptionPlanId,
     featuredCampaignId: params.featuredCampaignId,
+    premiumSubscriptionId: params.premiumSubscriptionId,
     amount: params.amount,
     currency: params.currency || 'TZS',
     status: 'PENDING',
@@ -301,10 +321,21 @@ export async function createPesaPalOrder(
           merchant_reference: string;
           redirect_url: string;
         };
+        const previousTrackingId = paymentRecord.trackingId;
         paymentRecord.trackingId = json.order_tracking_id;
         db.payments.update(paymentRecord.id, {
           trackingId: json.order_tracking_id,
         });
+        // Donations are matched back to their payment by tracking id, so the
+        // donation must follow the id PesaPal assigned.
+        if (params.donationId) {
+          db.donations.update(params.donationId, { trackingId: json.order_tracking_id });
+        } else {
+          const linkedDonation = db.donations.findByTrackingId(previousTrackingId);
+          if (linkedDonation) {
+            db.donations.update(linkedDonation.id, { trackingId: json.order_tracking_id });
+          }
+        }
         redirectUrl = json.redirect_url;
       }
     } catch (e) {
@@ -324,20 +355,161 @@ export async function createPesaPalOrder(
 /**
  * Verifies transaction with provider and updates subscription/invoice atomically
  */
+const ZERO_DECIMAL_CURRENCIES = new Set(['TZS', 'UGX', 'RWF', 'KRW', 'JPY', 'VND', 'XAF', 'XOF']);
+
+/** Rounds to the smallest unit the currency actually supports. */
+function roundMoney(value: number, currency: string): number {
+  if (!Number.isFinite(value)) return 0;
+  return ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase())
+    ? Math.round(value)
+    : Number(value.toFixed(2));
+}
+
+/**
+ * Derives the next invoice number from the highest issued sequence rather than
+ * the record count, so deleting or archiving an invoice cannot cause a reuse.
+ */
+function nextInvoiceNumber(): string {
+  const year = new Date().getFullYear();
+  const prefix = `CR-INV-${year}-`;
+  const highest = db.invoices.getAll().reduce((max, inv) => {
+    if (!inv.invoiceNumber?.startsWith(prefix)) return max;
+    const seq = parseInt(inv.invoiceNumber.slice(prefix.length), 10);
+    return Number.isFinite(seq) && seq > max ? seq : max;
+  }, 0);
+  return `${prefix}${String(highest + 1).padStart(4, '0')}`;
+}
+
+/**
+ * Moves a listener's premium station subscription from PENDING to ACTIVE and
+ * books the owner's revenue share. Only ever called from a verified payment.
+ */
+function activatePremiumStationSubscription(payment: Payment): void {
+  const sub = db.premiumSubscriptions.findById(payment.premiumSubscriptionId!);
+  if (!sub || sub.status === 'ACTIVE') return;
+
+  const durationDays = sub.billingInterval === 'ANNUAL' ? 365 : 30;
+  const currency = (sub.currency || payment.currency || 'USD').toUpperCase();
+  const activated = db.premiumSubscriptions.update(sub.id, {
+    status: 'ACTIVE',
+    paymentId: payment.id,
+    currentPeriodStart: new Date().toISOString(),
+    currentPeriodEnd: new Date(Date.now() + durationDays * 86400000).toISOString(),
+    updatedAt: new Date().toISOString(),
+  }) || sub;
+
+  const station = db.stations.findById(activated.stationId);
+  const ownerShare = roundMoney(activated.ownerShareTzs, currency);
+
+  if (activated.ownerId && ownerShare > 0) {
+    db.ledgerEntries.create({
+      id: `led_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      ownerId: activated.ownerId,
+      stationId: activated.stationId,
+      type: 'PREMIUM_SHARE_CREDIT',
+      amount: ownerShare,
+      currency,
+      status: 'SETTLED',
+      balanceAfter: (db.ledgerEntries.getOwnerBalance(activated.ownerId)?.availableBalance || 0) + ownerShare,
+      description: `Listener Premium Radio Subscription Share (${station?.name || activated.stationId})`,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  const referral = db.referrals.findByReferredUserId(activated.listenerId);
+  if (referral && referral.referrerId !== activated.listenerId) {
+    const settings = db.settings.get();
+    const commRate = settings.referralCommissionListenerPercentage || 10;
+    const commAmount = roundMoney(activated.amountTzs * (commRate / 100), currency);
+
+    if (commAmount > 0) {
+      db.referralCommissions.create({
+        id: `comm_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        referralId: referral.id,
+        referrerId: referral.referrerId,
+        referredUserId: activated.listenerId,
+        sourcePaymentId: payment.id,
+        paymentType: 'PREMIUM_RADIO_SUBSCRIPTION',
+        grossAmountTzs: activated.amountTzs,
+        commissionPercentage: commRate,
+        commissionAmountTzs: commAmount,
+        status: 'SETTLED',
+        settlesAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      });
+
+      db.referrals.update(referral.id, { status: 'QUALIFIED' });
+
+      db.notifications.create({
+        id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        userId: referral.referrerId,
+        title: 'Referral Commission Earned! 💰',
+        message: `You earned ${currency} ${commAmount.toLocaleString()} (${commRate}%) from a subscriber you invited to Christian Radios!`,
+        type: 'PAYMENT_SUCCESS',
+        read: false,
+        createdAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  if (activated.ownerId) {
+    const listener = db.users.findById(activated.listenerId);
+    db.notifications.create({
+      id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userId: activated.ownerId,
+      title: 'New Premium Station Subscriber!',
+      message: `${listener?.fullName || listener?.name || 'A listener'} subscribed to your premium station "${station?.name || ''}" (${activated.billingInterval}).`,
+      type: 'PAYMENT_SUCCESS',
+      read: false,
+      createdAt: new Date().toISOString(),
+    });
+  }
+}
+
+export interface FinalizeOptions {
+  /** Amount the gateway confirmed it actually collected. */
+  verifiedAmount?: number;
+  verifiedCurrency?: string;
+}
+
 export async function finalizePaymentTransaction(
   trackingId: string,
   verifiedStatus: PaymentStatus,
   providerMethod?: PaymentMethod,
-  failureReason?: string
-): Promise<{ success: boolean; payment: Payment | null; invoice?: any }> {
+  failureReason?: string,
+  options: FinalizeOptions = {}
+): Promise<{ success: boolean; payment: Payment | null; invoice?: any; error?: string }> {
   const payment = db.payments.findByTrackingId(trackingId);
   if (!payment) {
     return { success: false, payment: null };
   }
 
-  // Idempotency: do not reprocess already completed or failed terminal transactions
-  if (payment.status === 'COMPLETED' && verifiedStatus === 'COMPLETED') {
-    return { success: true, payment };
+  // Idempotency: COMPLETED and FAILED are both terminal. Without the FAILED
+  // guard a declined transaction could be replayed into a completed one.
+  if (payment.status === 'COMPLETED') {
+    return { success: verifiedStatus === 'COMPLETED', payment };
+  }
+  if (payment.status === 'FAILED' && verifiedStatus === 'COMPLETED') {
+    return { success: false, payment, error: 'This transaction already failed and cannot be completed.' };
+  }
+
+  // Partial or wrong-currency settlements must not release entitlements.
+  if (verifiedStatus === 'COMPLETED' && options.verifiedAmount !== undefined) {
+    const shortfall = payment.amount - options.verifiedAmount;
+    if (shortfall > 0.01) {
+      db.payments.update(payment.id, {
+        status: 'FAILED',
+        failureReason: `Underpaid: received ${options.verifiedAmount} of ${payment.amount} ${payment.currency}.`,
+      });
+      return { success: false, payment: db.payments.findById(payment.id) || payment, error: 'Paid amount is less than the amount due.' };
+    }
+    if (options.verifiedCurrency && options.verifiedCurrency !== payment.currency.toUpperCase()) {
+      db.payments.update(payment.id, {
+        status: 'FAILED',
+        failureReason: `Currency mismatch: paid in ${options.verifiedCurrency}, expected ${payment.currency}.`,
+      });
+      return { success: false, payment: db.payments.findById(payment.id) || payment, error: 'Payment currency does not match the amount due.' };
+    }
   }
 
   const updatedPayment = db.payments.update(payment.id, {
@@ -387,8 +559,7 @@ export async function finalizePaymentTransaction(
         }
 
         // 2. Generate immutable invoice
-        const invCount = db.invoices.getAll().length + 1;
-        const invoiceNumber = `CR-INV-${new Date().getFullYear()}-${String(invCount).padStart(4, '0')}`;
+        const invoiceNumber = nextInvoiceNumber();
         const invoice = db.invoices.create({
           id: `inv_${Date.now()}`,
           invoiceNumber,
@@ -421,7 +592,9 @@ export async function finalizePaymentTransaction(
           if (referral && referral.referrerId !== updatedPayment.ownerId) {
             const settings = db.settings.get();
             const commRate = settings.referralCommissionOwnerPercentage ?? 10;
-            const commAmount = Math.round(updatedPayment.amount * (commRate / 100));
+            const commissionCurrency = updatedPayment.currency.toUpperCase();
+            // Commission is paid in the same currency the subscriber was charged.
+            const commAmount = roundMoney(updatedPayment.amount * (commRate / 100), commissionCurrency);
 
             db.referralCommissions.create({
               id: `refc_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -448,9 +621,9 @@ export async function finalizePaymentTransaction(
               ownerId: referral.referrerId,
               type: 'REFERRAL_CREDIT',
               amount: commAmount,
-              currency: 'TZS',
+              currency: commissionCurrency,
               balanceAfter: currentBal.availableBalance + commAmount,
-              description: `Referral commission for Broadcaster Subscription (${commRate}% of TZS ${updatedPayment.amount.toLocaleString()})`,
+              description: `Referral commission for Broadcaster Subscription (${commRate}% of ${commissionCurrency} ${updatedPayment.amount.toLocaleString()})`,
               createdAt: new Date().toISOString(),
             });
 
@@ -458,7 +631,7 @@ export async function finalizePaymentTransaction(
               id: `notif_${Date.now()}`,
               userId: referral.referrerId,
               title: 'Referral Commission Earned! 💰',
-              message: `You earned TZS ${commAmount.toLocaleString()} in referral commission from a broadcaster subscription!`,
+              message: `You earned ${commissionCurrency} ${commAmount.toLocaleString()} in referral commission from a broadcaster subscription!`,
               type: 'PAYMENT_SUCCESS',
               read: false,
               createdAt: new Date().toISOString(),
@@ -488,8 +661,9 @@ export async function finalizePaymentTransaction(
       const grossAmount = donation.amount || updatedPayment.amount;
       const settings = db.settings.get();
       const feePercentage = donation.platformFeePercentage ?? settings.donationFeePercentage ?? 5.0;
-      const platformFeeAmount = Math.round(grossAmount * (feePercentage / 100));
-      const netOwnerAmount = grossAmount - platformFeeAmount;
+      const donationCurrency = (donation.currency || 'TZS').toUpperCase();
+      const platformFeeAmount = roundMoney(grossAmount * (feePercentage / 100), donationCurrency);
+      const netOwnerAmount = roundMoney(grossAmount - platformFeeAmount, donationCurrency);
 
       const completedDonation = db.donations.update(donation.id, {
         status: 'COMPLETED',
@@ -543,6 +717,11 @@ export async function finalizePaymentTransaction(
           details: `Listener donation verified for ${completedDonation.stationName}: ${completedDonation.currency} ${grossAmount}`,
         });
       }
+    }
+
+    // If payment unlocks a listener's premium access to a single station
+    if (updatedPayment.premiumSubscriptionId) {
+      activatePremiumStationSubscription(updatedPayment);
     }
 
     // If payment is for a Featured Promotion Campaign

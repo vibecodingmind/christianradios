@@ -94,6 +94,13 @@ export function DonationModal({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to process donation');
 
+      // The gift is only credited once the gateway confirms payment, so hand the
+      // donor over to the hosted checkout when one was issued.
+      if (data.requiresPayment && data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+        return;
+      }
+
       setCompletedDonation(data.donation);
       if (onDonationSuccess) {
         onDonationSuccess(data.donation.trackingId);

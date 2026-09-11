@@ -653,6 +653,7 @@ export interface Payment {
   ownerId: string;
   subscriptionId?: string;
   featuredCampaignId?: string;
+  premiumSubscriptionId?: string;
   amount: number;
   currency: string;
   status: PaymentStatus;
@@ -973,6 +974,7 @@ export interface Donation {
   status: PaymentStatus;
   message?: string;
   completedAt?: string;
+  failureReason?: string;
   refundReason?: string;
   refundedAt?: string;
   createdAt: string;

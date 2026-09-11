@@ -224,9 +224,10 @@ class DatabaseEngine {
         givingEnabled: true,
         donationFeePercentage: 5.0,
         donationFixedFee: 0,
-        donationMinAmount: 1000,
-        donationMaxAmount: 10000000,
-        minWithdrawalAmount: 20000,
+        // Expressed in defaultCurrency (USD) above.
+        donationMinAmount: 1,
+        donationMaxAmount: 10000,
+        minWithdrawalAmount: 20,
         withdrawalFeePercentage: 1.0,
         givingAllowedPlans: ['FREE', 'BASIC', 'PRO', 'VIP'],
 

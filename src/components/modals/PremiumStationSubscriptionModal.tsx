@@ -23,8 +23,11 @@ export function PremiumStationSubscriptionModal({
 
   if (!isOpen) return null;
 
-  const monthlyPrice = station.monthlyPriceTzs || 5000;
-  const annualPrice = station.annualPriceTzs || 50000;
+  // Prices are charged in USD server-side, so display the same currency.
+  const monthlyPrice = station.monthlyPriceUsd ?? 5;
+  const annualPrice = station.annualPriceUsd ?? 50;
+  const formatPrice = (value: number) =>
+    `USD ${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +48,13 @@ export function PremiumStationSubscriptionModal({
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to subscribe to station.');
+
+      // Access is only granted once the gateway confirms payment, so send the
+      // listener to the hosted checkout when one was issued.
+      if (data.requiresPayment && data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+        return;
+      }
 
       if (onSubscriptionSuccess) {
         onSubscriptionSuccess();
@@ -112,7 +122,7 @@ export function PremiumStationSubscriptionModal({
               >
                 <div className="text-xs font-semibold">Monthly Pass</div>
                 <div className="text-lg font-black text-white mt-0.5">
-                  TZS {monthlyPrice.toLocaleString()}
+                  {formatPrice(monthlyPrice)}
                 </div>
                 <div className="text-[10px] text-slate-400">Renews monthly</div>
               </button>
@@ -131,7 +141,7 @@ export function PremiumStationSubscriptionModal({
                 </span>
                 <div className="text-xs font-semibold">Annual Pass</div>
                 <div className="text-lg font-black text-white mt-0.5">
-                  TZS {annualPrice.toLocaleString()}
+                  {formatPrice(annualPrice)}
                 </div>
                 <div className="text-[10px] text-slate-400">Best value for 1 full year</div>
               </button>

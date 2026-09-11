@@ -5,11 +5,24 @@ import { db } from '../db.js';
 import { requireAuth, getSessionFromRequest, type AuthenticatedRequest } from '../auth.js';
 import { validateStreamUrl } from '../ssrf.js';
 import { getLiveNowPlayingMetadata } from '../icyMetadata.js';
-import type { StationReport, TicketPriority } from '../types.js';
+import type { PaymentMethod, StationReport, TicketPriority } from '../types.js';
 import { whatsappGateway } from '../services/whatsappGateway.js';
 import { broadcastLiveEvent } from '../liveSync.js';
+import { createPesaPalOrder, ensurePesaPalIPN, finalizePaymentTransaction } from '../pesapal.js';
+import { simulatedPaymentsAllowed } from '../paymentVerification.js';
+import { IntegrationService } from '../services/integrationService.js';
 
 export const publicRouter = Router();
+
+const ZERO_DECIMAL_CURRENCIES = new Set(['TZS', 'UGX', 'RWF', 'KRW', 'JPY', 'VND', 'XAF', 'XOF']);
+
+/** Rounds to the smallest unit the currency actually supports. */
+function roundMoney(value: number, currency: string): number {
+  if (!Number.isFinite(value)) return 0;
+  return ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase())
+    ? Math.round(value)
+    : Number(value.toFixed(2));
+}
 
 // 1. Get Stations Directory with Filters
 publicRouter.get('/stations', (req, res) => {
@@ -1305,7 +1318,7 @@ publicRouter.post('/stations/:slug/amen', (req, res) => {
   res.json({ success: true, amenCount: stationAmenCounts[st.id] });
 });
 
-publicRouter.post(['/donations', '/donations/checkout'], (req, res) => {
+publicRouter.post(['/donations', '/donations/checkout'], async (req, res) => {
   const {
     stationId,
     donorName,
@@ -1320,7 +1333,7 @@ publicRouter.post(['/donations', '/donations/checkout'], (req, res) => {
     message,
   } = req.body;
 
-  if (!stationId || !donorName || !donorEmail || !amount) {
+  if (!stationId || !donorName || !donorEmail) {
     res.status(400).json({ error: 'Station, donor name, email, and donation amount are required.' });
     return;
   }
@@ -1337,10 +1350,33 @@ publicRouter.post(['/donations', '/donations/checkout'], (req, res) => {
     return;
   }
 
-  const numAmount = Math.max(100, Number(amount));
+  const donationCurrency = String(currency || settings.defaultCurrency || 'USD').toUpperCase();
+  const numAmount = Number(amount);
+
+  if (!Number.isFinite(numAmount) || numAmount <= 0) {
+    res.status(400).json({ error: 'Please enter a valid donation amount.' });
+    return;
+  }
+
+  // Configured limits are expressed in the platform's default currency, so they
+  // are only meaningful when the gift is made in that same currency.
+  const platformCurrency = String(settings.defaultCurrency || 'USD').toUpperCase();
+  if (donationCurrency === platformCurrency) {
+    const min = settings.donationMinAmount;
+    const max = settings.donationMaxAmount;
+    if (typeof min === 'number' && numAmount < min) {
+      res.status(400).json({ error: `The minimum donation is ${platformCurrency} ${min.toLocaleString()}.` });
+      return;
+    }
+    if (typeof max === 'number' && numAmount > max) {
+      res.status(400).json({ error: `The maximum donation is ${platformCurrency} ${max.toLocaleString()}.` });
+      return;
+    }
+  }
+
   const feeRate = settings.donationFeePercentage ?? 5.0;
-  const feeAmount = Math.round(numAmount * (feeRate / 100));
-  const netAmount = numAmount - feeAmount;
+  const feeAmount = roundMoney(numAmount * (feeRate / 100), donationCurrency);
+  const netAmount = roundMoney(numAmount - feeAmount, donationCurrency);
 
   let campaignTitle: string | undefined;
   if (campaignId) {
@@ -1353,6 +1389,8 @@ publicRouter.post(['/donations', '/donations/checkout'], (req, res) => {
   const currentUser = getSessionFromRequest(req) || (req as AuthenticatedRequest).user;
   const donorUserId = currentUser?.id;
 
+  // The gift starts PENDING. Campaign totals and the owner's ledger are only
+  // credited by finalizePaymentTransaction once the gateway confirms the funds.
   const donation = db.donations.create({
     id: `don_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     stationId: st.id,
@@ -1371,67 +1409,75 @@ publicRouter.post(['/donations', '/donations/checkout'], (req, res) => {
     platformFeePercentage: feeRate,
     platformFeeAmount: feeAmount,
     netOwnerAmount: netAmount,
-    currency,
+    currency: donationCurrency,
     fundType: campaignId ? 'CAMPAIGN' : fundType,
     paymentMethod,
     trackingId,
-    status: 'COMPLETED',
+    status: 'PENDING',
     message,
-    completedAt: new Date().toISOString(),
     createdAt: new Date().toISOString(),
   });
 
-  // Update campaign progress if attached
-  if (campaignId) {
-    db.donationCampaigns.recordDonation(campaignId, numAmount);
-  }
+  try {
+    await ensurePesaPalIPN();
 
-  // Credit ledger for radio owner
-  if (st.ownerId) {
-    const currentBal = db.ledgerEntries.getOwnerBalance(st.ownerId);
-    db.ledgerEntries.create({
-      id: `ldg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      ownerId: st.ownerId,
-      stationId: st.id,
+    const order = await createPesaPalOrder({
+      ownerId: st.ownerId || 'platform',
+      userEmail: donorEmail,
+      userName: isAnonymous ? 'Anonymous Listener' : donorName,
+      userPhone: donorPhone,
+      amount: numAmount,
+      currency: donationCurrency,
+      description: campaignTitle
+        ? `Donation to ${st.name} — ${campaignTitle}`
+        : `Donation to ${st.name}`,
       donationId: donation.id,
-      type: 'DONATION_CREDIT',
-      amount: netAmount,
-      currency,
-      balanceAfter: currentBal.availableBalance + netAmount,
-      description: `Net donation credit from ${isAnonymous ? 'Anonymous Listener' : donorName} (Gross: ${numAmount.toLocaleString()} ${currency}, Fee: ${feeAmount.toLocaleString()} ${currency})`,
-      createdAt: new Date().toISOString(),
+      paymentMethod: paymentMethod as PaymentMethod,
+      callbackUrl: `${process.env.APP_URL || 'http://localhost:3000'}/donation/receipt/${donation.trackingId}`,
     });
-  }
 
-  // Also create a notification for station owner
-  if (st.ownerId) {
-    db.notifications.create({
-      id: `notif_${Date.now()}`,
-      userId: st.ownerId,
-      title: `New Donation Received! (${donation.currency} ${donation.amount.toLocaleString()})`,
-      message: `${isAnonymous ? 'An anonymous supporter' : donorName} contributed ${donation.currency} ${donation.amount.toLocaleString()} to ${st.name} ${campaignTitle ? `for "${campaignTitle}"` : `for ${donation.fundType.replace('_', ' ')}`}. Net credited: ${donation.currency} ${netAmount.toLocaleString()}.`,
-      type: 'PAYMENT_SUCCESS',
-      read: false,
-      createdAt: new Date().toISOString(),
+    const latestDonation = db.donations.findById(donation.id) || donation;
+
+    // Without a configured gateway there is nothing to redirect to, so settle
+    // immediately to keep local and sandbox environments usable.
+    if (simulatedPaymentsAllowed() && !IntegrationService.getPesaPalConfig().configured) {
+      await finalizePaymentTransaction(latestDonation.trackingId, 'COMPLETED', paymentMethod as PaymentMethod);
+      const settled = db.donations.findById(donation.id);
+      res.status(201).json({
+        success: true,
+        message: 'Donation recorded successfully. May God abundantly bless your generosity!',
+        donation: settled,
+        trackingId: settled?.trackingId,
+      });
+      return;
+    }
+
+    db.auditLogs.log({
+      actorId: st.ownerId,
+      actorRole: 'RADIO_OWNER',
+      action: 'DONATION_INITIATED',
+      entityType: 'Donation',
+      entityId: donation.id,
+      details: `Listener donation ${latestDonation.trackingId} initiated for ${st.name}: ${donationCurrency} ${numAmount}`,
     });
+
+    res.status(201).json({
+      success: true,
+      requiresPayment: true,
+      message: 'Complete your payment to finish your donation.',
+      donation: latestDonation,
+      trackingId: latestDonation.trackingId,
+      redirectUrl: order.redirectUrl,
+      orderTrackingId: order.orderTrackingId,
+      paymentId: order.paymentId,
+    });
+  } catch (err) {
+    db.donations.update(donation.id, {
+      status: 'FAILED',
+      failureReason: err instanceof Error ? err.message : 'Could not start the donation checkout.',
+    });
+    res.status(502).json({ error: 'Could not start the donation checkout. Please try again.' });
   }
-
-  // Audit log
-  db.auditLogs.log({
-    actorId: st.ownerId,
-    actorRole: 'RADIO_OWNER',
-    action: 'DONATION_RECORDED',
-    entityType: 'Donation',
-    entityId: donation.id,
-    details: `Listener donation ${donation.trackingId} recorded for ${st.name}: ${donation.currency} ${numAmount}`,
-  });
-
-  res.status(201).json({
-    success: true,
-    message: 'Donation recorded successfully. May God abundantly bless your generosity!',
-    donation,
-    trackingId: donation.trackingId,
-  });
 });
 
 publicRouter.get('/donations/receipt/:trackingId', (req, res) => {

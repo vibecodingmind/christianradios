@@ -10,7 +10,7 @@ import { publicRouter } from './server/routes/public.js';
 import { listenerRouter } from './server/routes/listener.js';
 import { ownerRouter } from './server/routes/owner.js';
 import { adminRouter } from './server/routes/admin.js';
-import { paymentsRouter } from './server/routes/payments.js';
+import { paymentsRouter, handleStripeWebhook } from './server/routes/payments.js';
 import { aiRouter } from './server/routes/ai.js';
 import { kycRouter } from './server/routes/kyc.js';
 import { adminVerificationRouter } from './server/routes/adminVerification.js';
@@ -65,6 +65,10 @@ async function bootstrap() {
   });
 
   // 3. Request Parsing & Session Extraction
+  // Stripe signs the exact request bytes, so its webhook must bypass the JSON
+  // body parser and receive the raw buffer.
+  app.post('/api/payments/stripe/webhook', express.raw({ type: '*/*' }), handleStripeWebhook);
+
   app.use(express.json({ limit: '15mb' }));
   app.use(express.urlencoded({ extended: true, limit: '15mb' }));
   app.use(cookieParser());

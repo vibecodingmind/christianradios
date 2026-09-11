@@ -109,26 +109,39 @@ export function PesapalCheckoutModal({
     }
   };
 
-  const handleSimulateInstantSuccess = async () => {
+  const handleCheckPaymentStatus = async () => {
+    if (!trackingId) {
+      setError('No transaction reference to verify yet.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      if (trackingId) {
-        const res = await apiFetch('/api/payments/pesapal/verify?tracking_id=' + encodeURIComponent(trackingId));
-        const data = await res.json();
-        if (res.ok && data.success) {
-          setPaymentResult(data.payment || data);
-          setStep('SUCCESS');
-          if (onSuccess) onSuccess(data);
-          return;
-        }
+      const res = await apiFetch('/api/payments/pesapal/verify?tracking_id=' + encodeURIComponent(trackingId));
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Could not verify this payment. Please try again.');
+        return;
       }
 
-      // Default completed fallback
-      setStep('SUCCESS');
-      if (onSuccess) onSuccess(paymentResult || { status: 'COMPLETED' });
+      // Only the server's verified status may unlock the success state.
+      if (data.payment?.status === 'COMPLETED') {
+        setPaymentResult(data.payment);
+        setStep('SUCCESS');
+        if (onSuccess) onSuccess(data);
+        return;
+      }
+
+      if (data.payment?.status === 'FAILED') {
+        setError(data.payment.failureReason || 'This payment was declined by the gateway.');
+        return;
+      }
+
+      setError('Payment is still pending. Approve the prompt on your phone, then check again.');
     } catch {
-      setStep('SUCCESS');
+      setError('Network error while verifying the payment. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -409,7 +422,7 @@ export function PesapalCheckoutModal({
 
             <div className="pt-3 space-y-2">
               <button
-                onClick={handleSimulateInstantSuccess}
+                onClick={handleCheckPaymentStatus}
                 disabled={loading}
                 className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-md"
               >
@@ -419,7 +432,7 @@ export function PesapalCheckoutModal({
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 className="w-4 h-4" /> Simulate Instant Approval (Dev Mode)
+                    <CheckCircle2 className="w-4 h-4" /> I have paid — check payment status
                   </>
                 )}
               </button>
