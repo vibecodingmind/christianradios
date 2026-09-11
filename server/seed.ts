@@ -5,7 +5,7 @@ import path from 'path';
 import { db, type DatabaseSchema } from './db.js';
 import type { Category, Country, Station, SubscriptionPlan, User } from './types.js';
 import { DEFAULT_OFFICIAL_PLANS } from './services/entitlement.js';
-import { hashPassword } from './auth.js';
+import { hashPassword, verifyPassword } from './auth.js';
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
@@ -14,13 +14,18 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
  * fresh production deploy starts with a publicly documented admin account, so
  * production must be given one explicitly or receive a random one.
  */
+let generatedAdminPassword: string | null = null;
+
 function resolveSeedAdminPassword(): string {
   const configured = (process.env.SEED_ADMIN_PASSWORD || '').trim();
   if (configured) return configured;
 
   if (!IS_PRODUCTION) return 'Admin@2026!';
+  // Memoised so repeated calls in one boot cannot print two different passwords.
+  if (generatedAdminPassword) return generatedAdminPassword;
 
   const generated = crypto.randomBytes(18).toString('base64url');
+  generatedAdminPassword = generated;
   console.warn(
     '\n' +
       '='.repeat(72) +
@@ -61,8 +66,65 @@ function normalizeOfficialPlans(data: DatabaseSchema): void {
   }
 }
 
+/**
+ * Every password this seed has ever assigned is readable in this repository, and
+ * `data/db.json` used to be committed with those accounts already created — so a
+ * deployed install could be signed into as a super admin by anyone who read the
+ * source. Any account still using one of these passwords is locked out on boot.
+ */
+const PUBLISHED_DEMO_PASSWORDS = [
+  'Admin@2026!',
+  'Ops@2026!',
+  'Finance@2026!',
+  'Owner@2026!',
+  'Listener@2026!',
+  'Broadcaster@2026!',
+];
+
+function revokePublishedDemoCredentials(data: DatabaseSchema): void {
+  if (!IS_PRODUCTION || !Array.isArray(data.users)) return;
+
+  const seedAdminEmail = (process.env.SEED_ADMIN_EMAIL || 'admin@christianradios.org').toLowerCase().trim();
+  const compromised: string[] = [];
+
+  for (const user of data.users) {
+    if (!user.passwordHash) continue;
+    const usesPublishedPassword = PUBLISHED_DEMO_PASSWORDS.some((candidate) =>
+      verifyPassword(candidate, user.passwordHash)
+    );
+    if (!usesPublishedPassword) continue;
+
+    compromised.push(user.email);
+
+    if (user.email.toLowerCase() === seedAdminEmail) {
+      // Keep one usable way in rather than locking the operator out entirely.
+      user.passwordHash = hashPassword(resolveSeedAdminPassword());
+    } else {
+      user.passwordHash = hashPassword(crypto.randomBytes(32).toString('base64url'));
+      user.status = 'SUSPENDED';
+    }
+    user.updatedAt = new Date().toISOString();
+  }
+
+  if (compromised.length > 0) {
+    console.warn(
+      '\n' +
+        '='.repeat(72) +
+        '\n[Security] These accounts were using a password published in the source' +
+        '\n[Security] repository and have been locked out:' +
+        compromised.map((email) => `\n[Security]     ${email}`).join('') +
+        '\n[Security] Non-admin demo accounts were suspended. The super admin was' +
+        '\n[Security] reset to SEED_ADMIN_PASSWORD (or the one-time password above).' +
+        '\n' +
+        '='.repeat(72) +
+        '\n'
+    );
+  }
+}
+
 export function runSeed() {
   db.applyMigrations(normalizeOfficialPlans);
+  db.applyMigrations(revokePublishedDemoCredentials);
 
   db.seedInitialData((data) => {
     console.log('Seeding Christian Radios initial database...');

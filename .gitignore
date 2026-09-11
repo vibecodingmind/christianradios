@@ -7,3 +7,9 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Runtime database. Committing it shipped seeded super-admin accounts whose
+# passwords are published in this repository straight into production images.
+data/db.json
+data/db.json.tmp.*
+uploads/

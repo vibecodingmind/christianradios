@@ -4,3 +4,5 @@ dev-dist
 .git
 .DS_Store
 *.log
+data/db.json
+uploads
