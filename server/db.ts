@@ -385,7 +385,10 @@ class DatabaseEngine {
         this.data.categories.unshift(catAwr);
       }
 
-      if (!Array.isArray(this.data.notifications) || this.data.notifications.length === 0) {
+      // Demo notifications address seeded accounts that do not exist in
+      // production, and they reappeared every time a real user cleared their inbox.
+      const isProduction = process.env.NODE_ENV === 'production';
+      if (!isProduction && (!Array.isArray(this.data.notifications) || this.data.notifications.length === 0)) {
         this.data.notifications = [
           {
             id: 'notif_init_01',
@@ -1393,6 +1396,11 @@ class DatabaseEngine {
       return this.data.notifications.filter((n) => n.userId === userId && !n.read).length;
     },
     create: (notif: Notification) => {
+      // Most callers build ids from Date.now() alone, so two notifications raised
+      // in the same millisecond collided and marking one read hid both.
+      if (this.data.notifications.some((n) => n.id === notif.id)) {
+        notif = { ...notif, id: `${notif.id}_${crypto.randomBytes(4).toString('hex')}` };
+      }
       this.data.notifications.push(notif);
       this.save();
       return notif;

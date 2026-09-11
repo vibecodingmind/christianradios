@@ -1938,6 +1938,34 @@ export function runSeed() {
       },
     ];
 
+    // The seed exists to make the platform explorable in development. In
+    // production the demo accounts it references are never created, so these
+    // records are orphaned — and they made a brand new install report fabricated
+    // revenue, donations and payouts on the admin and owner dashboards.
+    if (IS_PRODUCTION) {
+      data.ownerProfiles = [];
+      data.subscriptions = [];
+      data.payments = [];
+      data.invoices = [];
+      data.donations = [];
+      data.donationCampaigns = [];
+      data.ledgerEntries = [];
+      data.withdrawalRequests = [];
+      data.referralCommissions = [];
+      data.referrals = [];
+      data.featuredCampaigns = [];
+      data.featuredPurchases = [];
+      data.advertisements = [];
+      data.supportTickets = [];
+      data.prayerRequests = [];
+      data.stationReviews = [];
+      data.podcastEpisodes = [];
+      data.notifications = [];
+      data.streamOutages = [];
+      data.auditLogs = [];
+      console.log('[Seed] Production install: demo transactional and social records omitted.');
+    }
+
     console.log('Christian Radios database seeded successfully.');
   });
 }

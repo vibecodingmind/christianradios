@@ -35,6 +35,10 @@ export async function checkSingleStream(stationId: string): Promise<StreamHealth
   const isHttps = targetUrl.protocol === 'https:';
   const client = isHttps ? https : http;
 
+  // Imported directory listings carry placeholder owner ids like 'unclaimed', so
+  // alerting on them only filled the database with notifications nobody can read.
+  const ownerExists = Boolean(station.ownerId && db.users.findById(station.ownerId));
+
   return new Promise<StreamHealthCheck>((resolve) => {
     const timeoutMs = (db.settings.get().streamTimeoutSeconds || 8) * 1000;
     let resolved = false;
@@ -84,8 +88,8 @@ export async function checkSingleStream(stationId: string): Promise<StreamHealth
           outage.outageDurationMinutes = durationMins;
 
           // Dispatch recovery notification to station owner
-          db.notifications.create({
-            id: `notif_${Date.now()}_rec`,
+          if (ownerExists) db.notifications.create({
+            id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 8)}_rec`,
             userId: station.ownerId,
             title: `Stream Recovered: ${station.name} is Back Online`,
             message: `Your stream broadcast is once again reachable and online. Outage lasted approximately ${durationMins} minute(s).`,
@@ -109,8 +113,8 @@ export async function checkSingleStream(stationId: string): Promise<StreamHealth
           });
 
           // Dispatch outage notification to station owner
-          db.notifications.create({
-            id: `notif_${Date.now()}_out`,
+          if (ownerExists) db.notifications.create({
+            id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 8)}_out`,
             userId: station.ownerId,
             title: `Stream Outage Alert: ${station.name}`,
             message: `Our automated monitoring system was unable to reach your audio stream at ${station.streamUrl}. Error: ${newOutage.errorReason}. Please inspect your broadcast server.`,
