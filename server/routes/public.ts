@@ -17,6 +17,101 @@ import { getPlatformCurrency, roundMoney } from '../currency.js';
 
 export const publicRouter = Router();
 
+/**
+ * Matches stations to a category by direct categoryId / categoryIds first,
+ * and falls back to smart keyword/genre/language/country matching when a
+ * category has 0 directly assigned stations so no category is ever empty.
+ */
+export function filterStationsByCategory<T extends {
+  id: string;
+  name: string;
+  genre?: string;
+  tagline?: string;
+  description?: string;
+  language?: string;
+  countryCode?: string;
+  denomination?: string;
+  categoryId?: string;
+  categoryIds?: string[];
+  playCount?: number;
+}>(stations: T[], cat: { id: string; slug: string; name: string }): T[] {
+  const direct = stations.filter(
+    (s) =>
+      s.categoryId === cat.id ||
+      s.categoryId === cat.slug ||
+      (Array.isArray(s.categoryIds) && (s.categoryIds.includes(cat.id) || s.categoryIds.includes(cat.slug)))
+  );
+  if (direct.length > 0) return direct;
+
+  const key = `${cat.id} ${cat.slug} ${cat.name}`.toLowerCase();
+
+  const matchesKeyword = (s: T, terms: string[]) => {
+    const blob = [
+      s.name,
+      s.genre || '',
+      s.tagline || '',
+      s.description || '',
+      s.language || '',
+      s.denomination || '',
+    ]
+      .join(' ')
+      .toLowerCase();
+    return terms.some((t) => blob.includes(t));
+  };
+
+  let matched: T[] = [];
+  if (key.includes('swahili')) {
+    matched = stations.filter(
+      (s) =>
+        (s.language || '').toLowerCase().includes('swahili') ||
+        ['TZ', 'KE', 'UG', 'RW', 'BI', 'CD'].includes((s.countryCode || '').toUpperCase()) ||
+        matchesKeyword(s, ['swahili', 'kiswahili', 'tanzania', 'kenya'])
+    );
+  } else if (key.includes('safro') || key.includes('south')) {
+    matched = stations.filter(
+      (s) =>
+        ['ZA', 'ZW', 'ZM', 'MW', 'BW', 'NA', 'LS', 'SZ'].includes((s.countryCode || '').toUpperCase()) ||
+        matchesKeyword(s, ['south africa', 'zimbabwe', 'zambia', 'gospel', 'worship'])
+    );
+  } else if (key.includes('afro')) {
+    matched = stations.filter(
+      (s) =>
+        ['NG', 'GH', 'KE', 'TZ', 'UG', 'ZA', 'ZW', 'ZM', 'RW', 'CM', 'CD', 'ET'].includes(
+          (s.countryCode || '').toUpperCase()
+        ) || matchesKeyword(s, ['afro', 'africa', 'nigeria', 'ghana', 'kenya', 'gospel'])
+    );
+  } else if (key.includes('awr') || key.includes('adventist')) {
+    matched = stations.filter((s) =>
+      matchesKeyword(s, ['adventist', 'awr', '3abn', 'hope', 'sda', 'waumini'])
+    );
+  } else if (key.includes('prophetic') || key.includes('evangelism') || key.includes('bible') || key.includes('teaching') || key.includes('talk')) {
+    matched = stations.filter((s) =>
+      matchesKeyword(s, ['bible', 'teaching', 'talk', 'sermon', 'word', 'evangel', 'prophe', 'truth', 'hope', 'adventist'])
+    );
+  } else if (key.includes('prayer') || key.includes('devotion') || key.includes('instrumental') || key.includes('messianic')) {
+    matched = stations.filter((s) =>
+      matchesKeyword(s, ['prayer', 'devotion', 'worship', 'instrumental', 'peace', 'abiding', 'hymn', 'praise'])
+    );
+  } else if (key.includes('hiphop') || key.includes('rap') || key.includes('youth') || key.includes('rock') || key.includes('country') || key.includes('contemporary')) {
+    matched = stations.filter((s) =>
+      matchesKeyword(s, ['contemporary', 'youth', 'hit', 'urban', 'rock', 'country', 'pop', 'positive', 'klove', 'air1', 'christian'])
+    );
+  } else {
+    const words = key
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length >= 4 && !['cat', 'music', 'christian', 'radios', 'radio'].includes(w));
+    if (words.length > 0) {
+      matched = stations.filter((s) => matchesKeyword(s, words));
+    }
+  }
+
+  if (matched.length > 0) return matched;
+
+  return [...stations]
+    .sort((a, b) => (b.playCount || 0) - (a.playCount || 0))
+    .slice(0, 12);
+}
+
 // The studio bridge is open to listeners, so cap how fast one client can post.
 const bridgeRateLimiter = createRateLimiter({
   windowMs: 60 * 1000,
@@ -47,7 +142,7 @@ publicRouter.get('/stations', (req, res) => {
   if (category) {
     const cat = db.categories.findBySlug(category) || db.categories.findById(category);
     if (cat) {
-      stations = stations.filter((s) => s.categoryId === cat.id || (Array.isArray(s.categoryIds) && s.categoryIds.includes(cat.id)));
+      stations = filterStationsByCategory(stations, cat);
     }
   }
 
@@ -291,7 +386,7 @@ publicRouter.get('/categories', (req, res) => {
 
   const withCounts = categories.map((c) => ({
     ...c,
-    stationCount: activeStations.filter((s) => s.categoryId === c.id).length,
+    stationCount: filterStationsByCategory(activeStations, c).length,
   }));
 
   res.json({ categories: withCounts });
@@ -304,18 +399,14 @@ publicRouter.get('/categories/:slug', (req, res) => {
     res.status(404).json({ error: 'Category not found.' });
     return;
   }
-  const stations = db.stations
+  const activeStations = db.stations
     .getAll()
-    .filter(
-      (s) =>
-        (s.status === 'ACTIVE' || s.status === 'APPROVED') &&
-        s.categoryId === cat.id
-    )
-    .map((s) => ({
-      ...s,
-      category: cat,
-      country: db.countries.findByCode(s.countryCode),
-    }));
+    .filter((s) => s.status === 'ACTIVE' || s.status === 'APPROVED');
+  const stations = filterStationsByCategory(activeStations, cat).map((s) => ({
+    ...s,
+    category: cat,
+    country: db.countries.findByCode(s.countryCode),
+  }));
 
   res.json({
     category: cat,

@@ -109,12 +109,23 @@ export function MobileAppInstallBanner() {
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            {!isIos && (
+              <a
+                href="/downloads/ChristianRadios.apk"
+                download="ChristianRadios.apk"
+                className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 cursor-pointer active:scale-95 transition-transform"
+                title="Download Native Android APK"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>APK</span>
+              </a>
+            )}
             <button
               onClick={handleInstallClick}
               className="px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white shadow-md shadow-sky-500/20 flex items-center gap-1.5 cursor-pointer active:scale-95 transition-transform"
             >
-              <Download className="w-3.5 h-3.5 animate-bounce" />
-              <span>Install</span>
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>{isIos ? 'iOS App' : 'Install'}</span>
             </button>
             <button
               onClick={handleDismiss}
@@ -127,7 +138,7 @@ export function MobileAppInstallBanner() {
         </div>
       </aside>
 
-      {/* iOS Installation Guide Modal */}
+      {/* Mobile App (Android APK + iOS Home Screen) Guide Modal */}
       {showIosGuide && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 text-slate-100 shadow-2xl relative">
@@ -143,9 +154,29 @@ export function MobileAppInstallBanner() {
                 <Smartphone className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Install to Home Screen</h3>
-                <p className="text-xs text-slate-400">Stream like a native mobile app</p>
+                <h3 className="text-base font-bold text-white">Get the Mobile App</h3>
+                <p className="text-xs text-slate-400">Available for Android, iPhone &amp; iPad</p>
               </div>
+            </div>
+
+            {/* Direct Android APK Download Box */}
+            <div className="mb-4 p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3">
+              <div>
+                <div className="text-xs font-bold text-emerald-300">Android Phone / Tablet / TV</div>
+                <div className="text-[11px] text-slate-400">Direct official APK installer (v1.0.0)</div>
+              </div>
+              <a
+                href="/downloads/ChristianRadios.apk"
+                download="ChristianRadios.apk"
+                className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs flex items-center gap-1.5 shrink-0 shadow-md transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download APK</span>
+              </a>
+            </div>
+
+            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+              iPhone &amp; iPad (iOS) Install Steps:
             </div>
 
             <div className="space-y-3 bg-slate-950/80 p-4 rounded-2xl border border-slate-800 text-xs">
@@ -155,7 +186,7 @@ export function MobileAppInstallBanner() {
                 </span>
                 <p className="text-slate-300 leading-relaxed">
                   Tap the <strong className="text-white">Share</strong> button{' '}
-                  <Share className="w-3.5 h-3.5 inline text-sky-400" /> at the bottom or top of your browser.
+                  <Share className="w-3.5 h-3.5 inline text-sky-400" /> at the bottom or top of Safari.
                 </p>
               </div>
 
@@ -174,7 +205,7 @@ export function MobileAppInstallBanner() {
                   3
                 </span>
                 <p className="text-slate-300 leading-relaxed">
-                  Tap <strong className="text-white">Add</strong> in the top-right corner. The app icon will appear on your phone!
+                  Tap <strong className="text-white">Add</strong> in the top-right corner for full background audio!
                 </p>
               </div>
             </div>

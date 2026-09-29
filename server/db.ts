@@ -875,11 +875,30 @@ class DatabaseEngine {
 
   // --- Categories ---
   public categories = {
-    getAll: () =>
-      [...this.data.categories].sort((a, b) => a.displayOrder - b.displayOrder),
+    getAll: () => {
+      const seen = new Set<string>();
+      const unique: Category[] = [];
+      for (const c of this.data.categories) {
+        const key = `${c.id}|${c.slug}`;
+        if (!seen.has(c.id) && !seen.has(c.slug) && !seen.has(key)) {
+          seen.add(c.id);
+          seen.add(c.slug);
+          unique.push(c);
+        }
+      }
+      return unique.sort((a, b) => a.displayOrder - b.displayOrder);
+    },
     findById: (id: string) => this.data.categories.find((c) => c.id === id),
     findBySlug: (slug: string) => this.data.categories.find((c) => c.slug === slug),
     create: (cat: Category) => {
+      const existingIdx = this.data.categories.findIndex(
+        (c) => c.id === cat.id || c.slug === cat.slug
+      );
+      if (existingIdx !== -1) {
+        this.data.categories[existingIdx] = { ...this.data.categories[existingIdx], ...cat };
+        this.save();
+        return this.data.categories[existingIdx];
+      }
       this.data.categories.push(cat);
       this.save();
       return cat;

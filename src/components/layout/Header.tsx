@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   Shield,
+  Download,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { UserAccountMenu } from './UserAccountMenu';
@@ -134,9 +135,20 @@ export function Header({ currentView, onNavigate, onOpenAuth, onPublicAction }: 
           </nav>
 
           {/* ========================================================================= */}
-          {/* 3. RIGHT ACTION AREA (ADD YOUR STATION, SIGN IN, USER MENU)             */}
+          {/* 3. RIGHT ACTION AREA (GET APP, ADD YOUR STATION, SIGN IN, USER MENU)      */}
           {/* ========================================================================= */}
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            {/* Direct Android APK Download Pill */}
+            <a
+              href="/downloads/ChristianRadios.apk"
+              download="ChristianRadios.apk"
+              className="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-300 hover:text-white bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-500/30 transition-all cursor-pointer"
+              title="Download Official Android App (APK)"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Get App</span>
+            </a>
+
             {user ? (
               <div className="flex items-center gap-2 sm:gap-2.5">
                 {/* Add Station Button for authenticated users */}
@@ -237,6 +249,16 @@ export function Header({ currentView, onNavigate, onOpenAuth, onPublicAction }: 
           </div>
 
           <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-2">
+            <a
+              href="/downloads/ChristianRadios.apk"
+              download="ChristianRadios.apk"
+              onClick={() => setMobileMenuOpen(false)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all cursor-pointer"
+            >
+              <Download className="w-4 h-4 text-emerald-400" />
+              <span>Download Android App (APK)</span>
+            </a>
+
             <button
               onClick={handleAddStationClick}
               className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-sky-500 to-indigo-600 shadow-md shadow-sky-500/20 hover:from-sky-400 hover:to-indigo-500 transition-all cursor-pointer"

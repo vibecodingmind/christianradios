@@ -1,5 +1,5 @@
 import React from 'react';
-import { Radio, Heart, ShieldCheck, Mail, Globe, Sparkles, PlusCircle } from 'lucide-react';
+import { Radio, Heart, ShieldCheck, Mail, Globe, Sparkles, PlusCircle, Download } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface FooterProps {
@@ -38,6 +38,16 @@ export function Footer({ onNavigate, onOpenAuth, onPublicAction }: FooterProps) 
                 <ShieldCheck className="w-3.5 h-3.5" />
                 Verified
               </span>
+            </div>
+            <div className="pt-2">
+              <a
+                href="/downloads/ChristianRadios.apk"
+                download="ChristianRadios.apk"
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition-colors"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Download Android APK</span>
+              </a>
             </div>
           </div>
 

@@ -55,9 +55,10 @@ async function bootstrap() {
     }
 
     const origin = req.headers.origin;
-    const allowedOrigins = [process.env.APP_URL, 'http://localhost:3000', 'http://localhost:5173'].filter(Boolean);
+    const allowedOrigins = [process.env.APP_URL, 'http://localhost:3000', 'http://localhost:3030', 'http://localhost:5173'].filter(Boolean);
+    const isLocalhostOrigin = origin ? /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) : false;
 
-    if (origin && (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production')) {
+    if (origin && (allowedOrigins.includes(origin) || isLocalhostOrigin || process.env.NODE_ENV !== 'production')) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
@@ -86,6 +87,57 @@ async function bootstrap() {
   const audioDir = path.join(process.cwd(), 'public', 'audio');
   if (!fs.existsSync(audioDir)) fs.mkdirSync(audioDir, { recursive: true });
   app.use('/audio', express.static(audioDir));
+
+  // Serve mobile app downloads (Android APK) with proper MIME type & attachment headers
+  const downloadsDir = path.join(process.cwd(), 'public', 'downloads');
+  if (!fs.existsSync(downloadsDir)) fs.mkdirSync(downloadsDir, { recursive: true });
+  app.use(
+    '/downloads',
+    express.static(downloadsDir, {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.apk')) {
+          res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+          res.setHeader('Content-Disposition', 'attachment; filename="ChristianRadios.apk"');
+        }
+      },
+    })
+  );
+
+  // Android App Links & iOS Universal Links verification endpoints
+  app.get('/.well-known/assetlinks.json', (_req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.json([
+      {
+        relation: ['delegate_permission/common.handle_all_urls'],
+        target: {
+          namespace: 'android_app',
+          package_name: 'com.christianradios.christian_radios_app',
+          sha256_cert_fingerprints: (
+            process.env.ANDROID_APP_SHA256_FINGERPRINTS ||
+            'FA:C6:17:45:DC:09:03:78:6F:B9:ED:E6:2A:96:2B:39:9F:73:48:F0:BB:6F:89:9B:83:32:66:75:91:03:3B:9C'
+          )
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+        },
+      },
+    ]);
+  });
+
+  app.get('/.well-known/apple-app-site-association', (_req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.json({
+      applinks: {
+        apps: [],
+        details: [
+          {
+            appID: `${process.env.APPLE_TEAM_ID || 'TEAMID'}.com.christianradios.christianRadiosApp`,
+            paths: ['/station/*', '/stations/*', '/categories/*', '/countries/*', '/discover*', '/'],
+          },
+        ],
+      },
+    });
+  });
 
   // 4. Rate Limiting Middlewares
   app.use('/api/', apiRateLimiter);

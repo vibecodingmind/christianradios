@@ -1,6 +1,7 @@
 /**
  * /api/mobile — Mobile app (Flutter) specific endpoints
  *
+ * GET    /api/mobile/app-info  — Native mobile app metadata & download links
  * GET    /api/mobile/stations  — Lightweight paginated station list
  * POST   /api/mobile/fcm-token — Register FCM push token
  * DELETE /api/mobile/fcm-token — Remove FCM push token on logout
@@ -8,8 +9,28 @@
 import { Router } from 'express';
 import { db } from '../db.js';
 import { requireAuth, type AuthenticatedRequest } from '../auth.js';
+import { filterStationsByCategory } from './public.js';
 
 export const mobileRouter = Router();
+
+// ── Native Mobile App Metadata & Download Links ─────────────────────────────
+mobileRouter.get('/app-info', (_req, res) => {
+  res.json({
+    appName: 'Christian Radios',
+    version: '1.0.0',
+    buildNumber: 1,
+    android: {
+      packageName: 'com.christianradios.christian_radios_app',
+      apkUrl: '/downloads/ChristianRadios.apk',
+      minSdk: 21,
+    },
+    ios: {
+      bundleId: 'com.christianradios.christianRadiosApp',
+      pwaInstallSupported: true,
+    },
+    updatedAt: new Date().toISOString(),
+  });
+});
 
 // ── Lightweight station list ─────────────────────────────────────────────────
 mobileRouter.get('/stations', (req, res) => {
@@ -37,7 +58,9 @@ mobileRouter.get('/stations', (req, res) => {
   }
   if (category) {
     const cat = db.categories.findBySlug(category) || db.categories.findById(category);
-    if (cat) stations = stations.filter((s) => s.categoryId === cat.id || s.categoryIds?.includes(cat.id));
+    if (cat) {
+      stations = filterStationsByCategory(stations, cat);
+    }
   }
   if (country) stations = stations.filter((s) => (s.countryCode ?? '').toUpperCase() === country.toUpperCase());
   if (genre) stations = stations.filter((s) => (s.genre ?? '').toLowerCase().includes(genre.toLowerCase()));
