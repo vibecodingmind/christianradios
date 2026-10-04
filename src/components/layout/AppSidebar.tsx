@@ -39,8 +39,7 @@ export function AppSidebar({
   const { currentStation, isPlaying, togglePlay } = useAudioPlayer();
 
   const mainNav = [
-    { id: 'home', label: 'Discover', icon: Compass },
-    { id: 'directory', label: 'Live Radios', icon: Radio },
+    { id: 'home', label: 'Discover', icon: Radio },
     { id: 'categories', label: 'Genres & Formats', icon: Layers },
     { id: 'countries', label: 'Countries', icon: Globe },
     {

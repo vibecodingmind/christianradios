@@ -119,7 +119,7 @@ function MainAppContent() {
       setCurrentView('referrals');
       setViewParam(undefined);
     } else if (path === '/radios' || path === '/directory') {
-      setCurrentView('directory');
+      setCurrentView('home');
       setViewParam(undefined);
     } else if (path === '/categories') {
       setCurrentView('categories');
@@ -220,7 +220,7 @@ function MainAppContent() {
     url.searchParams.delete('receipt');
 
     let targetPath = '/';
-    if (view === 'directory' || view === 'radios') targetPath = '/radios';
+    if (view === 'directory' || view === 'radios' || view === 'home') targetPath = '/';
     else if (view === 'categories') targetPath = '/categories';
     else if (view === 'countries') targetPath = '/countries';
     else if (view === 'pricing') targetPath = '/pricing';
@@ -411,20 +411,14 @@ function MainAppContent() {
 
         {/* Main Page Router */}
         <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
-        {currentView === 'home' && (
+        {(currentView === 'home' || currentView === 'directory' || currentView === 'radios') && (
           <HomePage
-            onNavigate={handleNavigate}
-            onOpenAuth={handleOpenAuth}
-            onPublicAction={handlePublicAction}
-          />
-        )}
-
-        {currentView === 'directory' && (
-          <DirectoryPage
-            initialSearch={viewParam}
+            initialSearch={viewParam && !viewParam.startsWith('cat') && viewParam.length !== 2 && !viewParam.startsWith('sort:') ? viewParam : undefined}
             initialCategory={viewParam?.startsWith('cat') ? viewParam : undefined}
             initialCountry={viewParam?.length === 2 ? viewParam : undefined}
             onNavigate={handleNavigate}
+            onOpenAuth={handleOpenAuth}
+            onPublicAction={handlePublicAction}
           />
         )}
 

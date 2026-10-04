@@ -62,15 +62,7 @@ export function Footer({ onNavigate, onOpenAuth, onPublicAction }: FooterProps) 
                   onClick={() => onNavigate('home')}
                   className="hover:text-sky-400 transition-colors"
                 >
-                  Featured Stations
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => onNavigate('directory')}
-                  className="hover:text-sky-400 transition-colors"
-                >
-                  Live Radio Directory
+                  Discover Live Radios
                 </button>
               </li>
               <li>
@@ -132,7 +124,7 @@ export function Footer({ onNavigate, onOpenAuth, onPublicAction }: FooterProps) 
               </li>
               <li>
                 <button
-                  onClick={() => onNavigate('directory')}
+                  onClick={() => onNavigate('home')}
                   className="hover:text-sky-400 transition-colors"
                 >
                   Claim Existing Listing

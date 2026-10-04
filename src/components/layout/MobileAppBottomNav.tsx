@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Compass, Heart, HeartHandshake, Gift } from 'lucide-react';
+import { Compass, Layers, Heart, HeartHandshake, Gift } from 'lucide-react';
 import { useFavorites } from '../../context/FavoritesContext';
 
 interface MobileAppBottomNavProps {
@@ -18,8 +18,8 @@ export function MobileAppBottomNav({ currentView, onNavigate }: MobileAppBottomN
   const { favoritesCount } = useFavorites();
 
   const tabs: BottomTab[] = [
-    { id: 'home', label: 'Home', icon: Home },
-    { id: 'directory', label: 'Discover', icon: Compass },
+    { id: 'home', label: 'Discover', icon: Compass },
+    { id: 'categories', label: 'Genres', icon: Layers },
     { id: 'favorites', label: 'Favorites', icon: Heart, badge: favoritesCount },
     { id: 'prayer-wall', label: 'Prayers', icon: HeartHandshake },
     { id: 'giving', label: 'Giving', icon: Gift },
@@ -35,7 +35,8 @@ export function MobileAppBottomNav({ currentView, onNavigate }: MobileAppBottomN
           const Icon = tab.icon;
           const isActive =
             currentView === tab.id ||
-            (tab.id === 'directory' && (currentView === 'radios' || currentView === 'category' || currentView === 'country'));
+            (tab.id === 'home' && (currentView === 'directory' || currentView === 'radios')) ||
+            (tab.id === 'categories' && currentView === 'category');
 
           return (
             <button

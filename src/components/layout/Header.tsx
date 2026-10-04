@@ -34,7 +34,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { view: 'directory', label: 'Discover', icon: Compass },
+  { view: 'home', label: 'Discover', icon: Radio },
   { view: 'categories', label: 'Genres', icon: Layers },
   { view: 'countries', label: 'Countries', icon: Globe },
   { view: 'giving', label: 'Givings', icon: Heart },
@@ -43,7 +43,7 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 const QUICK_APP_GENRES = [
-  { label: 'All Radios', view: 'directory', param: undefined },
+  { label: 'All Radios', view: 'home', param: undefined },
   { label: 'Praise & Worship', view: 'category', param: 'praise-worship' },
   { label: 'Gospel Music', view: 'category', param: 'gospel-music' },
   { label: 'Swahili Gospel', view: 'category', param: 'swahili-gospel' },
@@ -87,9 +87,9 @@ export function Header({ currentView, onNavigate, onOpenAuth, onPublicAction }: 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      onNavigate('directory', searchQuery.trim());
+      onNavigate('home', searchQuery.trim());
     } else {
-      onNavigate('directory');
+      onNavigate('home');
     }
   };
 
