@@ -314,6 +314,43 @@ export function AppSidebar({
             <span>Sign In / Register</span>
           </button>
         )}
+
+        {/* Platform Information & Legal Footer Links */}
+        <div className="pt-2 border-t border-slate-900 space-y-1.5 px-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500 font-medium">
+            <button
+              onClick={() => onNavigate('about')}
+              className="hover:text-sky-400 transition-colors cursor-pointer"
+            >
+              About
+            </button>
+            <span className="text-slate-700">•</span>
+            <button
+              onClick={() => onNavigate('how-it-works')}
+              className="hover:text-sky-400 transition-colors cursor-pointer"
+            >
+              How It Works
+            </button>
+            <span className="text-slate-700">•</span>
+            <button
+              onClick={() => onNavigate('help')}
+              className="hover:text-sky-400 transition-colors cursor-pointer"
+            >
+              Help
+            </button>
+            <span className="text-slate-700">•</span>
+            <button
+              onClick={() => onNavigate('legal')}
+              className="hover:text-sky-400 transition-colors cursor-pointer"
+            >
+              Legal &amp; Privacy
+            </button>
+          </div>
+          <div className="text-[10px] text-slate-600 font-medium flex items-center justify-between">
+            <span>© {new Date().getFullYear()} Christian Radios</span>
+            <span className="text-emerald-500/80 font-bold">24/7 Live</span>
+          </div>
+        </div>
       </div>
     </aside>
   );

@@ -7,7 +7,6 @@ import { RealtimeProvider } from './context/RealtimeContext';
 import { FavoritesProvider } from './context/FavoritesContext';
 import { Header } from './components/layout/Header';
 import { AppSidebar } from './components/layout/AppSidebar';
-import { Footer } from './components/layout/Footer';
 import { PersistentPlayer } from './components/player/PersistentPlayer';
 import { ExpandedPlayerModal } from './components/player/ExpandedPlayerModal';
 import { AuthModal } from './components/auth/AuthModal';
@@ -560,13 +559,6 @@ function MainAppContent() {
           <LegalPage initialTab={(viewParam as any) || 'terms'} onNavigate={handleNavigate} />
         )}
       </main>
-
-      {/* Footer */}
-      <Footer
-        onNavigate={handleNavigate}
-        onOpenAuth={handleOpenAuth}
-        onPublicAction={handlePublicAction}
-      />
       </div>
 
       {/* Breathing room spacer when persistent floating player is active */}

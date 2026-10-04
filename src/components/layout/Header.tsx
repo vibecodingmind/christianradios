@@ -317,6 +317,49 @@ export function Header({ currentView, onNavigate, onOpenAuth, onPublicAction }: 
                 </button>
               </div>
             )}
+
+            {/* Mobile Platform & Legal Links */}
+            <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-xs text-slate-400">
+              <button
+                onClick={() => {
+                  onNavigate('about');
+                  setMobileMenuOpen(false);
+                }}
+                className="hover:text-sky-300 transition-colors cursor-pointer"
+              >
+                About
+              </button>
+              <span className="text-slate-700">•</span>
+              <button
+                onClick={() => {
+                  onNavigate('how-it-works');
+                  setMobileMenuOpen(false);
+                }}
+                className="hover:text-sky-300 transition-colors cursor-pointer"
+              >
+                How It Works
+              </button>
+              <span className="text-slate-700">•</span>
+              <button
+                onClick={() => {
+                  onNavigate('help');
+                  setMobileMenuOpen(false);
+                }}
+                className="hover:text-sky-300 transition-colors cursor-pointer"
+              >
+                Help &amp; FAQ
+              </button>
+              <span className="text-slate-700">•</span>
+              <button
+                onClick={() => {
+                  onNavigate('legal');
+                  setMobileMenuOpen(false);
+                }}
+                className="hover:text-sky-300 transition-colors cursor-pointer"
+              >
+                Privacy &amp; Terms
+              </button>
+            </div>
           </div>
         </div>
       )}
