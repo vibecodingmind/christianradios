@@ -6,6 +6,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { RealtimeProvider } from './context/RealtimeContext';
 import { FavoritesProvider } from './context/FavoritesContext';
 import { Header } from './components/layout/Header';
+import { AppSidebar } from './components/layout/AppSidebar';
 import { Footer } from './components/layout/Footer';
 import { PersistentPlayer } from './components/player/PersistentPlayer';
 import { ExpandedPlayerModal } from './components/player/ExpandedPlayerModal';
@@ -386,20 +387,30 @@ function MainAppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-sky-500 selection:text-white">
-      {/* Header Navigation */}
-      <Header
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex font-sans selection:bg-sky-500 selection:text-white">
+      {/* Desktop Persistent App Sidebar (Rail on lg+ screens) */}
+      <AppSidebar
         currentView={currentView}
         onNavigate={handleNavigate}
         onOpenAuth={handleOpenAuth}
         onPublicAction={handlePublicAction}
       />
 
-      {/* Mobile PWA Install Banner */}
-      {!isEmbedRoute && <MobileAppInstallBanner />}
+      {/* Main App Viewport */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+        {/* Header / Top App Bar */}
+        <Header
+          currentView={currentView}
+          onNavigate={handleNavigate}
+          onOpenAuth={handleOpenAuth}
+          onPublicAction={handlePublicAction}
+        />
 
-      {/* Main Page Router */}
-      <main className="flex-1 max-w-[1440px] mx-auto w-full px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
+        {/* Mobile PWA Install Banner */}
+        {!isEmbedRoute && <MobileAppInstallBanner />}
+
+        {/* Main Page Router */}
+        <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
         {currentView === 'home' && (
           <HomePage
             onNavigate={handleNavigate}
@@ -562,6 +573,7 @@ function MainAppContent() {
         onOpenAuth={handleOpenAuth}
         onPublicAction={handlePublicAction}
       />
+      </div>
 
       {/* Breathing room spacer when persistent floating player is active */}
       {currentStation && <div className="h-40 md:h-28" aria-hidden="true" />}

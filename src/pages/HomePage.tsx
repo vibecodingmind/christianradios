@@ -4,6 +4,7 @@ import {
   Play,
   Pause,
   Compass,
+  Layers,
   Sparkles,
   Globe,
   Heart,
@@ -255,10 +256,21 @@ const popularCountries = [
 
 const categoryChips = [
   { id: 'worship', label: 'Praise & Worship', icon: '🎵', slug: 'praise-worship' },
-  { id: 'teaching', label: 'Bible Teaching', icon: '📖', slug: 'teaching' },
-  { id: 'prayer', label: 'Prayer & Deliverance', icon: '🙏', slug: 'prayer' },
-  { id: 'gospel', label: 'Gospel Classics', icon: '📻', slug: 'gospel' },
-  { id: 'talk', label: 'Christian Talk', icon: '🗣️', slug: 'talk' },
+  { id: 'teaching', label: 'Bible Teaching', icon: '📖', slug: 'sound-doctrine-teachings' },
+  { id: 'prayer', label: 'Prayer & Deliverance', icon: '🙏', slug: 'prayer-deliverance' },
+  { id: 'gospel', label: 'Gospel Classics', icon: '📻', slug: 'gospel-music' },
+  { id: 'talk', label: 'Christian Talk', icon: '🗣️', slug: 'christian-talk' },
+];
+
+const TOP_MUSIC_COLLECTIONS = [
+  { name: 'Praise & Worship', slug: 'praise-worship', icon: '🎵', desc: 'Non-stop adoration & praise', color: 'from-amber-500/20 via-orange-500/10 to-transparent', border: 'border-amber-500/30', accent: 'text-amber-400' },
+  { name: 'Gospel Classics', slug: 'gospel-music', icon: '📻', desc: 'African & Global choirs', color: 'from-rose-500/20 via-pink-500/10 to-transparent', border: 'border-rose-500/30', accent: 'text-rose-400' },
+  { name: 'Adventist (AWR)', slug: 'adventist-world-radios', icon: '🌍', desc: 'AWR multi-lingual feeds', color: 'from-sky-500/20 via-indigo-500/10 to-transparent', border: 'border-sky-500/30', accent: 'text-sky-400' },
+  { name: 'Bible Teaching', slug: 'sound-doctrine-teachings', icon: '📖', desc: 'Sound sermons & gospel truth', color: 'from-emerald-500/20 via-teal-500/10 to-transparent', border: 'border-emerald-500/30', accent: 'text-emerald-400' },
+  { name: 'Swahili Gospel', slug: 'swahili-gospel', icon: '🇹🇿', desc: 'Nyimbo za Injili & Ibada', color: 'from-blue-500/20 via-cyan-500/10 to-transparent', border: 'border-blue-500/30', accent: 'text-blue-400' },
+  { name: 'Afro Gospel', slug: 'afro-gospel', icon: '⚡', desc: 'High-energy African praise', color: 'from-yellow-500/20 via-amber-500/10 to-transparent', border: 'border-yellow-500/30', accent: 'text-yellow-400' },
+  { name: 'Hip-Hop & Youth', slug: 'christian-hip-hop', icon: '🔥', desc: 'Urban contemporary gospel', color: 'from-purple-500/20 via-fuchsia-500/10 to-transparent', border: 'border-purple-500/30', accent: 'text-purple-400' },
+  { name: 'Instrumental', slug: 'prayer-deliverance', icon: '🕊️', desc: 'Peaceful prayer atmosphere', color: 'from-cyan-500/20 via-sky-500/10 to-transparent', border: 'border-cyan-500/30', accent: 'text-cyan-400' },
 ];
 
 
@@ -356,9 +368,200 @@ export function HomePage({ onNavigate, onOpenAuth, onPublicAction }: HomePagePro
     } catch {}
   };
 
+  // Top 3 Featured Hero Stations for large screens (Tablet/Desktop/TV showcase)
+  const heroStations = (() => {
+    const list = featuredStations.length > 0 ? featuredStations : allStations;
+    return list.slice(0, 3);
+  })();
+
   return (
-    <div className="space-y-16 pb-28 animate-page-fade-up">
-      {/* 1. UNIFIED HERO & AI RADIO GUIDE */}
+    <div className="space-y-12 sm:space-y-14 pb-28 animate-page-fade-up">
+      {/* ========================================================================= */}
+      {/* 1. APP HERO: FEATURED BROADCASTS SHOWCASE (3-Cards Side-by-Side on Desktop) */}
+      {/* ========================================================================= */}
+      {heroStations.length > 0 && (
+        <section aria-label="Featured Live Broadcasts" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+              <h2 className="text-lg sm:text-xl font-black text-white tracking-tight flex items-center gap-2">
+                Featured Live Broadcasts
+              </h2>
+            </div>
+            <button
+              onClick={() => onNavigate('directory', 'sort:popular')}
+              className="text-xs font-bold text-sky-400 hover:text-sky-300 flex items-center gap-1 transition cursor-pointer"
+            >
+              <span>Explore All</span> <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 xl:gap-5">
+            {heroStations.map((stn, idx) => {
+              const isCurrent = currentStation?.id === stn.id;
+              const isThisPlaying = isCurrent && isPlaying;
+              const flagEmoji = stn.country?.flagEmoji || '🌍';
+              const countryName = stn.country?.name || stn.countryCode || 'Global';
+
+              return (
+                <div
+                  key={stn.id}
+                  onClick={() => onNavigate('station', stn.slug || stn.id)}
+                  className={`relative rounded-3xl overflow-hidden p-5 sm:p-6 flex flex-col justify-between h-72 sm:h-80 border transition-all duration-300 group cursor-pointer shadow-xl hover:shadow-2xl hover:-translate-y-1 ${
+                    isThisPlaying
+                      ? 'border-sky-400 ring-2 ring-sky-400/40 shadow-sky-500/20'
+                      : 'border-slate-800/90 hover:border-sky-500/40 bg-slate-900'
+                  }`}
+                >
+                  {/* Background Artwork + Dark Gradient Overlay */}
+                  <img
+                    src={
+                      stn.coverUrl ||
+                      stn.logoUrl ||
+                      'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=800&auto=format&fit=crop&q=80'
+                    }
+                    alt=""
+                    className="absolute inset-0 w-full h-full object-cover blur-sm opacity-40 scale-105 group-hover:scale-110 transition-transform duration-500 pointer-events-none"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/75 to-slate-950/30 pointer-events-none" />
+
+                  {/* Top Badges Row */}
+                  <div className="relative z-10 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-600 text-white shadow-md">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                        LIVE
+                      </span>
+                      <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                        Featured
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-slate-900/80 border border-slate-700/60 text-slate-300 backdrop-blur-md">
+                      <Users className="w-3 h-3 text-sky-400" />
+                      <span>{stn.currentListenersCount ? `${stn.currentListenersCount.toLocaleString()} tuned in` : '1.2k listening'}</span>
+                    </div>
+                  </div>
+
+                  {/* Bottom Content & Play Action */}
+                  <div className="relative z-10 space-y-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs text-sky-300 font-semibold">
+                        <span>{flagEmoji}</span>
+                        <span>{countryName}</span>
+                        {stn.genre && (
+                          <>
+                            <span>•</span>
+                            <span className="text-slate-300 font-medium">{stn.genre}</span>
+                          </>
+                        )}
+                      </div>
+                      <h3 className="text-lg sm:text-xl font-black text-white truncate group-hover:text-sky-300 transition-colors">
+                        {stn.name}
+                      </h3>
+                      <p className="text-xs text-slate-300 line-clamp-1 font-medium">
+                        {stn.tagline || stn.description || '24/7 Live Christian Radio Broadcasting'}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 pt-1">
+                      {/* Play Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isCurrent) {
+                            togglePlay();
+                          } else {
+                            playStation(stn);
+                          }
+                        }}
+                        className={`px-4 py-2.5 rounded-2xl font-bold text-xs flex items-center gap-2 shadow-lg transition-all cursor-pointer active:scale-95 ${
+                          isThisPlaying
+                            ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/25 ring-2 ring-emerald-400/50'
+                            : 'bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white shadow-sky-500/25'
+                        }`}
+                      >
+                        {isThisPlaying ? (
+                          <>
+                            <div className="flex items-center gap-0.5">
+                              <span className="w-0.5 bg-slate-950 h-3 rounded-full animate-bounce" style={{ animationDuration: '0.4s' }} />
+                              <span className="w-0.5 bg-slate-950 h-4 rounded-full animate-bounce" style={{ animationDuration: '0.6s' }} />
+                              <span className="w-0.5 bg-slate-950 h-2.5 rounded-full animate-bounce" style={{ animationDuration: '0.5s' }} />
+                            </div>
+                            <span>Pause Live</span>
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                            <span>Listen Now</span>
+                          </>
+                        )}
+                      </button>
+
+                      {stn.frequency && (
+                        <span className="text-[11px] font-mono text-slate-400 px-2.5 py-1 rounded-lg bg-slate-900/80 border border-slate-800">
+                          {stn.frequency}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 2. TOP MUSIC GENRES & COLLECTIONS (8 App Style Cards)                      */}
+      {/* ========================================================================= */}
+      <section aria-label="Top Music Genres" className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg sm:text-xl font-black text-white tracking-tight flex items-center gap-2">
+              <Layers className="w-5 h-5 text-sky-400" />
+              <span>Top Music Genres &amp; Formats</span>
+            </h2>
+            <p className="text-xs text-slate-400">
+              Browse uplifting worship, praise, biblical teachings, and local language stations.
+            </p>
+          </div>
+          <button
+            onClick={() => onNavigate('categories')}
+            className="text-xs font-bold text-sky-400 hover:text-sky-300 flex items-center gap-1 transition cursor-pointer"
+          >
+            <span>All Genres</span> <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-3 sm:gap-3.5">
+          {TOP_MUSIC_COLLECTIONS.map((genre) => (
+            <button
+              key={genre.slug}
+              onClick={() => onNavigate('category', genre.slug)}
+              className={`p-3.5 rounded-2xl bg-gradient-to-b ${genre.color} bg-slate-900/90 border ${genre.border} hover:scale-102 hover:border-sky-400/50 shadow-md transition-all text-left group cursor-pointer flex flex-col justify-between h-28`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-2xl">{genre.icon}</span>
+                <span className={`text-[10px] font-bold ${genre.accent} opacity-0 group-hover:opacity-100 transition-opacity`}>
+                  →
+                </span>
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white group-hover:text-sky-300 truncate transition-colors">
+                  {genre.name}
+                </h4>
+                <p className="text-[10px] text-slate-400 line-clamp-1">
+                  {genre.desc}
+                </p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* 3. UNIFIED HERO & AI RADIO GUIDE */}
       <AIRadioGuide onNavigate={onNavigate} />
 
       {/* 4. FEATURED RADIOS (4 ROWS GRID OF CARDS) */}
